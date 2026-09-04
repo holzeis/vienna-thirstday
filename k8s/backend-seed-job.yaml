@@ -1,0 +1,43 @@
+# One-off Jobs, not part of the normal rollout: run manually when needed.
+#   kubectl apply -f k8s/backend-seed-job.yaml
+#   kubectl logs job/backend-seed -n vienna-thursday
+#   kubectl delete job/backend-seed job/backend-import-xlsx -n vienna-thursday
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-seed
+  namespace: vienna-thursday
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: vienna-thursday-backend:latest
+          command: ["node", "dist/db/seed.js"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: vienna-thursday-secrets
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-import-xlsx
+  namespace: vienna-thursday
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: import-xlsx
+          image: vienna-thursday-backend:latest
+          command: ["node", "dist/db/import-xlsx-seed.js"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: vienna-thursday-secrets

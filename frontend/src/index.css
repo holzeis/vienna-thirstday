@@ -1,0 +1,71 @@
+:root {
+  --bg: #0e1512;
+  --bg-elevated: #141d19;
+  --card: rgba(24, 34, 29, 0.85);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-border-hover: rgba(255, 255, 255, 0.16);
+  --text: #eef3f0;
+  --text-dim: #9db0a8;
+  --text-faint: #66796f;
+  --accent: #3ddc84;
+  --accent-strong: #2bc470;
+  --accent-dim: rgba(61, 220, 132, 0.14);
+  --win: #3ddc84;
+  --loss: #e25c5c;
+  --draw: #e8b23d;
+  --gold: #e8c840;
+  --silver: #b8c4c9;
+  --bronze: #c98a4b;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --font-heading: "Rajdhani", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at top, #16221c 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+::selection {
+  background: var(--accent-dim);
+}

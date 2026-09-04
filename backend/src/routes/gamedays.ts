@@ -1,0 +1,332 @@
+import { Router } from "express";
+import { z } from "zod";
+import { db } from "../db/client";
+import { gamedays, players, registrations, results, teamAssignments, playerGamedayStats, users } from "../db/schema";
+import { and, asc, eq, ne } from "drizzle-orm";
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { asyncHandler } from "../utils/asyncHandler";
+import { ApiError } from "../utils/errors";
+import { recomputeGamedayWaitlist } from "../services/registrationService";
+import { computeTeamResult } from "../utils/scoring";
+
+const router = Router();
+
+router.use(requireAuth);
+
+const createGamedaySchema = z.object({
+  date: z.string().datetime().or(z.string().min(1)),
+  location: z.string().max(255).optional(),
+  minPlayers: z.number().int().min(2).optional(),
+  maxPlayers: z.number().int().min(2).optional(),
+  notes: z.string().optional(),
+});
+
+router.post(
+  "/",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const parsed = createGamedaySchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid gameday data", parsed.error.flatten());
+    const { date, location, minPlayers, maxPlayers, notes } = parsed.data;
+
+    const [gameday] = await db
+      .insert(gamedays)
+      .values({
+        date: new Date(date),
+        location,
+        minPlayers: minPlayers ?? 8,
+        maxPlayers: maxPlayers ?? 14,
+        notes,
+        createdByUserId: req.user!.userId,
+      })
+      .returning();
+    res.status(201).json({ gameday });
+  })
+);
+
+router.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const seasonParam = req.query.season as string | undefined;
+    const all = await db.query.gamedays.findMany({
+      orderBy: (g, { desc }) => desc(g.date),
+      with: {
+        registrations: { where: ne(registrations.status, "CANCELLED") },
+      },
+    });
+
+    const filtered = seasonParam
+      ? all.filter((g) => g.date.getUTCFullYear() === parseInt(seasonParam, 10))
+      : all;
+
+    const summarized = filtered.map((g) => {
+      const regs = (g as any).registrations as { status: string }[];
+      return {
+        id: g.id,
+        date: g.date,
+        location: g.location,
+        status: g.status,
+        minPlayers: g.minPlayers,
+        maxPlayers: g.maxPlayers,
+        confirmedCount: regs.filter((r) => r.status === "CONFIRMED").length,
+        waitlistedCount: regs.filter((r) => r.status === "WAITLISTED").length,
+      };
+    });
+
+    res.json({ gamedays: summarized });
+  })
+);
+
+router.get(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const gameday = await db.query.gamedays.findFirst({
+      where: eq(gamedays.id, id),
+      with: {
+        registrations: {
+          with: { player: true, registeredBy: true },
+          orderBy: [asc(registrations.signupAt)],
+        },
+        teamAssignments: { with: { player: true } },
+        result: { with: { playerStats: { with: { player: true } } } },
+      },
+    });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+
+    const regs = (gameday as any).registrations as any[];
+    res.json({
+      gameday: {
+        ...gameday,
+        registrations: regs
+          .filter((r) => r.status !== "CANCELLED")
+          .map((r) => ({
+            id: r.id,
+            status: r.status,
+            signupAt: r.signupAt,
+            player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest },
+            registeredBy: { id: r.registeredBy.id, email: r.registeredBy.email },
+          })),
+      },
+    });
+  })
+);
+
+const updateGamedaySchema = z.object({
+  date: z.string().optional(),
+  location: z.string().max(255).optional(),
+  minPlayers: z.number().int().min(2).optional(),
+  maxPlayers: z.number().int().min(2).optional(),
+  notes: z.string().optional(),
+  status: z.enum(["OPEN", "CLOSED", "CANCELLED", "COMPLETED"]).optional(),
+});
+
+router.patch(
+  "/:id",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const parsed = updateGamedaySchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid update", parsed.error.flatten());
+
+    const { date, ...rest } = parsed.data;
+    const updateValues: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+    if (date) updateValues.date = new Date(date);
+
+    const [updated] = await db.update(gamedays).set(updateValues).where(eq(gamedays.id, id)).returning();
+    if (!updated) throw ApiError.notFound("Gameday not found");
+
+    // If capacity changed, re-evaluate the waitlist.
+    if (rest.maxPlayers !== undefined) {
+      await db.transaction(async (tx) => {
+        await recomputeGamedayWaitlist(tx, id);
+      });
+    }
+
+    res.json({ gameday: updated });
+  })
+);
+
+const registerSchema = z.object({
+  playerId: z.number().int().optional(),
+});
+
+/** Register the current user (or one of their guests) for a gameday. */
+router.post(
+  "/:id/register",
+  asyncHandler(async (req, res) => {
+    const gamedayId = parseInt(req.params.id, 10);
+    const parsed = registerSchema.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest("Invalid request");
+
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gamedayId) });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+    if (gameday.status !== "OPEN") throw ApiError.badRequest("This gameday is not open for registration");
+
+    let playerId = parsed.data.playerId;
+    if (playerId === undefined) {
+      const me = await db.query.users.findFirst({ where: eq(users.id, req.user!.userId) });
+      if (!me?.playerId) throw ApiError.badRequest("Your account has no player profile to register with");
+      playerId = me.playerId;
+    } else {
+      const guest = await db.query.players.findFirst({ where: eq(players.id, playerId) });
+      if (!guest) throw ApiError.notFound("Player/guest not found");
+      if (guest.isGuest && guest.addedByUserId !== req.user!.userId && !req.user!.isAdmin) {
+        throw ApiError.forbidden("You can only register guests you added");
+      }
+    }
+
+    const existing = await db.query.registrations.findFirst({
+      where: and(eq(registrations.gamedayId, gamedayId), eq(registrations.playerId, playerId)),
+    });
+    if (existing && existing.status !== "CANCELLED") {
+      throw ApiError.conflict("This player is already registered for this gameday");
+    }
+
+    await db.transaction(async (tx) => {
+      if (existing) {
+        await tx
+          .update(registrations)
+          .set({ status: "CONFIRMED", signupAt: new Date(), cancelledAt: null, registeredByUserId: req.user!.userId })
+          .where(eq(registrations.id, existing.id));
+      } else {
+        await tx.insert(registrations).values({
+          gamedayId,
+          playerId: playerId!,
+          registeredByUserId: req.user!.userId,
+          status: "CONFIRMED",
+        });
+      }
+      await recomputeGamedayWaitlist(tx, gamedayId);
+    });
+
+    res.status(201).json({ message: "Registered" });
+  })
+);
+
+/** Cancel a registration (self, own guest, or admin on behalf of anyone). */
+router.delete(
+  "/:id/register/:registrationId",
+  asyncHandler(async (req, res) => {
+    const gamedayId = parseInt(req.params.id, 10);
+    const registrationId = parseInt(req.params.registrationId, 10);
+
+    const reg = await db.query.registrations.findFirst({
+      where: and(eq(registrations.id, registrationId), eq(registrations.gamedayId, gamedayId)),
+    });
+    if (!reg) throw ApiError.notFound("Registration not found");
+
+    if (reg.registeredByUserId !== req.user!.userId && !req.user!.isAdmin) {
+      throw ApiError.forbidden("You can only cancel registrations you made");
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(registrations)
+        .set({ status: "CANCELLED", cancelledAt: new Date() })
+        .where(eq(registrations.id, registrationId));
+      await recomputeGamedayWaitlist(tx, gamedayId);
+    });
+
+    res.status(204).send();
+  })
+);
+
+const teamsSchema = z.object({
+  assignments: z.array(
+    z.object({
+      playerId: z.number().int(),
+      team: z.enum(["A", "B"]),
+    })
+  ),
+});
+
+/** Admin sets/replaces the team rosters for a gameday. */
+router.put(
+  "/:id/teams",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const gamedayId = parseInt(req.params.id, 10);
+    const parsed = teamsSchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid teams payload", parsed.error.flatten());
+
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gamedayId) });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+
+    await db.transaction(async (tx) => {
+      await tx.delete(teamAssignments).where(eq(teamAssignments.gamedayId, gamedayId));
+      if (parsed.data.assignments.length > 0) {
+        await tx.insert(teamAssignments).values(
+          parsed.data.assignments.map((a) => ({ gamedayId, playerId: a.playerId, team: a.team }))
+        );
+      }
+    });
+
+    res.json({ message: "Teams updated" });
+  })
+);
+
+const resultSchema = z.object({
+  teamAScore: z.number().int().min(0),
+  teamBScore: z.number().int().min(0),
+});
+
+/** Admin enters the final score; points/goal-diff are computed from current team assignments. */
+router.put(
+  "/:id/result",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const gamedayId = parseInt(req.params.id, 10);
+    const parsed = resultSchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid result payload", parsed.error.flatten());
+
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gamedayId) });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+
+    const assignments = await db.query.teamAssignments.findMany({ where: eq(teamAssignments.gamedayId, gamedayId) });
+    if (assignments.length === 0) {
+      throw ApiError.badRequest("Assign players to Team A / Team B before entering a result");
+    }
+    const hasA = assignments.some((a) => a.team === "A");
+    const hasB = assignments.some((a) => a.team === "B");
+    if (!hasA || !hasB) {
+      throw ApiError.badRequest("Both Team A and Team B need at least one player");
+    }
+
+    const { teamAScore, teamBScore } = parsed.data;
+    const teamAStat = computeTeamResult(teamAScore, teamBScore);
+    const teamBStat = computeTeamResult(teamBScore, teamAScore);
+
+    await db.transaction(async (tx) => {
+      const existing = await tx.query.results.findFirst({ where: eq(results.gamedayId, gamedayId) });
+      let resultId: number;
+      if (existing) {
+        const [updated] = await tx
+          .update(results)
+          .set({ teamAScore, teamBScore, enteredByUserId: req.user!.userId, updatedAt: new Date() })
+          .where(eq(results.id, existing.id))
+          .returning();
+        resultId = updated.id;
+        await tx.delete(playerGamedayStats).where(eq(playerGamedayStats.resultId, resultId));
+      } else {
+        const [created] = await tx
+          .insert(results)
+          .values({ gamedayId, teamAScore, teamBScore, enteredByUserId: req.user!.userId })
+          .returning();
+        resultId = created.id;
+      }
+
+      const statRows = assignments.map((a) => {
+        const stat = a.team === "A" ? teamAStat : teamBStat;
+        return { resultId, playerId: a.playerId, team: a.team, points: stat.points, goalDiff: stat.goalDiff };
+      });
+      await tx.insert(playerGamedayStats).values(statRows);
+
+      await tx.update(gamedays).set({ status: "COMPLETED", updatedAt: new Date() }).where(eq(gamedays.id, gamedayId));
+    });
+
+    res.json({ message: "Result saved" });
+  })
+);
+
+export default router;

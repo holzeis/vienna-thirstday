@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vienna
+      POSTGRES_PASSWORD: vienna
+      POSTGRES_DB: vienna_thursday
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vienna -d vienna_thursday"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql://vienna:vienna@postgres:5432/vienna_thursday
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRES_IN: 7d
+      PORT: 4000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vienna-thursday.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    # Run pending migrations before starting the API on every container start.
+    # Seeding the first admin / importing legacy data are one-off steps - see
+    # the README for `docker compose run --rm backend node dist/db/seed.js`.
+    command: sh -c "node dist/db/migrate.js && node dist/index.js"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+    environment:
+      BACKEND_HOST: backend:4000
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:

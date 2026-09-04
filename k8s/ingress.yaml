@@ -1,0 +1,23 @@
+# Requires an ingress-nginx controller (or adapt annotations/class for
+# whatever ingress controller your cluster runs). Edit the host to match your
+# actual domain, and update CORS_ORIGIN in backend-configmap.yaml to match.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vienna-thursday
+  namespace: vienna-thursday
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: vienna-thursday.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+frontend/dist/
+backend/dist/
+
+# env files
+.env
+.env.local
+*.env
+
+# k8s secrets (never commit real secrets)
+k8s/secret.yaml
+
+# editor/OS
+.DS_Store
+*.log
+npm-debug.log*
+
+# postgres data volume if run outside docker
+pgdata/

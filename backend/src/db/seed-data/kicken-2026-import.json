@@ -1,0 +1,1246 @@
+{
+  "source": "/mnt/user-data/uploads/vienna thursday/Kicken_2026.xlsx",
+  "exportedAt": "2026-09-04T11:10:00.556451Z",
+  "players": [
+    "Albin",
+    "Aleks",
+    "Aleksis",
+    "Benji",
+    "Christopher",
+    "Coach",
+    "Daki",
+    "David J",
+    "David K",
+    "Dommsch",
+    "Fabio",
+    "Fisnik",
+    "Hanna",
+    "Jakob",
+    "Jovica",
+    "Jürgen",
+    "Leon",
+    "Marco",
+    "Mario",
+    "Mathias",
+    "Max H.",
+    "Max V",
+    "Mundi",
+    "Philip",
+    "Richi",
+    "Robert",
+    "Sascha",
+    "Shipi",
+    "Speidi",
+    "Tom",
+    "Tomek",
+    "Viktor",
+    "Vincent"
+  ],
+  "gamedays": [
+    {
+      "spieltag": 2,
+      "date": "2026-01-15",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Aleksis",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Viktor",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Richi",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Jovica",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Sascha",
+          "points": 4,
+          "goalDiff": 2
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Mathias",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Max V",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Dommsch",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Jakob",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -2
+        }
+      ],
+      "placeholderScoreA": 2,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 5,
+      "date": "2026-02-05",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 4,
+          "goalDiff": 7
+        },
+        {
+          "name": "Tom",
+          "points": 4,
+          "goalDiff": 7
+        },
+        {
+          "name": "Hanna",
+          "points": 4,
+          "goalDiff": 7
+        },
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 7
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 7
+        },
+        {
+          "name": "Max H.",
+          "points": 4,
+          "goalDiff": 7
+        },
+        {
+          "name": "Sascha",
+          "points": 4,
+          "goalDiff": 7
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -7
+        },
+        {
+          "name": "Aleksis",
+          "points": 1,
+          "goalDiff": -7
+        },
+        {
+          "name": "David J",
+          "points": 1,
+          "goalDiff": -7
+        },
+        {
+          "name": "Richi",
+          "points": 1,
+          "goalDiff": -7
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -7
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -7
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -7
+        }
+      ],
+      "placeholderScoreA": 7,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 6,
+      "date": "2026-02-12",
+      "teamA": [
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Marco",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Jovica",
+          "points": 4,
+          "goalDiff": 3
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Vincent",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Viktor",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Max V",
+          "points": 1,
+          "goalDiff": -3
+        }
+      ],
+      "placeholderScoreA": 3,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 8,
+      "date": "2026-02-26",
+      "teamA": [
+        {
+          "name": "Coach",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "David J",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Viktor",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Jovica",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Dommsch",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Aleks",
+          "points": 4,
+          "goalDiff": 6
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Vincent",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Aleksis",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Richi",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Leon",
+          "points": 1,
+          "goalDiff": -6
+        }
+      ],
+      "placeholderScoreA": 6,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 9,
+      "date": "2026-03-05",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Coach",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Tomek",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Aleksis",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Hanna",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "David J",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Marco",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Max H.",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Leon",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Jovica",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Max V",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Dommsch",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Aleks",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Sascha",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "placeholderScoreA": 0,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 10,
+      "date": "2026-03-12",
+      "teamA": [
+        {
+          "name": "Aleksis",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Hanna",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Leon",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Dommsch",
+          "points": 4,
+          "goalDiff": 1
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Tomek",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Benji",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -1
+        }
+      ],
+      "placeholderScoreA": 1,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 11,
+      "date": "2026-03-19",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Coach",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Richi",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Aleks",
+          "points": 4,
+          "goalDiff": 5
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -5
+        },
+        {
+          "name": "Benji",
+          "points": 1,
+          "goalDiff": -5
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -5
+        },
+        {
+          "name": "Leon",
+          "points": 1,
+          "goalDiff": -5
+        }
+      ],
+      "placeholderScoreA": 5,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 13,
+      "date": "2026-04-02",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Coach",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Jürgen",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Aleksis",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Benji",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Richi",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Mathias",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Max H.",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Jovica",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Sascha",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "placeholderScoreA": 0,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 16,
+      "date": "2026-04-23",
+      "teamA": [
+        {
+          "name": "Coach",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Tom",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Viktor",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Aleks",
+          "points": 4,
+          "goalDiff": 3
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Albin",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Max V",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Sascha",
+          "points": 1,
+          "goalDiff": -3
+        }
+      ],
+      "placeholderScoreA": 3,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 18,
+      "date": "2026-05-07",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Coach",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Shipi",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Tomek",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Tom",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Hanna",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Benji",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Viktor",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Mathias",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Marco",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Leon",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Jovica",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Dommsch",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Aleks",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "placeholderScoreA": 0,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 20,
+      "date": "2026-05-21",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Coach",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Tomek",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Hanna",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Albin",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Viktor",
+          "points": 4,
+          "goalDiff": 1
+        },
+        {
+          "name": "Marco",
+          "points": 4,
+          "goalDiff": 1
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Leon",
+          "points": 1,
+          "goalDiff": -4
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Max V",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -1
+        },
+        {
+          "name": "Sascha",
+          "points": 1,
+          "goalDiff": -1
+        }
+      ],
+      "placeholderScoreA": 1,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 21,
+      "date": "2026-05-28",
+      "teamA": [
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Mathias",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Max H.",
+          "points": 4,
+          "goalDiff": 5
+        },
+        {
+          "name": "Jovica",
+          "points": 4,
+          "goalDiff": 5
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -5
+        },
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -5
+        },
+        {
+          "name": "Viktor",
+          "points": 1,
+          "goalDiff": -5
+        },
+        {
+          "name": "Richi",
+          "points": 1,
+          "goalDiff": -5
+        }
+      ],
+      "placeholderScoreA": 5,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 22,
+      "date": "2026-06-04",
+      "teamA": [
+        {
+          "name": "Coach",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Tomek",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Tom",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Richi",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Leon",
+          "points": 4,
+          "goalDiff": 3
+        },
+        {
+          "name": "Dommsch",
+          "points": 4,
+          "goalDiff": 3
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Benji",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Max H.",
+          "points": 1,
+          "goalDiff": -3
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -3
+        }
+      ],
+      "placeholderScoreA": 3,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 23,
+      "date": "2026-06-11",
+      "teamA": [
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Viktor",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Jovica",
+          "points": 4,
+          "goalDiff": 2
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Mathias",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Speidi",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -2
+        }
+      ],
+      "placeholderScoreA": 2,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 24,
+      "date": "2026-06-18",
+      "teamA": [
+        {
+          "name": "Tomek",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Tom",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Viktor",
+          "points": 4,
+          "goalDiff": 2
+        },
+        {
+          "name": "Richi",
+          "points": 4,
+          "goalDiff": 2
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Hanna",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Marco",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Max V",
+          "points": 1,
+          "goalDiff": -2
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -2
+        }
+      ],
+      "placeholderScoreA": 2,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 25,
+      "date": "2026-06-25",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 4,
+          "goalDiff": 9
+        },
+        {
+          "name": "Coach",
+          "points": 4,
+          "goalDiff": 9
+        },
+        {
+          "name": "Tom",
+          "points": 4,
+          "goalDiff": 9
+        },
+        {
+          "name": "Richi",
+          "points": 4,
+          "goalDiff": 9
+        },
+        {
+          "name": "Marco",
+          "points": 4,
+          "goalDiff": 9
+        }
+      ],
+      "teamB": [
+        {
+          "name": "David J",
+          "points": 1,
+          "goalDiff": -9
+        },
+        {
+          "name": "Viktor",
+          "points": 1,
+          "goalDiff": -9
+        },
+        {
+          "name": "Jovica",
+          "points": 1,
+          "goalDiff": -9
+        },
+        {
+          "name": "Speidi",
+          "points": 1,
+          "goalDiff": -9
+        },
+        {
+          "name": "Aleks",
+          "points": 1,
+          "goalDiff": -9
+        }
+      ],
+      "placeholderScoreA": 9,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 26,
+      "date": "2026-07-02",
+      "teamA": [
+        {
+          "name": "Vincent",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Coach",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Tom",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Benji",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Viktor",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Richi",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Mathias",
+          "points": 2,
+          "goalDiff": 0
+        },
+        {
+          "name": "Aleks",
+          "points": 2,
+          "goalDiff": 0
+        }
+      ],
+      "placeholderScoreA": 0,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 31,
+      "date": "2026-08-06",
+      "teamA": [
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 11
+        },
+        {
+          "name": "Albin",
+          "points": 4,
+          "goalDiff": 11
+        },
+        {
+          "name": "Marco",
+          "points": 4,
+          "goalDiff": 11
+        },
+        {
+          "name": "Philip",
+          "points": 4,
+          "goalDiff": 11
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -11
+        },
+        {
+          "name": "Richi",
+          "points": 1,
+          "goalDiff": -11
+        },
+        {
+          "name": "David K",
+          "points": 1,
+          "goalDiff": -11
+        },
+        {
+          "name": "Christopher",
+          "points": 1,
+          "goalDiff": -11
+        }
+      ],
+      "placeholderScoreA": 11,
+      "placeholderScoreB": 0
+    },
+    {
+      "spieltag": 32,
+      "date": "2026-08-13",
+      "teamA": [
+        {
+          "name": "Benji",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Albin",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Marco",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Leon",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Philip",
+          "points": 4,
+          "goalDiff": 6
+        },
+        {
+          "name": "Christopher",
+          "points": 4,
+          "goalDiff": 6
+        }
+      ],
+      "teamB": [
+        {
+          "name": "Coach",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Tom",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Viktor",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Richi",
+          "points": 1,
+          "goalDiff": -6
+        },
+        {
+          "name": "Mathias",
+          "points": 1,
+          "goalDiff": -6
+        }
+      ],
+      "placeholderScoreA": 6,
+      "placeholderScoreB": 0
+    }
+  ]
+}

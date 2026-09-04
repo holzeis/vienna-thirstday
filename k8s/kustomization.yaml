@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vienna-thursday
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - backend-configmap.yaml
+  - backend-deployment.yaml
+  - frontend-deployment.yaml
+  - ingress.yaml
+  # secret.yaml is intentionally NOT listed here and is gitignored - see
+  # secret.example.yaml for how to create it (copy to secret.yaml and fill in
+  # real values, or create it directly with `kubectl create secret ...`).
+  # Once it exists, uncomment the line below:
+  # - secret.yaml
+
+# Point these at your own registry before deploying, e.g.:
+#   images:
+#     - name: vienna-thursday-backend
+#       newName: registry.example.com/vienna-thursday-backend
+#       newTag: "1.0.0"
+images:
+  - name: vienna-thursday-backend
+    newTag: latest
+  - name: vienna-thursday-frontend
+    newTag: latest

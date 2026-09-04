@@ -1,0 +1,24 @@
+# Run this Job once per deployment (or whenever the schema changes) to apply
+# pending Drizzle migrations before the backend Deployment rolls out new pods.
+#   kubectl apply -f k8s/backend-migration-job.yaml
+#   kubectl wait --for=condition=complete job/backend-migrate -n vienna-thursday --timeout=120s
+#   kubectl delete job/backend-migrate -n vienna-thursday   # then re-apply next time
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-migrate
+  namespace: vienna-thursday
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: vienna-thursday-backend:latest
+          command: ["node", "dist/db/migrate.js"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: vienna-thursday-secrets
