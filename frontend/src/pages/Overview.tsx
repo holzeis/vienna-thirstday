@@ -64,7 +64,7 @@ export function Overview() {
               ))}
             </ul>
           )}
-          <div style={{ marginTop: 14 }}>
+          <div className="card-footer">
             <Link to="/gamedays" className="btn btn-sm">
               View all gamedays
             </Link>
@@ -97,7 +97,7 @@ export function Overview() {
               </tbody>
             </table>
           )}
-          <div style={{ marginTop: 14 }}>
+          <div className="card-footer">
             <Link to="/standings" className="btn btn-sm">
               Full standings
             </Link>

@@ -363,6 +363,7 @@ function AdminSection({
               </td>
               <td>
                 <select
+                  className="select select-sm"
                   value={assignments[r.player.id] || ""}
                   onChange={(e) =>
                     setAssignments((prev) => ({ ...prev, [r.player.id]: e.target.value as Team | "" }))

@@ -44,6 +44,10 @@ standings table.
   from a dropdown - the new account inherits that player's full history
   (every past registration, team assignment, and gameday stat) and the guest
   record is removed. See [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet).
+- **Light & dark themes.** A toggle in the top bar (next to "Log out") switches
+  between a dark, pitch-inspired theme and a light theme. The choice is
+  remembered per browser (defaulting to the device's system preference on
+  first visit) and applies instantly with no page reload.
 
 ## How the rules work
 

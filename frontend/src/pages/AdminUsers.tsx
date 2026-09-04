@@ -86,6 +86,7 @@ export function AdminUsers() {
                   </td>
                   <td>
                     <select
+                      className="select"
                       value={mergeChoice[u.id] || ""}
                       disabled={busyId === u.id || !guests || guests.length === 0}
                       onChange={(e) => setMergeChoice((prev) => ({ ...prev, [u.id]: e.target.value }))}

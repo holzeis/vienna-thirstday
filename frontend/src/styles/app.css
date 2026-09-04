@@ -13,7 +13,7 @@
   gap: 16px;
   padding: 16px 28px;
   border-bottom: 1px solid var(--card-border);
-  background: rgba(14, 21, 18, 0.75);
+  background: var(--topbar-bg);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
@@ -31,7 +31,8 @@
   height: 30px;
   border-radius: 50%;
   background: conic-gradient(from 45deg, var(--accent), #1f6b45, var(--accent));
-  box-shadow: 0 0 0 3px rgba(61, 220, 132, 0.12);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  flex: none;
 }
 
 .brand-text h1 {
@@ -66,18 +67,18 @@
 
 .nav a:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--overlay-2);
 }
 
 .nav a.active {
-  color: #06231a;
+  color: var(--accent-contrast);
   background: var(--accent);
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .user-chip {
@@ -90,6 +91,27 @@
 
 .user-chip .badge {
   font-size: 10px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--overlay-1);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--card-border-hover);
+  background: var(--overlay-3);
 }
 
 .main {
@@ -122,15 +144,18 @@
 /* ---------- primitives ---------- */
 
 .card {
+  display: flex;
+  flex-direction: column;
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 20px;
   box-shadow: var(--shadow);
+  margin-bottom: 18px;
 }
 
-.card + .card {
-  margin-top: 16px;
+.card:last-child {
+  margin-bottom: 0;
 }
 
 .card-title {
@@ -141,9 +166,20 @@
   margin-bottom: 14px;
 }
 
+.card-footer {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
 .grid {
   display: grid;
+  align-items: stretch;
   gap: 16px;
+  margin-bottom: 18px;
+}
+
+.grid > .card {
+  margin-bottom: 0;
 }
 
 .grid-2 {
@@ -160,9 +196,10 @@
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--overlay-1);
   color: var(--text);
   padding: 9px 16px;
+  min-height: 40px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
@@ -173,7 +210,7 @@
 
 .btn:hover {
   border-color: var(--card-border-hover);
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--overlay-3);
 }
 
 .btn:disabled {
@@ -184,7 +221,7 @@
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #06231a;
+  color: var(--accent-contrast);
 }
 
 .btn-primary:hover {
@@ -203,6 +240,7 @@
 
 .btn-sm {
   padding: 6px 11px;
+  min-height: 32px;
   font-size: 12px;
 }
 
@@ -221,20 +259,69 @@
 }
 
 .field input,
-.field select,
 .field textarea {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--input-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
+  min-height: 40px;
   color: var(--text);
   outline: none;
+  transition: border-color 0.15s ease;
 }
 
 .field input:focus,
-.field select:focus,
 .field textarea:focus {
   border-color: var(--accent);
+}
+
+/* ---------- custom select ---------- */
+
+.field select,
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--input-bg);
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 6px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 32px 10px 12px;
+  min-height: 40px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.field select:focus,
+.select:focus {
+  border-color: var(--accent);
+}
+
+.select:hover {
+  border-color: var(--card-border-hover);
+}
+
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-sm {
+  min-height: 32px;
+  padding: 6px 28px 6px 10px;
+  font-size: 12px;
+  background-position: right 10px center;
+}
+
+td .select {
+  width: 100%;
+  min-width: 200px;
 }
 
 .form-row {
@@ -257,7 +344,7 @@
   letter-spacing: 0.05em;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--overlay-2);
   color: var(--text-dim);
 }
 
@@ -274,7 +361,7 @@
   color: var(--accent);
 }
 .badge-completed {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-3);
   color: var(--text-dim);
 }
 .badge-cancelled {
@@ -290,7 +377,7 @@
   color: var(--draw);
 }
 .badge-guest {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-3);
   color: var(--text-dim);
 }
 
@@ -312,7 +399,8 @@ th {
 
 td {
   padding: 10px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--overlay-1);
+  vertical-align: middle;
 }
 
 tr:last-child td {
@@ -343,7 +431,7 @@ tr.me td:first-child {
 }
 
 .stat-tile {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--overlay-1);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-sm);
   padding: 14px;
@@ -379,15 +467,15 @@ tr.me td:first-child {
 }
 
 .alert-error {
-  background: rgba(226, 92, 92, 0.12);
-  border: 1px solid rgba(226, 92, 92, 0.3);
-  color: #ff9d9d;
+  background: var(--alert-error-bg);
+  border: 1px solid var(--alert-error-border);
+  color: var(--alert-error-text);
 }
 
 .alert-success {
-  background: var(--accent-dim);
-  border: 1px solid rgba(61, 220, 132, 0.3);
-  color: var(--accent);
+  background: var(--alert-success-bg);
+  border: 1px solid var(--alert-success-border);
+  color: var(--alert-success-text);
 }
 
 .auth-shell {
@@ -401,6 +489,7 @@ tr.me td:first-child {
 .auth-card {
   width: 100%;
   max-width: 380px;
+  margin-bottom: 0;
 }
 
 .auth-card h1 {
@@ -437,7 +526,7 @@ tr.me td:first-child {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--overlay-2);
   border: 1px solid var(--card-border);
   border-radius: 999px;
   padding: 6px 8px 6px 14px;
@@ -514,7 +603,7 @@ tr.me td:first-child {
   font-size: 14px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--overlay-1);
 }
 
 .season-tabs {
@@ -525,7 +614,7 @@ tr.me td:first-child {
 }
 
 .season-tabs button {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--overlay-1);
   border: 1px solid var(--card-border);
   color: var(--text-dim);
   padding: 7px 16px;
@@ -538,5 +627,5 @@ tr.me td:first-child {
 .season-tabs button.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #06231a;
+  color: var(--accent-contrast);
 }
