@@ -35,8 +35,15 @@ export function adminListUsers(status?: string) {
   return apiRequest<{ users: (User & { player: Player | null })[] }>(`/admin/users${qs}`);
 }
 
-export function adminApproveUser(id: number) {
-  return apiRequest<{ user: User }>(`/admin/users/${id}/approve`, { method: "POST" });
+export function adminApproveUser(id: number, mergeGuestPlayerId?: number) {
+  return apiRequest<{ user: User }>(`/admin/users/${id}/approve`, {
+    method: "POST",
+    body: mergeGuestPlayerId ? { mergeGuestPlayerId } : {},
+  });
+}
+
+export function adminListGuestPlayers() {
+  return apiRequest<{ guests: (Player & { gamesPlayed: number })[] }>("/admin/players/guests");
 }
 
 export function adminRejectUser(id: number) {

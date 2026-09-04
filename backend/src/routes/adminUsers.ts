@@ -7,6 +7,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
 import { sanitizeUser } from "./auth";
+import { mergeGuestIntoPlayer } from "../services/playerMergeService";
 
 const router = Router();
 
@@ -22,12 +23,38 @@ router.get(
   })
 );
 
+const approveSchema = z.object({
+  // Optional: id of an existing guest/placeholder player (e.g. one created by
+  // the legacy spreadsheet import) whose history should be merged into this
+  // user's own player profile as part of approving them.
+  mergeGuestPlayerId: z.number().int().optional(),
+});
+
 router.post(
   "/:id/approve",
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const [updated] = await db.update(users).set({ status: "APPROVED", updatedAt: new Date() }).where(eq(users.id, id)).returning();
-    if (!updated) throw ApiError.notFound("User not found");
+    const parsed = approveSchema.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest("Invalid approve payload", parsed.error.flatten());
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, id) });
+    if (!user) throw ApiError.notFound("User not found");
+
+    const updated = await db.transaction(async (tx) => {
+      if (parsed.data.mergeGuestPlayerId !== undefined) {
+        if (!user.playerId) {
+          throw ApiError.badRequest("This user has no player profile to merge into");
+        }
+        await mergeGuestIntoPlayer(tx, parsed.data.mergeGuestPlayerId!, user.playerId);
+      }
+      const [u] = await tx
+        .update(users)
+        .set({ status: "APPROVED", updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return u;
+    });
+
     res.json({ user: sanitizeUser(updated) });
   })
 );

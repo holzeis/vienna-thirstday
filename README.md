@@ -37,6 +37,13 @@ standings table.
   draw = 2 pts, loss = 1 pt, plus/minus the goal difference.
 - **Season standings.** A season runs Jan 1 – Dec 31. Players are ranked by
   total points, then goal difference. Multiple seasons are kept and browsable.
+- **Merging imported/guest players into real accounts.** Historical players
+  (from the spreadsheet import) and ad-hoc guests are both stored as "guest"
+  players, so they're excluded from standings until claimed. When approving a
+  pending user, an admin can optionally pick one of these unclaimed players
+  from a dropdown - the new account inherits that player's full history
+  (every past registration, team assignment, and gameday stat) and the guest
+  record is removed. See [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet).
 
 ## How the rules work
 
@@ -124,6 +131,7 @@ Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
 | `npm run db:migrate`          | Apply pending migrations                                |
 | `npm run seed`                | Bootstrap the first admin account (idempotent)          |
 | `npm run seed:import-xlsx`    | One-time import of the legacy spreadsheet (see below)   |
+| `npm run fixup:mark-unclaimed-guests` | Retroactively marks unclaimed imported players as guests (only needed if you ran the importer before the merge feature existed) |
 
 ## Local development with Docker Compose
 
@@ -179,6 +187,32 @@ during development) is already committed under
 `backend/src/db/seed-data/`, so step 1 is only needed if you want to
 regenerate it from an updated spreadsheet. The import is idempotent - it
 skips gamedays that already exist for a given date, so it's safe to re-run.
+
+### Claiming imported players
+
+The importer creates all 33 historical players as **guests** - nobody has an
+account yet, and guests are excluded from the standings table, so right after
+importing, `/standings` will look empty. That's expected. As each real person
+signs up:
+
+1. They register normally on the `/register` page.
+2. On the **Admin → Users** page, in the "Pending approval" section, pick
+   their name from the **"Merge with existing player"** dropdown next to
+   their pending row (it lists every unclaimed guest with a games-played
+   count, e.g. "Benji (15 games)").
+3. Click **Approve**.
+
+Their new account immediately inherits that player's entire history - every
+past registration, team assignment, and gameday stat - and they'll show up in
+the standings table with their real season total. Approving without picking
+anything from the dropdown just creates a fresh player with no history, which
+is the right call for someone who's genuinely new to the group.
+
+> If you already ran the importer before this merge feature existed (so your
+> historical players were created as regular, non-guest players instead of
+> guests), run `cd backend && npm run fixup:mark-unclaimed-guests` once - it
+> retroactively marks every player with no linked account as a guest, without
+> touching anyone who's already signed up.
 
 ## Deploying to Kubernetes
 
@@ -297,13 +331,23 @@ docker-compose.yml    Local multi-container setup
 
 - **Historical score reconstruction.** The legacy spreadsheet recorded each
   player's exact points and goal difference per matchday - and those are
-  imported verbatim, so the season table reconstructed from the import
-  matches the original spreadsheet's table exactly. What it never recorded
-  was the two teams' rosters as a distinct concept, or the literal final
-  score (e.g. "5:3"). The importer reconstructs a team split (who shared a
-  win/loss) and a placeholder score with the correct goal difference purely
-  for display on those historical gamedays; treat the reconstructed score and
-  team roster for pre-launch gamedays as illustrative, not exact.
+  imported verbatim, so once a player is merged into a real account (see
+  [Claiming imported players](#claiming-imported-players)), their contribution
+  to the season table matches the original spreadsheet's table exactly. What
+  it never recorded was the two teams' rosters as a distinct concept, or the
+  literal final score (e.g. "5:3"). The importer reconstructs a team split
+  (who shared a win/loss) and a placeholder score with the correct goal
+  difference purely for display on those historical gamedays; treat the
+  reconstructed score and team roster for pre-launch gamedays as
+  illustrative, not exact.
+- **Merge is guest-only, and matches by hand.** `mergeGuestIntoPlayer` only
+  merges a player flagged as a guest into a real one - there's no support for
+  merging two real (already-claimed) player accounts if someone somehow ends
+  up claimed twice. Matching a new sign-up to their old guest record is also
+  entirely manual (an admin picking from a dropdown), not automatic
+  name-matching - deliberately, since auto-matching on a name string risks
+  silently merging the wrong person (e.g. two different people who both go by
+  "Max").
 - **No email delivery.** Admin approval, etc. all happen inside the app - no
   emails are sent when an account is approved/rejected. Worth adding if the
   group would rather not have to tell people to check back.

@@ -6,6 +6,7 @@ import { optionalAuth } from "./middleware/auth";
 
 import authRouter from "./routes/auth";
 import adminUsersRouter from "./routes/adminUsers";
+import adminPlayersRouter from "./routes/adminPlayers";
 import guestsRouter from "./routes/guests";
 import playersRouter from "./routes/players";
 import gamedaysRouter from "./routes/gamedays";
@@ -22,6 +23,7 @@ export function createApp() {
 
   app.use("/api/auth", authRouter);
   app.use("/api/admin/users", adminUsersRouter);
+  app.use("/api/admin/players", adminPlayersRouter);
   app.use("/api/guests", guestsRouter);
   app.use("/api/players", playersRouter);
   app.use("/api/gamedays", gamedaysRouter);

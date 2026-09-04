@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { adminApproveUser, adminListUsers, adminRejectUser, adminSetRoles } from "../api/endpoints";
+import {
+  adminApproveUser,
+  adminListGuestPlayers,
+  adminListUsers,
+  adminRejectUser,
+  adminSetRoles,
+} from "../api/endpoints";
 import type { Player, User } from "../api/types";
 import { ApiClientError } from "../api/client";
 
 type UserWithPlayer = User & { player: Player | null };
+type GuestOption = Player & { gamesPlayed: number };
 
 export function AdminUsers() {
   const [users, setUsers] = useState<UserWithPlayer[] | null>(null);
+  const [guests, setGuests] = useState<GuestOption[] | null>(null);
+  const [mergeChoice, setMergeChoice] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -14,6 +23,9 @@ export function AdminUsers() {
     adminListUsers()
       .then((res) => setUsers(res.users))
       .catch(() => setUsers([]));
+    adminListGuestPlayers()
+      .then((res) => setGuests(res.guests))
+      .catch(() => setGuests([]));
   }
 
   useEffect(load, []);
@@ -29,6 +41,12 @@ export function AdminUsers() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function approve(u: UserWithPlayer) {
+    const choice = mergeChoice[u.id];
+    const guestId = choice ? parseInt(choice, 10) : undefined;
+    withBusy(u.id, () => adminApproveUser(u.id, guestId));
   }
 
   if (users === null) return <div className="loading">Loading...</div>;
@@ -51,23 +69,60 @@ export function AdminUsers() {
         <div className="card-title">Pending approval ({pending.length})</div>
         {pending.length === 0 && <div className="empty-state">Nothing pending.</div>}
         {pending.length > 0 && (
-          <ul className="subtle-list">
-            {pending.map((u) => (
-              <li key={u.id}>
-                <span>
-                  {u.player?.name || u.email} <span style={{ color: "var(--text-faint)" }}>({u.email})</span>
-                </span>
-                <span style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-sm btn-primary" disabled={busyId === u.id} onClick={() => withBusy(u.id, () => adminApproveUser(u.id))}>
-                    Approve
-                  </button>
-                  <button className="btn btn-sm btn-danger" disabled={busyId === u.id} onClick={() => withBusy(u.id, () => adminRejectUser(u.id))}>
-                    Reject
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Merge with existing player</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((u) => (
+                <tr key={u.id}>
+                  <td>
+                    {u.player?.name || u.email}
+                    <div style={{ color: "var(--text-faint)", fontSize: 12 }}>{u.email}</div>
+                  </td>
+                  <td>
+                    <select
+                      value={mergeChoice[u.id] || ""}
+                      disabled={busyId === u.id || !guests || guests.length === 0}
+                      onChange={(e) => setMergeChoice((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                    >
+                      <option value="">— new player, no history —</option>
+                      {guests?.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} ({g.gamesPlayed} {g.gamesPlayed === 1 ? "game" : "games"})
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn btn-sm btn-primary" disabled={busyId === u.id} onClick={() => approve(u)}>
+                        Approve
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        disabled={busyId === u.id}
+                        onClick={() => withBusy(u.id, () => adminRejectUser(u.id))}
+                      >
+                        Reject
+                      </button>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {guests && guests.length > 0 && (
+          <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 10 }}>
+            "Merge with existing player" picks up an unclaimed guest/imported player's full history (points, goal
+            difference, past gamedays) and attaches it to this new account. Use it when you recognize the new
+            sign-up as someone who already has history from before the app existed.
+          </p>
         )}
       </div>
 

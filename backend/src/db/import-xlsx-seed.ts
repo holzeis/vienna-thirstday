@@ -6,15 +6,28 @@
  * and creates matching Players, Gamedays, Results and PlayerGamedayStats so
  * the 2026 season continues seamlessly inside the app.
  *
+ * Imported players are created as GUESTS, not real players. Nobody has an
+ * account yet, so there's no user to "own" this history - and per the season
+ * standings rule, guests don't appear in the ranking table. That's
+ * intentional: until an admin merges an imported player into a real
+ * registered account (see the "merge with existing player" option when
+ * approving a pending user, `mergeGuestIntoPlayer` in
+ * src/services/playerMergeService.ts), their history stays parked on the
+ * placeholder guest record and out of the live standings. Once merged, the
+ * real account inherits the guest's full history and appears in standings
+ * normally.
+ *
  * IMPORTANT CAVEAT: the legacy spreadsheet recorded each player's exact points
  * (4/2/1) and goal difference per matchday, and those are imported verbatim -
- * the season standings computed from this import match the original
- * spreadsheet's table exactly. What the spreadsheet never recorded is the two
- * teams' rosters as a first-class concept, or the literal final score (e.g.
- * "5:3") - only the differential. This importer reconstructs a team A / team B
- * split (points==4 group vs points==1 group) and a placeholder score with the
- * right goal difference purely for display; treat the reconstructed score and
- * team split for historical gamedays as illustrative, not exact.
+ * once a player is merged into a real account, their contribution to the
+ * season standings matches the original spreadsheet's table exactly (you can
+ * verify this by merging everyone and comparing). What the spreadsheet never
+ * recorded is the two teams' rosters as a first-class concept, or the literal
+ * final score (e.g. "5:3") - only the differential. This importer
+ * reconstructs a team A / team B split (points==4 group vs points==1 group)
+ * and a placeholder score with the right goal difference purely for display;
+ * treat the reconstructed score and team split for historical gamedays as
+ * illustrative, not exact.
  *
  * Run `npm run seed` first (bootstraps an admin) before running this.
  *
@@ -68,7 +81,7 @@ async function main() {
       playerIdByName.set(name, existing.id);
       continue;
     }
-    const [created] = await db.insert(players).values({ name, isGuest: false }).returning();
+    const [created] = await db.insert(players).values({ name, isGuest: true }).returning();
     playerIdByName.set(name, created.id);
   }
   console.log(`Players ready: ${playerIdByName.size}`);

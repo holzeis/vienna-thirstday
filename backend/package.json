@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "seed": "ts-node --transpile-only src/db/seed.ts",
     "seed:import-xlsx": "ts-node --transpile-only src/db/import-xlsx-seed.ts",
+    "fixup:mark-unclaimed-guests": "ts-node --transpile-only src/db/mark-unclaimed-as-guests.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
