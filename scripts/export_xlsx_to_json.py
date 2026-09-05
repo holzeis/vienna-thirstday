@@ -18,6 +18,7 @@ Usage:
 """
 import json
 import sys
+from collections import Counter
 from datetime import datetime
 
 import openpyxl
@@ -86,7 +87,24 @@ def main():
 
         # Best-effort placeholder score for display only (standings use the
         # exact per-player points/goalDiff above, not this reconstructed score).
-        placeholder_diff = max((abs(e["goalDiff"]) for e in winners), default=0)
+        # Every player on a team should share the same team-level goal
+        # difference, so cross-check both sides' recorded values instead of
+        # only looking at the winners - a lone mistyped cell on one side
+        # shouldn't silently win out over an agreeing majority on the other.
+        candidates = [abs(e["goalDiff"]) for e in winners if e["goalDiff"] != 0]
+        candidates += [abs(e["goalDiff"]) for e in losers if e["goalDiff"] != 0]
+        if candidates:
+            counts = Counter(candidates)
+            best_count = max(counts.values())
+            most_common = [v for v, c in counts.items() if c == best_count]
+            if len(most_common) > 1:
+                winner_values = {abs(e["goalDiff"]) for e in winners if e["goalDiff"] != 0}
+                preferred = [v for v in most_common if v in winner_values]
+                placeholder_diff = min(preferred) if preferred else min(most_common)
+            else:
+                placeholder_diff = most_common[0]
+        else:
+            placeholder_diff = 0
 
         gamedays.append(
             {

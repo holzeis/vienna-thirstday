@@ -31,6 +31,11 @@
  *
  * Run `npm run seed` first (bootstraps an admin) before running this.
  *
+ * Safe to re-run after regenerating the JSON (e.g. after a fix to
+ * scripts/export_xlsx_to_json.py's placeholder-score logic): gamedays that
+ * already exist are not duplicated, but their `results` row is reconciled to
+ * the (possibly corrected) placeholder score if it changed.
+ *
  * Usage: npm run seed:import-xlsx
  */
 import "dotenv/config";
@@ -87,12 +92,27 @@ async function main() {
   console.log(`Players ready: ${playerIdByName.size}`);
 
   let created = 0;
+  let reconciled = 0;
   for (const gd of data.gamedays) {
     const date = new Date(`${gd.date}T18:00:00.000Z`);
 
-    // Skip if a gameday already exists on this exact date (idempotent re-runs).
+    // Skip creating a duplicate on re-runs, but still reconcile the score if
+    // this gameday was imported before the placeholder-score bug was fixed.
     const existingGameday = await db.query.gamedays.findFirst({ where: eq(gamedays.date, date) });
-    if (existingGameday) continue;
+    if (existingGameday) {
+      const existingResult = await db.query.results.findFirst({ where: eq(results.gamedayId, existingGameday.id) });
+      if (
+        existingResult &&
+        (existingResult.teamAScore !== gd.placeholderScoreA || existingResult.teamBScore !== gd.placeholderScoreB)
+      ) {
+        await db
+          .update(results)
+          .set({ teamAScore: gd.placeholderScoreA, teamBScore: gd.placeholderScoreB, updatedAt: new Date() })
+          .where(eq(results.id, existingResult.id));
+        reconciled++;
+      }
+      continue;
+    }
 
     await db.transaction(async (tx) => {
       const [gameday] = await tx
@@ -139,7 +159,11 @@ async function main() {
     created++;
   }
 
-  console.log(`Imported ${created} new gamedays (skipped ${data.gamedays.length - created} already present).`);
+  console.log(
+    `Imported ${created} new gamedays, reconciled ${reconciled} existing score(s) (${
+      data.gamedays.length - created - reconciled
+    } already up to date).`
+  );
 }
 
 main()
