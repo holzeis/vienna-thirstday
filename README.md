@@ -257,13 +257,16 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
      --from-literal=POSTGRES_PASSWORD='use-a-strong-password' \
      --from-literal=DATABASE_URL='postgresql://vienna:use-a-strong-password@postgres:5432/vienna_thursday' \
      --from-literal=JWT_SECRET="$(openssl rand -base64 48)" \
-     --from-literal=ADMIN_EMAIL='admin@yourclub.example' \
      --from-literal=ADMIN_PASSWORD='choose-a-first-admin-password' \
      --from-literal=ADMIN_NAME='Admin'
    ```
 
    (`k8s/secret.example.yaml` shows the same thing as a manifest, if you'd
-   rather template it with your own secrets tooling.)
+   rather template it with your own secrets tooling.) `ADMIN_EMAIL` is
+   optional - login is by name, not email - so it's left out here; add
+   `--from-literal=ADMIN_EMAIL=...` too if you want the seeded admin to have
+   one from the start. Add `CLOUDFLARE_TUNNEL_TOKEN` as well if you're doing
+   the Cloudflare Tunnel setup below.
 
 3. **Deploy:**
 
@@ -278,14 +281,48 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
    `k8s/backend-configmap.yaml`) to match your real domain, then re-apply.
 
 `k8s/postgres.yaml` runs Postgres as a single-replica `StatefulSet` with a
-5Gi PVC - fine to get started, but for anything you care about long-term,
-point `DATABASE_URL` at a managed Postgres instance instead and remove
-`postgres.yaml` from `kustomization.yaml`.
+5Gi PVC on the `longhorn` storage class (swap `storageClassName` if your
+cluster doesn't have Longhorn installed) - fine to get started, but for
+anything you care about long-term, point `DATABASE_URL` at a managed
+Postgres instance instead and remove `postgres.yaml` from
+`kustomization.yaml`.
 
-> **Note:** as with Docker Compose, these manifests were authored and
-> validated for YAML/kustomize correctness but not applied against a live
-> cluster from this environment. Review resource requests/limits and the
-> ingress class/annotations against your actual cluster before relying on
+### Exposing it publicly without forwarding a router port
+
+`k8s/cloudflared.yaml` runs [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+as a Deployment in-cluster. `cloudflared` only makes an *outbound* connection
+to Cloudflare's edge, so nothing needs to be opened inbound on your router -
+Cloudflare proxies traffic for a hostname you choose through that tunnel to
+the ingress-nginx controller already fronting this app, which then routes by
+Host header exactly like it does for the local hostname.
+
+1. In the Cloudflare Zero Trust dashboard (dash.cloudflare.com → Zero Trust →
+   Networks → Tunnels), create a tunnel with connector type "Cloudflared" and
+   copy the token it gives you (a single string - this is the simpler
+   token-based setup, no `config.yml`/`cert.pem` file needed).
+2. On that tunnel, add a **Public Hostname**: the hostname you want (on a
+   domain already in your Cloudflare account), type `HTTP`, service
+   `nginx-ingress-nginx-controller.<namespace>.svc.cluster.local:80` (swap in
+   whatever namespace your ingress-nginx controller actually runs in).
+   Cloudflare creates the DNS record for you.
+3. Add that hostname as a second `host:` entry in `k8s/ingress.yaml` (a
+   commented example is already there) pointing at the same `frontend`
+   backend, and to `CORS_ORIGIN` in `backend-configmap.yaml` if anything will
+   ever call the API cross-origin from it (normally not needed - the
+   frontend's own nginx proxies `/api` same-origin).
+4. Put the token from step 1 into your secret as `CLOUDFLARE_TUNNEL_TOKEN`,
+   then uncomment `cloudflared.yaml` in `kustomization.yaml` and re-apply.
+
+Cloudflare terminates TLS at their edge, so the public hostname gets HTTPS
+automatically with no cert-manager involvement needed for it.
+
+> **Note:** these manifests (including `cloudflared.yaml` and the Longhorn
+> storage class) were validated with `kubectl apply --dry-run=client` against
+> a real cluster and `kubectl get storageclass`/`get ns` to confirm `longhorn`
+> and the expected namespaces exist, but were not actually applied end-to-end
+> from this environment (no image registry or Cloudflare tunnel token were
+> available to complete a real deploy). Review resource requests/limits and
+> the ingress class/annotations against your actual cluster before relying on
 > this in production.
 
 ## Environment variables

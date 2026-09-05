@@ -22,6 +22,8 @@ spec:
             - secretRef:
                 name: vienna-thursday-secrets
 ---
+# Imports every *-import.json file under backend/src/db/seed-data/ (one per
+# season) in a single run - not just a single spreadsheet.
 apiVersion: batch/v1
 kind: Job
 metadata:

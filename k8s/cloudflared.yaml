@@ -1,0 +1,62 @@
+# Exposes this app to the internet via a Cloudflare Tunnel - no router port
+# forwarding needed. cloudflared makes an outbound-only connection to
+# Cloudflare's edge; Cloudflare proxies public traffic for your chosen
+# hostname through that tunnel to the ingress-nginx controller already
+# running in this cluster (see the "nginx" namespace), which then routes by
+# Host header exactly like it does for vienna-thursday.local today.
+#
+# One-time setup in the Cloudflare Zero Trust dashboard (dash.cloudflare.com
+# -> Zero Trust -> Networks -> Tunnels), before applying this file:
+#   1. Create a tunnel, connector type "Cloudflared". Copy the token it
+#      gives you (a long string, NOT a JSON credentials file - this is the
+#      simpler token-based setup, no config.yml/cert.pem needed).
+#   2. On the same tunnel, add a Public Hostname: pick the hostname you want
+#      (e.g. vienna-thursday.yourdomain.com, on a domain already added to
+#      your Cloudflare account), type HTTP, and point it at:
+#        nginx-ingress-nginx-controller.nginx.svc.cluster.local:80
+#      Cloudflare creates the DNS record for you automatically.
+#   3. Add that same hostname to k8s/ingress.yaml's `rules` (a second `host:`
+#      entry alongside vienna-thursday.local, same backend), and to
+#      CORS_ORIGIN in backend-configmap.yaml if you'll ever call the API
+#      directly from that origin (normally not needed - the frontend's own
+#      nginx proxies /api same-origin).
+#   4. Put the token from step 1 into your secret (see secret.example.yaml's
+#      CLOUDFLARE_TUNNEL_TOKEN) instead of applying this with a placeholder.
+#
+# Cloudflare terminates TLS at their edge, so the public hostname gets HTTPS
+# automatically - no cert-manager involvement needed for it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: vienna-thursday
+spec:
+  replicas: 2 # 2+ is recommended by Cloudflare for tunnel availability during pod restarts/node drains
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          args:
+            - tunnel
+            - --no-autoupdate
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vienna-thursday-secrets
+                  key: CLOUDFLARE_TUNNEL_TOKEN
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

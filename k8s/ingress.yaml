@@ -21,3 +21,16 @@ spec:
                 name: frontend
                 port:
                   number: 80
+    # If you're exposing this publicly via cloudflared.yaml's Cloudflare
+    # Tunnel, add the public hostname you configured there as a second rule
+    # (same backend) so this ingress controller answers for both:
+    # - host: vienna-thursday.yourdomain.com
+    #   http:
+    #     paths:
+    #       - path: /
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: frontend
+    #             port:
+    #               number: 80

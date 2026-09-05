@@ -15,6 +15,10 @@ resources:
   # real values, or create it directly with `kubectl create secret ...`).
   # Once it exists, uncomment the line below:
   # - secret.yaml
+  # Only needed if you're exposing the app publicly via a Cloudflare Tunnel
+  # instead of/alongside router port forwarding - see cloudflared.yaml for
+  # the one-time Cloudflare-side setup this depends on.
+  # - cloudflared.yaml
 
 # Point these at your own registry before deploying, e.g.:
 #   images:
