@@ -80,6 +80,9 @@ export interface StandingRow {
   points: number;
   goalDiff: number;
   gamesPlayed: number;
+  /** Rank places gained (positive) or lost (negative) since the last gameday; "new" = no prior rank to compare against. */
+  momentum: number | "new";
+  currentForm: CurrentForm;
 }
 
 /**

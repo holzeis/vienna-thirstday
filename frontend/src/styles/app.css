@@ -684,6 +684,27 @@ tr.me td:first-child {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.momentum {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.momentum-up {
+  color: var(--win);
+}
+.momentum-down {
+  color: var(--loss);
+}
+
+.mini-badge {
+  margin-left: 5px;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
 .rank-1 {
   color: var(--gold);
 }

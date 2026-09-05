@@ -60,11 +60,37 @@ export function Standings() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.playerId} className={row.playerId === player?.id ? "me" : ""}>
-                  <td className={row.rank <= 3 ? `rank-${row.rank}` : ""}>{row.rank}</td>
+                  <td className={row.rank <= 3 ? `rank-${row.rank}` : ""}>
+                    {row.rank}
+                    {typeof row.momentum === "number" && row.momentum !== 0 && (
+                      <span
+                        className={`momentum ${row.momentum > 0 ? "momentum-up" : "momentum-down"}`}
+                        title={row.momentum > 0 ? `Up ${row.momentum} since the last gameday` : `Down ${Math.abs(row.momentum)} since the last gameday`}
+                      >
+                        {row.momentum > 0 ? "▲" : "▼"}
+                        {Math.abs(row.momentum)}
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
                       {row.name}
                     </Link>
+                    {row.currentForm.veteran && (
+                      <span className="mini-badge" title="Veteran - played all of the last 5">
+                        🎖️
+                      </span>
+                    )}
+                    {row.currentForm.undefeated && (
+                      <span className="mini-badge" title="Undefeated - unbeaten in the last 5">
+                        🛡️
+                      </span>
+                    )}
+                    {row.currentForm.unlucky && (
+                      <span className="mini-badge" title="Unlucky - lost the last 5">
+                        🌧️
+                      </span>
+                    )}
                   </td>
                   <td className="num">{row.gamesPlayed}</td>
                   <td className="num">{row.points}</td>
