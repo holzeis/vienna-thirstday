@@ -1155,6 +1155,11 @@ tr.me td:first-child {
 
   .users-list-wrap {
     display: block;
+    /* Each .user-card inside has margin-bottom:18px except the last (the
+       .card:last-child rule zeroes it, since it's last within this wrapper,
+       not last on the page) - reserve that same gap here so the next card
+       (e.g. "Merge guest history") doesn't sit flush against it. */
+    margin-bottom: 18px;
   }
 
   .score-box {
