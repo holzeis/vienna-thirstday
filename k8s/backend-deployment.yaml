@@ -22,7 +22,7 @@ spec:
       #   - name: ghcr-pull
       containers:
         - name: backend
-          image: vienna-thirstday-backend:latest
+          image: ghcr.io/holzeis/vienna-thirstday-backend:latest
           ports:
             - containerPort: 4000
           envFrom:

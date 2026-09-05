@@ -19,7 +19,7 @@ spec:
       #   - name: ghcr-pull
       containers:
         - name: frontend
-          image: vienna-thirstday-frontend:latest
+          image: ghcr.io/holzeis/vienna-thirstday-frontend:latest
           ports:
             - containerPort: 80
           env:

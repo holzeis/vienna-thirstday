@@ -233,7 +233,10 @@ person joins:
 
 ## Deploying to Kubernetes
 
-Manifests live under `k8s/` and are wired together with `kustomize`.
+Manifests live under `k8s/` as plain files, applied individually with
+`kubectl apply -f` (no `kustomize` step) - `backend-deployment.yaml` and
+`frontend-deployment.yaml` reference `ghcr.io/holzeis/vienna-thirstday-backend`/
+`-frontend:latest` directly.
 
 1. **Build and push images** to a registry your cluster can pull from.
    `.github/workflows/docker-publish.yml` does this automatically on every
@@ -244,18 +247,16 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
    settings, or create an `imagePullSecret` in the `vienna-thirstday`
    namespace from a PAT with `read:packages` and reference it in
    `backend-deployment.yaml`/`frontend-deployment.yaml`'s `imagePullSecrets`.
+   The workflow builds both `linux/amd64` and `linux/arm64` (via QEMU) -
+   keep both platforms if your cluster mixes node architectures, or a node
+   of the missing arch will hit `ImagePullBackOff` with "no match for
+   platform in manifest".
 
-   To build and push by hand instead (e.g. a different registry):
-
-   ```bash
-   docker build -t <registry>/vienna-thirstday-backend:1.0.0 ./backend
-   docker build -t <registry>/vienna-thirstday-frontend:1.0.0 ./frontend
-   docker push <registry>/vienna-thirstday-backend:1.0.0
-   docker push <registry>/vienna-thirstday-frontend:1.0.0
-   ```
-
-   Either way, point `k8s/kustomization.yaml`'s `images:` section at them
-   (see the comment in that file).
+   To build and push by hand instead (e.g. a different registry), match
+   whatever architectures your nodes actually run - `docker buildx build
+   --platform linux/amd64,linux/arm64 --push` - and point
+   `backend-deployment.yaml`/`frontend-deployment.yaml`'s `image:` at the
+   result.
 
 2. **Create the secret** (never commit real secrets - `k8s/secret.yaml` is
    gitignored):
@@ -281,7 +282,14 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
 3. **Deploy:**
 
    ```bash
-   kubectl apply -k k8s/
+   kubectl apply -f k8s/namespace.yaml
+   kubectl apply -f k8s/postgres.yaml
+   kubectl apply -f k8s/backend-configmap.yaml
+   kubectl apply -f k8s/backend-deployment.yaml
+   kubectl apply -f k8s/frontend-deployment.yaml
+   kubectl apply -f k8s/ingress.yaml
+   # kubectl apply -f k8s/cloudflared.yaml   # only if exposing via a Cloudflare Tunnel
+
    kubectl apply -f k8s/backend-migration-job.yaml
    kubectl wait --for=condition=complete job/backend-migrate -n vienna-thirstday --timeout=120s
    kubectl apply -f k8s/backend-seed-job.yaml   # bootstraps the first admin; safe to re-run
@@ -294,8 +302,7 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
 5Gi PVC on the `longhorn` storage class (swap `storageClassName` if your
 cluster doesn't have Longhorn installed) - fine to get started, but for
 anything you care about long-term, point `DATABASE_URL` at a managed
-Postgres instance instead and remove `postgres.yaml` from
-`kustomization.yaml`.
+Postgres instance instead and skip applying `postgres.yaml`.
 
 ### Exposing it publicly without forwarding a router port
 
@@ -328,7 +335,7 @@ Host header exactly like it does for the local hostname.
    from it (normally not needed - the frontend's own nginx proxies `/api`
    same-origin).
 4. Put the token from step 1 into your secret as `CLOUDFLARE_TUNNEL_TOKEN`,
-   then uncomment `cloudflared.yaml` in `kustomization.yaml` and re-apply.
+   then `kubectl apply -f k8s/cloudflared.yaml`.
 
 This keeps the whole path genuinely encrypted end to end: Cloudflare
 terminates TLS for visitors at their edge, and the hop from `cloudflared` to
@@ -397,7 +404,7 @@ frontend/
     styles/           App-wide CSS
 scripts/
   export_xlsx_to_json.py   Re-run this if the legacy spreadsheet changes
-k8s/                  Kubernetes manifests (kustomize)
+k8s/                  Kubernetes manifests (applied individually with kubectl apply -f)
 docker-compose.yml    Local multi-container setup
 ```
 
