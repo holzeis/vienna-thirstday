@@ -15,7 +15,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: vienna-thirstday-backend:latest
+          image: ghcr.io/holzeis/vienna-thirstday-backend:latest
           command: ["node", "dist/db/migrate.js"]
           envFrom:
             - configMapRef:

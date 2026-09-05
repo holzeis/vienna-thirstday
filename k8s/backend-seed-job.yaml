@@ -14,7 +14,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: seed
-          image: vienna-thirstday-backend:latest
+          image: ghcr.io/holzeis/vienna-thirstday-backend:latest
           command: ["node", "dist/db/seed.js"]
           envFrom:
             - configMapRef:
@@ -36,7 +36,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: import-xlsx
-          image: vienna-thirstday-backend:latest
+          image: ghcr.io/holzeis/vienna-thirstday-backend:latest
           command: ["node", "dist/db/import-xlsx-seed.js"]
           envFrom:
             - configMapRef:
