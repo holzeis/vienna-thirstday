@@ -30,12 +30,14 @@ function MedalChip({ tier, entry }: { tier: PodiumTier; entry: PodiumEntry | nul
   return (
     <Link to={`/players/${entry.playerId}`} className="medal-chip">
       <span className="m">{TIER_MEDALS[tier]}</span>
-      <span className="n">{entry.name}</span>
-      {entry.isGuest && (
-        <span className="mini-badge" title="Guest">
-          👤
-        </span>
-      )}
+      <span className="n-group">
+        <span className="n">{entry.name}</span>
+        {entry.isGuest && (
+          <span className="mini-badge" title="Guest">
+            👤
+          </span>
+        )}
+      </span>
       <span className="v">{entry.value}</span>
     </Link>
   );

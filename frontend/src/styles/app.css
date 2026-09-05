@@ -593,6 +593,19 @@ td .select {
   color: var(--text);
 }
 
+/* Keeps the name and its guest icon tight to each other as one flex item,
+   so .hof-list-card's justify-content:space-between (mobile) can't push
+   them apart while spreading room across the chip's other children. */
+.medal-chip .n-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.medal-chip .n-group .mini-badge {
+  margin-left: 0;
+}
+
 .medal-chip .v {
   color: var(--text-dim);
   font-weight: 700;
