@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Exports the legacy "Kicken_2026.xlsx" spreadsheet (Ergebnisse sheet) into a JSON
-file the backend's historical-data importer can load.
+Exports one season's "Kicken_<year>.xlsx" spreadsheet (its "Ergebnisse <year>"
+sheet) into a JSON file the backend's historical-data importer can load. Each
+season lives in its own workbook/file; run this once per year.
 
 The original spreadsheet recorded, per player per matchday, the exact POINTS
 (4 win / 2 draw / 1 loss) and GOAL DIFFERENCE for that player. We preserve
@@ -14,24 +15,41 @@ rosters or the literal final score, so those are best-effort reconstructions
 and are called out as such in the README.
 
 Usage:
-    python3 export_xlsx_to_json.py /path/to/Kicken_2026.xlsx /path/to/output.json
+    python3 export_xlsx_to_json.py /path/to/Kicken_2026.xlsx /path/to/output.json [sheet_name]
+
+`sheet_name` is optional - if omitted, the script picks the sole sheet named
+"Ergebnisse <year>" (erroring out if there isn't exactly one match).
 """
 import json
+import re
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 import openpyxl
 
 
+def find_results_sheet(wb, explicit_name):
+    if explicit_name:
+        return explicit_name
+    candidates = [name for name in wb.sheetnames if re.fullmatch(r"Ergebnisse \d{4}", name)]
+    if len(candidates) == 1:
+        return candidates[0]
+    raise SystemExit(
+        f"Could not auto-detect the results sheet (found {candidates or 'none'} matching "
+        f"'Ergebnisse <year>' among {wb.sheetnames}). Pass the sheet name explicitly as the 3rd argument."
+    )
+
+
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         print(__doc__)
         sys.exit(1)
 
     xlsx_path, out_path = sys.argv[1], sys.argv[2]
+    explicit_sheet = sys.argv[3] if len(sys.argv) == 4 else None
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
-    ws = wb["Ergebnisse 2026"]
+    ws = wb[find_results_sheet(wb, explicit_sheet)]
 
     rows = list(ws.iter_rows(values_only=True))
     name_row = rows[2]  # row index 2 (0-based) has player names in the "P" column of each pair
@@ -119,7 +137,7 @@ def main():
 
     output = {
         "source": xlsx_path,
-        "exportedAt": datetime.utcnow().isoformat() + "Z",
+        "exportedAt": datetime.now(timezone.utc).isoformat(),
         "players": players,
         "gamedays": gamedays,
     }

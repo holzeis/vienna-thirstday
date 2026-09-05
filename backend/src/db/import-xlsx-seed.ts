@@ -1,10 +1,12 @@
 /**
  * One-time historical data import.
  *
- * Loads ./seed-data/kicken-2026-import.json (produced by
- * scripts/export_xlsx_to_json.py from the legacy Kicken_2026.xlsx spreadsheet)
- * and creates matching Players, Gamedays, Results and PlayerGamedayStats so
- * the 2026 season continues seamlessly inside the app.
+ * Loads every `*-import.json` file in ./seed-data (one per season, each
+ * produced by scripts/export_xlsx_to_json.py from that year's Kicken_<year>.xlsx
+ * spreadsheet) and creates matching Players, Gamedays, Results and
+ * PlayerGamedayStats so each imported season continues seamlessly inside the
+ * app. A player appearing in multiple years' files is matched by exact name
+ * and shares one player record across seasons.
  *
  * Imported players are created as GUESTS, not real players. Nobody has an
  * account yet, so there's no user to "own" this history - and per the season
@@ -36,7 +38,9 @@
  * already exist are not duplicated, but their `results` row is reconciled to
  * the (possibly corrected) placeholder score if it changed.
  *
- * Usage: npm run seed:import-xlsx
+ * Usage:
+ *   npm run seed:import-xlsx                       # imports every *-import.json in seed-data/
+ *   npm run seed:import-xlsx -- kicken-2025-import.json   # imports just that one file
  */
 import "dotenv/config";
 import fs from "fs";
@@ -65,19 +69,10 @@ interface ImportFile {
   gamedays: ImportGameday[];
 }
 
-async function main() {
-  const filePath = path.join(__dirname, "seed-data", "kicken-2026-import.json");
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Import file not found at ${filePath}. Run scripts/export_xlsx_to_json.py first.`);
-  }
+async function importFile(filePath: string, admin: { id: number }) {
   const data: ImportFile = JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
-  const admin = await db.query.users.findFirst({ where: eq(users.isAdmin, true) });
-  if (!admin) {
-    throw new Error("No admin user found. Run `npm run seed` first to bootstrap an admin account.");
-  }
-
-  console.log(`Importing ${data.players.length} players and ${data.gamedays.length} gamedays...`);
+  console.log(`\n=== ${path.basename(filePath)}: ${data.players.length} players, ${data.gamedays.length} gamedays ===`);
 
   const playerIdByName = new Map<string, number>();
   for (const name of data.players) {
@@ -164,6 +159,35 @@ async function main() {
       data.gamedays.length - created - reconciled
     } already up to date).`
   );
+}
+
+async function main() {
+  const seedDataDir = path.join(__dirname, "seed-data");
+  const arg = process.argv[2];
+  const files = arg
+    ? [path.join(seedDataDir, arg)]
+    : fs
+        .readdirSync(seedDataDir)
+        .filter((f) => f.endsWith("-import.json"))
+        .sort()
+        .map((f) => path.join(seedDataDir, f));
+
+  const missing = files.filter((f) => !fs.existsSync(f));
+  if (missing.length > 0) {
+    throw new Error(`Import file(s) not found: ${missing.join(", ")}. Run scripts/export_xlsx_to_json.py first.`);
+  }
+  if (files.length === 0) {
+    throw new Error(`No *-import.json files found in ${seedDataDir}. Run scripts/export_xlsx_to_json.py first.`);
+  }
+
+  const admin = await db.query.users.findFirst({ where: eq(users.isAdmin, true) });
+  if (!admin) {
+    throw new Error("No admin user found. Run `npm run seed` first to bootstrap an admin account.");
+  }
+
+  for (const filePath of files) {
+    await importFile(filePath, admin);
+  }
 }
 
 main()
