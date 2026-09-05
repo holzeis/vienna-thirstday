@@ -39,6 +39,7 @@ export function AdminUsers() {
   const [merges, setMerges] = useState<PlayerMerge[] | null>(null);
   const [invites, setInvites] = useState<Invite[] | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+  const [expandedInviteId, setExpandedInviteId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [busyMergeId, setBusyMergeId] = useState<number | null>(null);
@@ -243,7 +244,7 @@ export function AdminUsers() {
       </div>
 
       {invites && invites.length > 0 && (
-        <div className="card">
+        <div className="card invites-table-wrap">
           <div className="card-title">Invites</div>
           <table>
             <thead>
@@ -283,6 +284,50 @@ export function AdminUsers() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {invites && invites.length > 0 && (
+        <div className="invites-list-wrap">
+          <div className="card-title" style={{ marginBottom: 10 }}>
+            Invites
+          </div>
+          {invites.map((inv) => (
+            <div className="card user-card" key={inv.id}>
+              <div className="user-card-row">
+                <div>
+                  <div className="user-card-name">{inv.guestPlayer.name}</div>
+                  {inv.usedBy?.email && <div style={{ color: "var(--text-faint)", fontSize: 12 }}>accepted, {inv.usedBy.email}</div>}
+                </div>
+                <div className="user-card-actions">
+                  <span className={`badge ${INVITE_STATUS_BADGE[inv.status]}`}>{INVITE_STATUS_LABEL[inv.status]}</span>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label="More options"
+                    onClick={() => setExpandedInviteId((id) => (id === inv.id ? null : inv.id))}
+                  >
+                    ☰
+                  </button>
+                </div>
+              </div>
+              {expandedInviteId === inv.id && (
+                <div className="user-card-details">
+                  <div style={{ color: "var(--text-dim)", fontSize: 12 }}>Expires {formatDateTime(inv.expiresAt)}</div>
+                  {inv.status === "pending" && (
+                    <>
+                      <button className="btn btn-sm" onClick={() => copyLink(inv.token)}>
+                        {copiedToken === inv.token ? "Copied" : "Copy link"}
+                      </button>
+                      <button className="btn btn-sm btn-danger" disabled={busyInviteId === inv.id} onClick={() => revokeInvite(inv)}>
+                        Revoke
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

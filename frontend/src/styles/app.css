@@ -627,6 +627,10 @@ td .select {
   display: none;
 }
 
+.invites-list-wrap {
+  display: none;
+}
+
 .user-card {
   padding: 14px 16px;
 }
@@ -1172,6 +1176,17 @@ tr.me td:first-child {
        .card:last-child rule zeroes it, since it's last within this wrapper,
        not last on the page) - reserve that same gap here so the next card
        (e.g. "Merge guest history") doesn't sit flush against it. */
+    margin-bottom: 18px;
+  }
+
+  /* Same swap for the admin "Invites" table - expires/copy/revoke move
+     behind each card's hamburger toggle. */
+  .invites-table-wrap {
+    display: none;
+  }
+
+  .invites-list-wrap {
+    display: block;
     margin-bottom: 18px;
   }
 
