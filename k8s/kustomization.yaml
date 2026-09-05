@@ -20,13 +20,14 @@ resources:
   # the one-time Cloudflare-side setup this depends on.
   # - cloudflared.yaml
 
-# Point these at your own registry before deploying, e.g.:
-#   images:
-#     - name: vienna-thursday-backend
-#       newName: registry.example.com/vienna-thursday-backend
-#       newTag: "1.0.0"
+# Published by .github/workflows/docker-publish.yml on every push to main
+# (as `latest` + the short commit SHA) and on vX.Y.Z tags (also that
+# version) - swap newTag for a specific SHA/version to pin a deploy instead
+# of always tracking latest.
 images:
   - name: vienna-thursday-backend
+    newName: ghcr.io/holzeis/vienna-thirstday-backend
     newTag: latest
   - name: vienna-thursday-frontend
+    newName: ghcr.io/holzeis/vienna-thirstday-frontend
     newTag: latest

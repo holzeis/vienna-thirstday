@@ -13,6 +13,13 @@ spec:
       labels:
         app: backend
     spec:
+      # GHCR packages are private by default. If ghcr.io/holzeis/vienna-thirstday-backend
+      # is private, create a pull secret first and uncomment this:
+      #   kubectl create secret docker-registry ghcr-pull --namespace vienna-thursday \
+      #     --docker-server=ghcr.io --docker-username=<gh-username> \
+      #     --docker-password=<PAT with read:packages>
+      # imagePullSecrets:
+      #   - name: ghcr-pull
       containers:
         - name: backend
           image: vienna-thursday-backend:latest

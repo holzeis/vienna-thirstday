@@ -13,6 +13,10 @@ spec:
       labels:
         app: frontend
     spec:
+      # See backend-deployment.yaml's comment - same deal if
+      # ghcr.io/holzeis/vienna-thirstday-frontend is private.
+      # imagePullSecrets:
+      #   - name: ghcr-pull
       containers:
         - name: frontend
           image: vienna-thursday-frontend:latest
