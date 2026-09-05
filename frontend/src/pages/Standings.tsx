@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getStandings, listSeasons } from "../api/endpoints";
 import type { StandingRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -27,7 +28,7 @@ export function Standings() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Season standings</h2>
+          <h2>Season leaderboard</h2>
           <p>Ranked by points, then goal difference. Jan 1 – Dec 31 each year. Guests aren't ranked.</p>
         </div>
       </div>
@@ -60,7 +61,11 @@ export function Standings() {
               {rows.map((row) => (
                 <tr key={row.playerId} className={row.playerId === player?.id ? "me" : ""}>
                   <td className={row.rank <= 3 ? `rank-${row.rank}` : ""}>{row.rank}</td>
-                  <td>{row.name}</td>
+                  <td>
+                    <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
+                      {row.name}
+                    </Link>
+                  </td>
                   <td className="num">{row.gamesPlayed}</td>
                   <td className="num">{row.points}</td>
                   <td className="num">{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>

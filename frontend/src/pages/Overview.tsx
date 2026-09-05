@@ -43,6 +43,20 @@ export function Overview() {
         </div>
       </div>
 
+      {user?.isAdmin && (
+        <div className="card">
+          <div className="card-title">Admin shortcuts</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link to="/gamedays?new=1" className="btn btn-primary btn-sm">
+              Create a gameday
+            </Link>
+            <Link to="/admin/users" className="btn btn-sm">
+              Approve pending users
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-2">
         <div className="card">
           <div className="card-title">Next gamedays</div>
@@ -54,7 +68,6 @@ export function Overview() {
                 <li key={g.id}>
                   <Link to={`/gamedays/${g.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                     <strong>{formatDate(g.date)}</strong>
-                    {g.location ? ` · ${g.location}` : ""}
                   </Link>
                   <span className="badge badge-confirmed">
                     {g.confirmedCount}/{g.maxPlayers}
@@ -99,25 +112,11 @@ export function Overview() {
           )}
           <div className="card-footer">
             <Link to="/standings" className="btn btn-sm">
-              Full standings
+              Full leaderboard
             </Link>
           </div>
         </div>
       </div>
-
-      {user?.isAdmin && (
-        <div className="card">
-          <div className="card-title">Admin shortcuts</div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Link to="/gamedays" className="btn btn-primary btn-sm">
-              Create a gameday
-            </Link>
-            <Link to="/admin/users" className="btn btn-sm">
-              Approve pending users
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

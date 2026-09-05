@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { createGameday, listGamedays } from "../api/endpoints";
 import type { GamedaySummary } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -15,8 +15,9 @@ const statusClass: Record<string, string> = {
 
 export function GamedaysList() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [gamedays, setGamedays] = useState<GamedaySummary[] | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(searchParams.get("new") === "1");
   const [error, setError] = useState<string | null>(null);
 
   function load() {
@@ -60,7 +61,7 @@ export function GamedaysList() {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Location</th>
+                <th>Score</th>
                 <th>Status</th>
                 <th className="num">Players</th>
               </tr>
@@ -73,7 +74,7 @@ export function GamedaysList() {
                       {formatDateTime(g.date)}
                     </Link>
                   </td>
-                  <td>{g.location || "—"}</td>
+                  <td>{g.result ? `${g.result.teamAScore}:${g.result.teamBScore}` : "—"}</td>
                   <td>
                     <span className={`badge ${statusClass[g.status] || ""}`}>{g.status}</span>
                   </td>
@@ -91,11 +92,14 @@ export function GamedaysList() {
   );
 }
 
+function defaultGamedayDate(): string {
+  const d = new Date();
+  d.setHours(19, 0, 0, 0);
+  return toDatetimeLocalValue(d.toISOString());
+}
+
 function CreateGamedayForm({ onCreated, onError }: { onCreated: () => void; onError: (m: string | null) => void }) {
-  const [date, setDate] = useState(toDatetimeLocalValue());
-  const [location, setLocation] = useState("");
-  const [minPlayers, setMinPlayers] = useState(8);
-  const [maxPlayers, setMaxPlayers] = useState(14);
+  const [date, setDate] = useState(defaultGamedayDate);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -103,12 +107,7 @@ function CreateGamedayForm({ onCreated, onError }: { onCreated: () => void; onEr
     onError(null);
     setSubmitting(true);
     try {
-      await createGameday({
-        date: new Date(date).toISOString(),
-        location: location || undefined,
-        minPlayers,
-        maxPlayers,
-      });
+      await createGameday({ date: new Date(date).toISOString() });
       onCreated();
     } catch (err) {
       onError(err instanceof ApiClientError ? err.message : "Could not create gameday");
@@ -125,32 +124,6 @@ function CreateGamedayForm({ onCreated, onError }: { onCreated: () => void; onEr
           <div className="field">
             <label htmlFor="date">Date &amp; time</label>
             <input id="date" type="datetime-local" required value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="location">Location</label>
-            <input id="location" placeholder="e.g. Platz 7" value={location} onChange={(e) => setLocation(e.target.value)} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="field">
-            <label htmlFor="min">Min players</label>
-            <input
-              id="min"
-              type="number"
-              min={2}
-              value={minPlayers}
-              onChange={(e) => setMinPlayers(parseInt(e.target.value, 10))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="max">Max players</label>
-            <input
-              id="max"
-              type="number"
-              min={2}
-              value={maxPlayers}
-              onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
-            />
           </div>
         </div>
         <button className="btn btn-primary" type="submit" disabled={submitting}>

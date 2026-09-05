@@ -8,6 +8,13 @@
       "when": 1788519567368,
       "tag": "0000_robust_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788549858918,
+      "tag": "0001_futuristic_raider",
+      "breakpoints": true
     }
   ]
 }

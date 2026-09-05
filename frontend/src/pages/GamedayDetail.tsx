@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   cancelRegistration,
   createGuest,
+  deleteGameday,
   getGameday,
   listMyGuests,
   registerForGameday,
@@ -70,37 +71,38 @@ export function GamedayDetail() {
       <div className="page-header">
         <div>
           <h2>{formatDateTime(gameday.date)}</h2>
-          <p>{gameday.location || "Location TBD"}</p>
         </div>
         <span className={`badge ${statusClass[gameday.status] || ""}`}>{gameday.status}</span>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="grid grid-2">
-        <div className="card">
-          <div className="card-title">
-            Confirmed ({confirmed.length}/{gameday.maxPlayers})
+      {gameday.status !== "COMPLETED" && (
+        <div className="grid grid-2">
+          <div className="card">
+            <div className="card-title">
+              Confirmed ({confirmed.length}/{gameday.maxPlayers})
+            </div>
+            <PlayerList
+              regs={confirmed}
+              currentUserId={user!.id}
+              isAdmin={!!user?.isAdmin}
+              busy={busy}
+              onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
+            />
           </div>
-          <PlayerList
-            regs={confirmed}
-            currentUserId={user!.id}
-            isAdmin={!!user?.isAdmin}
-            busy={busy}
-            onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
-          />
+          <div className="card">
+            <div className="card-title">Waitlist ({waitlisted.length})</div>
+            <PlayerList
+              regs={waitlisted}
+              currentUserId={user!.id}
+              isAdmin={!!user?.isAdmin}
+              busy={busy}
+              onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
+            />
+          </div>
         </div>
-        <div className="card">
-          <div className="card-title">Waitlist ({waitlisted.length})</div>
-          <PlayerList
-            regs={waitlisted}
-            currentUserId={user!.id}
-            isAdmin={!!user?.isAdmin}
-            busy={busy}
-            onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
-          />
-        </div>
-      </div>
+      )}
 
       {gameday.status === "OPEN" && (
         <div className="card">
@@ -155,7 +157,9 @@ export function GamedayDetail() {
                   .filter((s) => s.team === "A")
                   .map((s) => (
                     <li key={s.id}>
-                      {s.player.name}
+                      <Link to={`/players/${s.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        {s.player.name}
+                      </Link>
                       <span>
                         {s.points} pts / {s.goalDiff > 0 ? `+${s.goalDiff}` : s.goalDiff} GD
                       </span>
@@ -171,7 +175,9 @@ export function GamedayDetail() {
                   .filter((s) => s.team === "B")
                   .map((s) => (
                     <li key={s.id}>
-                      {s.player.name}
+                      <Link to={`/players/${s.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        {s.player.name}
+                      </Link>
                       <span>
                         {s.points} pts / {s.goalDiff > 0 ? `+${s.goalDiff}` : s.goalDiff} GD
                       </span>
@@ -300,6 +306,7 @@ function AdminSection({
   activeRegs: RegistrationView[];
   onChanged: () => void;
 }) {
+  const navigate = useNavigate();
   const [assignments, setAssignments] = useState<Record<number, Team | "">>({});
   const [teamAScore, setTeamAScore] = useState(gameday.result?.teamAScore ?? 0);
   const [teamBScore, setTeamBScore] = useState(gameday.result?.teamBScore ?? 0);
@@ -314,7 +321,12 @@ function AdminSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameday.id, gameday.teamAssignments.length]);
 
-  async function saveTeams() {
+  function clampScore(raw: string): number {
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  async function saveAll() {
     setError(null);
     setBusy(true);
     try {
@@ -322,30 +334,38 @@ function AdminSection({
         .filter(([, team]) => team === "A" || team === "B")
         .map(([playerId, team]) => ({ playerId: parseInt(playerId, 10), team: team as Team }));
       await setTeams(gamedayId, list);
+      await setResult(gamedayId, teamAScore, teamBScore);
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not save teams");
+      setError(err instanceof ApiClientError ? err.message : "Could not save");
     } finally {
       setBusy(false);
     }
   }
 
-  async function saveResult() {
+  async function handleDelete() {
+    if (!window.confirm("Delete this gameday? This cannot be undone.")) return;
     setError(null);
     setBusy(true);
     try {
-      await setResult(gamedayId, teamAScore, teamBScore);
-      onChanged();
+      await deleteGameday(gamedayId);
+      navigate("/gamedays");
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not save result");
-    } finally {
+      setError(err instanceof ApiClientError ? err.message : "Could not delete gameday");
       setBusy(false);
     }
   }
 
   return (
     <div className="card">
-      <div className="card-title">Admin: teams &amp; result</div>
+      <div className="page-header" style={{ marginBottom: 14 }}>
+        <div className="card-title" style={{ marginBottom: 0 }}>
+          Admin: teams &amp; result
+        </div>
+        <button className="btn btn-sm btn-danger" disabled={busy} onClick={handleDelete}>
+          Delete gameday
+        </button>
+      </div>
       {error && <div className="alert alert-error">{error}</div>}
 
       <table>
@@ -378,35 +398,41 @@ function AdminSection({
           ))}
         </tbody>
       </table>
-      <div style={{ marginTop: 12 }}>
-        <button className="btn btn-primary" disabled={busy} onClick={saveTeams}>
-          Save teams
-        </button>
-      </div>
 
       <div className="divider" />
 
-      <div className="form-row" style={{ alignItems: "flex-end" }}>
+      <div className="card-title">Result</div>
+      <div className="score-entry">
         <div className="field">
-          <label>Team A score</label>
+          <label>Team A</label>
           <input
             type="number"
+            inputMode="numeric"
             min={0}
+            step={1}
+            className="score-input"
             value={teamAScore}
-            onChange={(e) => setTeamAScore(parseInt(e.target.value, 10) || 0)}
+            onChange={(e) => setTeamAScore(clampScore(e.target.value))}
           />
         </div>
+        <span className="dash">:</span>
         <div className="field">
-          <label>Team B score</label>
+          <label>Team B</label>
           <input
             type="number"
+            inputMode="numeric"
             min={0}
+            step={1}
+            className="score-input"
             value={teamBScore}
-            onChange={(e) => setTeamBScore(parseInt(e.target.value, 10) || 0)}
+            onChange={(e) => setTeamBScore(clampScore(e.target.value))}
           />
         </div>
-        <button className="btn btn-primary" disabled={busy} onClick={saveResult}>
-          Save result
+      </div>
+
+      <div style={{ marginTop: 16, textAlign: "center" }}>
+        <button className="btn btn-primary" disabled={busy} onClick={saveAll}>
+          {busy ? "Saving..." : "Save"}
         </button>
       </div>
     </div>

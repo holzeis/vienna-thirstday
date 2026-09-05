@@ -15,7 +15,6 @@ router.use(requireAuth);
 
 const createGamedaySchema = z.object({
   date: z.string().datetime().or(z.string().min(1)),
-  location: z.string().max(255).optional(),
   minPlayers: z.number().int().min(2).optional(),
   maxPlayers: z.number().int().min(2).optional(),
   notes: z.string().optional(),
@@ -27,13 +26,12 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = createGamedaySchema.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest("Invalid gameday data", parsed.error.flatten());
-    const { date, location, minPlayers, maxPlayers, notes } = parsed.data;
+    const { date, minPlayers, maxPlayers, notes } = parsed.data;
 
     const [gameday] = await db
       .insert(gamedays)
       .values({
         date: new Date(date),
-        location,
         minPlayers: minPlayers ?? 8,
         maxPlayers: maxPlayers ?? 14,
         notes,
@@ -52,6 +50,7 @@ router.get(
       orderBy: (g, { desc }) => desc(g.date),
       with: {
         registrations: { where: ne(registrations.status, "CANCELLED") },
+        result: true,
       },
     });
 
@@ -61,15 +60,16 @@ router.get(
 
     const summarized = filtered.map((g) => {
       const regs = (g as any).registrations as { status: string }[];
+      const result = (g as any).result as { teamAScore: number; teamBScore: number } | null;
       return {
         id: g.id,
         date: g.date,
-        location: g.location,
         status: g.status,
         minPlayers: g.minPlayers,
         maxPlayers: g.maxPlayers,
         confirmedCount: regs.filter((r) => r.status === "CONFIRMED").length,
         waitlistedCount: regs.filter((r) => r.status === "WAITLISTED").length,
+        result: g.status === "COMPLETED" && result ? { teamAScore: result.teamAScore, teamBScore: result.teamBScore } : null,
       };
     });
 
@@ -114,7 +114,6 @@ router.get(
 
 const updateGamedaySchema = z.object({
   date: z.string().optional(),
-  location: z.string().max(255).optional(),
   minPlayers: z.number().int().min(2).optional(),
   maxPlayers: z.number().int().min(2).optional(),
   notes: z.string().optional(),
@@ -144,6 +143,18 @@ router.patch(
     }
 
     res.json({ gameday: updated });
+  })
+);
+
+/** Admin deletes a gameday outright; registrations/teams/results/stats cascade with it. */
+router.delete(
+  "/:id",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const [deleted] = await db.delete(gamedays).where(eq(gamedays.id, id)).returning();
+    if (!deleted) throw ApiError.notFound("Gameday not found");
+    res.status(204).send();
   })
 );
 

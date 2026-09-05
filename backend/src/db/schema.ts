@@ -47,6 +47,8 @@ export const players = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     isGuest: boolean("is_guest").notNull().default(false),
     addedByUserId: integer("added_by_user_id").references(() => users.id),
+    avatarData: text("avatar_data"),
+    avatarMimeType: varchar("avatar_mime_type", { length: 100 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -59,7 +61,6 @@ export const gamedays = pgTable(
   {
     id: serial("id").primaryKey(),
     date: timestamp("date", { withTimezone: true }).notNull(),
-    location: varchar("location", { length: 255 }),
     minPlayers: integer("min_players").notNull().default(8),
     maxPlayers: integer("max_players").notNull().default(14),
     status: gamedayStatusEnum("status").notNull().default("OPEN"),
