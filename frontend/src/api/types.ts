@@ -108,6 +108,7 @@ export interface TeammateRecord {
   sharedGames: number;
   sharedWins: number;
   sharedLosses: number;
+  avatarDataUri: string | null;
 }
 
 /** Transient - unlike awards these can be lost the moment the next game changes the picture. */

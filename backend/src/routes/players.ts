@@ -3,7 +3,7 @@ import multer from "multer";
 import sharp from "sharp";
 import { db } from "../db/client";
 import { players, users } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
@@ -14,11 +14,37 @@ import {
   computePlayerSeasonAwards,
   computeTeammateTally,
   fetchStatRows,
+  type TeammateRecord,
 } from "../services/playerStatsService";
 
 const router = Router();
 
 router.use(requireAuth);
+
+function avatarDataUri(row: { avatarData: string | null; avatarMimeType: string | null }): string | null {
+  return row.avatarData ? `data:${row.avatarMimeType || "image/jpeg"};base64,${row.avatarData}` : null;
+}
+
+/** Attaches each teammate's profile picture - the Locker Room card uses it as that tile's visual anchor. */
+async function withTeammateAvatars<T extends { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null }>(
+  teammates: T
+): Promise<T> {
+  const ids = [teammates.favorite?.playerId, teammates.unfavorite?.playerId, teammates.mostPlayedWith?.playerId].filter(
+    (id): id is number => id !== undefined
+  );
+  if (ids.length === 0) return teammates;
+
+  const rows = await db.query.players.findMany({ where: inArray(players.id, Array.from(new Set(ids))) });
+  const byId = new Map(rows.map((r) => [r.id, avatarDataUri(r)]));
+
+  const attach = (rec: TeammateRecord | null): TeammateRecord | null => (rec ? { ...rec, avatarDataUri: byId.get(rec.playerId) ?? null } : null);
+  return {
+    ...teammates,
+    favorite: attach(teammates.favorite),
+    unfavorite: attach(teammates.unfavorite),
+    mostPlayedWith: attach(teammates.mostPlayedWith),
+  };
+}
 
 /** List all registered (non-guest) players - used for admin team assignment, guest pickers, etc. */
 router.get(
@@ -55,16 +81,14 @@ router.get(
       [...myRows].sort((a, b) => a.date.getTime() - b.date.getTime()).slice(-5).map((r) => r.gamedayId)
     );
     const formRows = allRows.filter((r) => lastFiveGamedayIds.has(r.gamedayId));
-    const teammates = computeTeammateTally(formRows, id);
+    const teammates = await withTeammateAvatars(computeTeammateTally(formRows, id));
 
     res.json({
       player: {
         id: player.id,
         name: player.name,
         isGuest: player.isGuest,
-        avatarDataUri: player.avatarData
-          ? `data:${player.avatarMimeType || "image/jpeg"};base64,${player.avatarData}`
-          : null,
+        avatarDataUri: avatarDataUri(player),
         // A real member's join date is when their account was registered;
         // guests/unmerged imports have no account, so fall back to when
         // their player record was first created.

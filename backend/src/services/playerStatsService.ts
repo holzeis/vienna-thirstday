@@ -42,6 +42,8 @@ export interface TeammateRecord {
   sharedGames: number;
   sharedWins: number;
   sharedLosses: number;
+  /** Populated by the route layer (this service has no DB access) - null until enriched. */
+  avatarDataUri: string | null;
 }
 
 /** Lifetime, lifelong-progression categories - lifetime count vs a fixed bar. */
@@ -178,7 +180,14 @@ export function computeTeammateTally(
       if (other.playerId === playerId) continue;
       let rec = tally.get(other.playerId);
       if (!rec) {
-        rec = { playerId: other.playerId, name: other.playerName, sharedGames: 0, sharedWins: 0, sharedLosses: 0 };
+        rec = {
+          playerId: other.playerId,
+          name: other.playerName,
+          sharedGames: 0,
+          sharedWins: 0,
+          sharedLosses: 0,
+          avatarDataUri: null,
+        };
         tally.set(other.playerId, rec);
       }
       rec.sharedGames++;
