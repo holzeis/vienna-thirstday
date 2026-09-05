@@ -24,12 +24,13 @@ router.get(
   })
 );
 
-/** Points/goal-diff-ranked, non-guest players for gamedays in [from, to). */
+/** Points/goal-diff-ranked players (guests included, flagged via isGuest) for gamedays in [from, to). */
 async function fetchRanked(from: Date, to: Date) {
   const rows = await db
     .select({
       playerId: players.id,
       name: players.name,
+      isGuest: players.isGuest,
       points: sql<number>`sum(${playerGamedayStats.points})`.mapWith(Number),
       goalDiff: sql<number>`sum(${playerGamedayStats.goalDiff})`.mapWith(Number),
       gamesPlayed: sql<number>`count(*)`.mapWith(Number),
@@ -38,7 +39,7 @@ async function fetchRanked(from: Date, to: Date) {
     .innerJoin(results, eq(playerGamedayStats.resultId, results.id))
     .innerJoin(gamedays, eq(results.gamedayId, gamedays.id))
     .innerJoin(players, eq(playerGamedayStats.playerId, players.id))
-    .where(and(eq(players.isGuest, false), gte(gamedays.date, from), lt(gamedays.date, to)))
+    .where(and(gte(gamedays.date, from), lt(gamedays.date, to)))
     .groupBy(players.id, players.name)
     .orderBy(sql`sum(${playerGamedayStats.points}) desc`, sql`sum(${playerGamedayStats.goalDiff}) desc`);
 

@@ -2,7 +2,7 @@ import "./testDb";
 import bcrypt from "bcryptjs";
 import { sql } from "drizzle-orm";
 import { db, pool } from "../db/client";
-import { players, users } from "../db/schema";
+import { gamedays, players, playerGamedayStats, results, users } from "../db/schema";
 
 /** Wipes every table between tests so route tests don't see each other's data. */
 export async function resetDb() {
@@ -27,4 +27,22 @@ export async function createAdmin(name = "Admin", password = "password123") {
 export async function createGuestPlayer(name: string) {
   const [player] = await db.insert(players).values({ name, isGuest: true }).returning();
   return player;
+}
+
+/** Creates a completed gameday with a result and per-player stat rows, for standings/Hall of Fame tests. */
+export async function createCompletedGameday(
+  adminUserId: number,
+  date: Date,
+  score: { teamA: number; teamB: number },
+  stats: { playerId: number; team: "A" | "B"; points: number; goalDiff: number }[]
+) {
+  const [gameday] = await db.insert(gamedays).values({ date, status: "COMPLETED", createdByUserId: adminUserId }).returning();
+  const [result] = await db
+    .insert(results)
+    .values({ gamedayId: gameday.id, teamAScore: score.teamA, teamBScore: score.teamB, enteredByUserId: adminUserId })
+    .returning();
+  if (stats.length > 0) {
+    await db.insert(playerGamedayStats).values(stats.map((s) => ({ resultId: result.id, ...s })));
+  }
+  return { gameday, result };
 }

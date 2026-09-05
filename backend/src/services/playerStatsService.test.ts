@@ -241,6 +241,16 @@ describe("computeSeasonPodiums", () => {
     expect(podiums.ranking.bronze).toMatchObject({ playerId: 3, value: 1 });
   });
 
+  it("carries each entry's isGuest flag through to the podium, guests included", () => {
+    const rows: StatRow[] = [
+      row({ playerId: 1, playerName: "Lukas", isGuest: false, points: 4, goalDiff: 3, teamScore: 5 }),
+      row({ playerId: 2, playerName: "Robert", isGuest: true, points: 2, goalDiff: 0, teamScore: 2 }),
+    ];
+    const { gold, silver } = computeSeasonPodiums(rows).ranking;
+    expect(gold).toMatchObject({ playerId: 1, isGuest: false });
+    expect(silver).toMatchObject({ playerId: 2, isGuest: true });
+  });
+
   it("resolves a fully-tied ranking with goal-diff, then wins, then fewer games, then name", () => {
     // Alice and Bob have identical points/goalDiff/wins/games - only name differs.
     const rows: StatRow[] = [
@@ -326,11 +336,12 @@ describe("computePlayerSeasonAwards", () => {
     expect(computePlayerSeasonAwards(allRows, 1)).toEqual([]);
   });
 
-  it("excludes guest players from season leaderboards entirely", () => {
+  it("includes guest players in season awards, same as registered players", () => {
     const allRows: StatRow[] = [
       row({ playerId: 1, isGuest: true, date: new Date(Date.UTC(lastYear, 5, 1)), points: 4, goalDiff: 3, teamScore: 5 }),
     ];
-    expect(computePlayerSeasonAwards(allRows, 1)).toEqual([]);
+    const awards = computePlayerSeasonAwards(allRows, 1);
+    expect(awards.some((a) => a.kind === "season" && a.season === lastYear && a.category === "ranking")).toBe(true);
   });
 
   it("sorts multiple seasons' awards most-recent-first", () => {

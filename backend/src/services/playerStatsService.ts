@@ -71,6 +71,7 @@ export interface PlayerAward {
 export interface PodiumEntry {
   playerId: number;
   name: string;
+  isGuest: boolean;
   value: number;
 }
 
@@ -346,8 +347,8 @@ function podiumFor<T>(perPlayer: T[], compareFn: (a: T, b: T) => number, toEntry
  * genuine draw. `ranking` mirrors the leaderboard's own rule (points desc,
  * then goal-diff desc) and needs its own tertiary factors (wins, then fewer
  * games played) since points/goal-diff are already its primary criteria.
- * `rows` should already be restricted to eligible (non-guest) players and to
- * a single calendar year.
+ * `rows` should already be restricted to a single calendar year - guests are
+ * eligible for these awards just like registered players.
  */
 export function computeSeasonPodiums(rows: StatRow[]): Record<SeasonAwardCategory, PodiumAward> {
   const byPlayer = new Map<number, StatRow[]>();
@@ -360,6 +361,7 @@ export function computeSeasonPodiums(rows: StatRow[]): Record<SeasonAwardCategor
   const perPlayer = Array.from(byPlayer.entries()).map(([playerId, playerRows]) => ({
     playerId,
     name: playerRows[0].playerName,
+    isGuest: playerRows[0].isGuest,
     career: computeCareerStats(playerRows),
     streaks: computeStreaks(playerRows),
   }));
@@ -375,27 +377,27 @@ export function computeSeasonPodiums(rows: StatRow[]): Record<SeasonAwardCategor
     ranking: podiumFor<Player>(
       perPlayer,
       compareChain(byPoints, byGoalDiff, byWins, byFewerGames, byName),
-      (p) => ({ playerId: p.playerId, name: p.name, value: p.career.points })
+      (p) => ({ playerId: p.playerId, name: p.name, isGuest: p.isGuest, value: p.career.points })
     ),
     mostGames: podiumFor<Player>(
       perPlayer,
       compareChain((a, b) => b.career.gamesPlayed - a.career.gamesPlayed, byPoints, byGoalDiff, byName),
-      (p) => ({ playerId: p.playerId, name: p.name, value: p.career.gamesPlayed })
+      (p) => ({ playerId: p.playerId, name: p.name, isGuest: p.isGuest, value: p.career.gamesPlayed })
     ),
     mostGoals: podiumFor<Player>(
       perPlayer,
       compareChain((a, b) => b.career.goals - a.career.goals, byPoints, byGoalDiff, byName),
-      (p) => ({ playerId: p.playerId, name: p.name, value: p.career.goals })
+      (p) => ({ playerId: p.playerId, name: p.name, isGuest: p.isGuest, value: p.career.goals })
     ),
     longestWinStreak: podiumFor<Player>(
       perPlayer,
       compareChain((a, b) => b.streaks.longestWinStreak - a.streaks.longestWinStreak, byPoints, byGoalDiff, byName),
-      (p) => ({ playerId: p.playerId, name: p.name, value: p.streaks.longestWinStreak })
+      (p) => ({ playerId: p.playerId, name: p.name, isGuest: p.isGuest, value: p.streaks.longestWinStreak })
     ),
     longestLossStreak: podiumFor<Player>(
       perPlayer,
       compareChain((a, b) => b.streaks.longestLossStreak - a.streaks.longestLossStreak, byPoints, byGoalDiff, byName),
-      (p) => ({ playerId: p.playerId, name: p.name, value: p.streaks.longestLossStreak })
+      (p) => ({ playerId: p.playerId, name: p.name, isGuest: p.isGuest, value: p.streaks.longestLossStreak })
     ),
   };
 }
@@ -444,8 +446,7 @@ export function computePersonalAwards(career: CareerStats, isAdmin: boolean): Pl
  */
 export function computePlayerSeasonAwards(allRows: StatRow[], playerId: number): PlayerAward[] {
   const currentYear = new Date().getUTCFullYear();
-  const eligibleRows = allRows.filter((r) => !r.isGuest);
-  const byYear = groupRowsByYear(eligibleRows);
+  const byYear = groupRowsByYear(allRows);
 
   const awards: PlayerAward[] = [];
   for (const [year, yearRows] of byYear) {

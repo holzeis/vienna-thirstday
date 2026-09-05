@@ -35,7 +35,7 @@ router.get(
     }
 
     const rows = await fetchStatRows(db, { year });
-    const podiums = computeSeasonPodiums(rows.filter((r) => !r.isGuest));
+    const podiums = computeSeasonPodiums(rows);
 
     res.json({ year, seasonComplete: true, podiums });
   })
