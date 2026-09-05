@@ -103,6 +103,55 @@ router.get(
   })
 );
 
+const updateMeSchema = z.object({
+  name: z.string().min(1, "Name is required").max(255).optional(),
+  email: z.string().email().optional(),
+  currentPassword: z.string().min(1).optional(),
+  newPassword: z.string().min(8, "Password must be at least 8 characters").optional(),
+});
+
+/** Self-service account settings: name (own player), email, and/or password. */
+router.patch(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const parsed = updateMeSchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid update", parsed.error.flatten());
+    const { name, email, currentPassword, newPassword } = parsed.data;
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, req.user!.userId) });
+    if (!user) throw ApiError.notFound("User not found");
+
+    if (newPassword) {
+      if (!currentPassword) throw ApiError.badRequest("Current password is required to set a new password");
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) throw ApiError.unauthorized("Current password is incorrect");
+    }
+
+    const normalizedEmail = email?.toLowerCase();
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      const existing = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) });
+      if (existing && existing.id !== user.id) throw ApiError.conflict("An account with this email already exists");
+    }
+
+    await db.transaction(async (tx) => {
+      const userUpdates: Record<string, unknown> = {};
+      if (normalizedEmail) userUpdates.email = normalizedEmail;
+      if (newPassword) userUpdates.passwordHash = await bcrypt.hash(newPassword, 10);
+      if (Object.keys(userUpdates).length > 0) {
+        userUpdates.updatedAt = new Date();
+        await tx.update(users).set(userUpdates).where(eq(users.id, user.id));
+      }
+      if (name && user.playerId) {
+        await tx.update(players).set({ name }).where(eq(players.id, user.playerId));
+      }
+    });
+
+    const updated = await db.query.users.findFirst({ where: eq(users.id, user.id), with: { player: true } });
+    res.json({ user: sanitizeUser(updated!), player: (updated as any).player ?? null });
+  })
+);
+
 export function sanitizeUser(user: typeof users.$inferSelect) {
   const { passwordHash, ...rest } = user;
   return rest;
