@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createGameday, listGamedays } from "../api/endpoints";
 import type { GamedaySummary } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -15,6 +15,7 @@ const statusClass: Record<string, string> = {
 
 export function GamedaysList() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [gamedays, setGamedays] = useState<GamedaySummary[] | null>(null);
   const [year, setYear] = useState<number | null>(null);
@@ -87,7 +88,7 @@ export function GamedaysList() {
           <table>
             <thead>
               <tr>
-                <th>Matchday</th>
+                <th>#</th>
                 <th>Date</th>
                 <th>Score</th>
                 <th>Status</th>
@@ -96,7 +97,7 @@ export function GamedaysList() {
             </thead>
             <tbody>
               {visible.map((g) => (
-                <tr key={g.id}>
+                <tr key={g.id} onClick={() => navigate(`/gamedays/${g.id}`)} style={{ cursor: "pointer" }}>
                   <td>{g.matchday}</td>
                   <td>
                     <Link to={`/gamedays/${g.id}`} style={{ textDecoration: "none", color: "inherit" }}>
