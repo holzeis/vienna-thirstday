@@ -1,6 +1,27 @@
 # Requires an ingress-nginx controller (or adapt annotations/class for
 # whatever ingress controller your cluster runs). Edit the host to match your
 # actual domain, and update CORS_ORIGIN in backend-configmap.yaml to match.
+#
+# The `vienna-thursday.local` rule is plain HTTP - a .local name can never
+# get a real Let's Encrypt cert (ACME needs a publicly resolvable domain), so
+# don't add it to `tls.hosts` below.
+#
+# The public hostname (reached via the Cloudflare Tunnel in cloudflared.yaml)
+# DOES get a real cert here, issued by the existing letsencrypt-dns01
+# ClusterIssuer (already configured with a Cloudflare API token, so it can
+# complete the DNS-01 challenge for any domain in this Cloudflare account -
+# no port needs to be open for issuance either). Swap
+# vienna-thursday.yourdomain.com for your real public hostname in both the
+# `rules` entry and `tls.hosts` below.
+#
+# For cloudflared to actually verify this cert (rather than skipping
+# verification), its Public Hostname's origin must be configured with:
+#   URL: https://nginx-ingress-nginx-controller.nginx.svc.cluster.local:443
+#   Origin Server Name (TLS settings): vienna-thursday.yourdomain.com
+# The Origin Server Name is what gets sent as the TLS SNI / validated against
+# the cert's name - it must be the public hostname, not the internal service
+# address the URL connects to, or ingress-nginx will present the wrong
+# certificate (SNI-based) and/or cloudflared's hostname check will fail.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -8,8 +29,13 @@ metadata:
   namespace: vienna-thursday
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - vienna-thursday.yourdomain.com
+      secretName: vienna-thursday-tls
   rules:
     - host: vienna-thursday.local
       http:
@@ -21,16 +47,13 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    # If you're exposing this publicly via cloudflared.yaml's Cloudflare
-    # Tunnel, add the public hostname you configured there as a second rule
-    # (same backend) so this ingress controller answers for both:
-    # - host: vienna-thursday.yourdomain.com
-    #   http:
-    #     paths:
-    #       - path: /
-    #         pathType: Prefix
-    #         backend:
-    #           service:
-    #             name: frontend
-    #             port:
-    #               number: 80
+    - host: vienna-thursday.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

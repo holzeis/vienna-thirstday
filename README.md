@@ -311,20 +311,30 @@ Host header exactly like it does for the local hostname.
    copy the token it gives you (a single string - this is the simpler
    token-based setup, no `config.yml`/`cert.pem` file needed).
 2. On that tunnel, add a **Public Hostname**: the hostname you want (on a
-   domain already in your Cloudflare account), type `HTTP`, service
-   `nginx-ingress-nginx-controller.<namespace>.svc.cluster.local:80` (swap in
-   whatever namespace your ingress-nginx controller actually runs in).
-   Cloudflare creates the DNS record for you.
-3. Add that hostname as a second `host:` entry in `k8s/ingress.yaml` (a
-   commented example is already there) pointing at the same `frontend`
-   backend, and to `CORS_ORIGIN` in `backend-configmap.yaml` if anything will
-   ever call the API cross-origin from it (normally not needed - the
-   frontend's own nginx proxies `/api` same-origin).
+   domain already in your Cloudflare account), type `HTTPS`, URL
+   `nginx-ingress-nginx-controller.<namespace>.svc.cluster.local:443` (swap
+   in whatever namespace your ingress-nginx controller actually runs in),
+   then in that hostname's additional TLS settings set **Origin Server
+   Name** to the same public hostname (not the internal service address) -
+   that's what's sent as the TLS SNI and checked against the origin's
+   certificate, so leave **No TLS Verify off**. Cloudflare creates the DNS
+   record for you.
+3. Add that hostname to `k8s/ingress.yaml`'s `rules` *and* `tls.hosts`
+   (already templated there - swap in your real domain) so cert-manager
+   issues it a real Let's Encrypt certificate via the `letsencrypt-dns01`
+   `ClusterIssuer` (DNS-01, so - like the tunnel itself - no inbound port
+   needs to be open for issuance or renewal). Also update `CORS_ORIGIN` in
+   `backend-configmap.yaml` if anything will ever call the API cross-origin
+   from it (normally not needed - the frontend's own nginx proxies `/api`
+   same-origin).
 4. Put the token from step 1 into your secret as `CLOUDFLARE_TUNNEL_TOKEN`,
    then uncomment `cloudflared.yaml` in `kustomization.yaml` and re-apply.
 
-Cloudflare terminates TLS at their edge, so the public hostname gets HTTPS
-automatically with no cert-manager involvement needed for it.
+This keeps the whole path genuinely encrypted end to end: Cloudflare
+terminates TLS for visitors at their edge, and the hop from `cloudflared` to
+ingress-nginx inside your cluster is its own separately verified HTTPS
+connection using the cert-manager-issued certificate - not just "trust
+Cloudflare's edge and leave the last hop in plaintext."
 
 > **Note:** these manifests (including `cloudflared.yaml` and the Longhorn
 > storage class) were validated with `kubectl apply --dry-run=client` against

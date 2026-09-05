@@ -12,19 +12,28 @@
 #      simpler token-based setup, no config.yml/cert.pem needed).
 #   2. On the same tunnel, add a Public Hostname: pick the hostname you want
 #      (e.g. vienna-thursday.yourdomain.com, on a domain already added to
-#      your Cloudflare account), type HTTP, and point it at:
-#        nginx-ingress-nginx-controller.nginx.svc.cluster.local:80
-#      Cloudflare creates the DNS record for you automatically.
-#   3. Add that same hostname to k8s/ingress.yaml's `rules` (a second `host:`
-#      entry alongside vienna-thursday.local, same backend), and to
+#      your Cloudflare account), type HTTPS, URL
+#        nginx-ingress-nginx-controller.nginx.svc.cluster.local:443
+#      then open that hostname's additional TLS settings and set
+#      "Origin Server Name" to the SAME public hostname (not the internal
+#      service address above) - that's what's sent as the TLS SNI and
+#      checked against the certificate, so ingress-nginx can pick the right
+#      cert (see k8s/ingress.yaml) and cloudflared can verify it properly
+#      (leave "No TLS Verify" off). Cloudflare creates the DNS record for you
+#      automatically.
+#   3. Add that same hostname to k8s/ingress.yaml's `rules` and `tls.hosts`
+#      (already templated there - just swap in your real domain), and to
 #      CORS_ORIGIN in backend-configmap.yaml if you'll ever call the API
 #      directly from that origin (normally not needed - the frontend's own
 #      nginx proxies /api same-origin).
 #   4. Put the token from step 1 into your secret (see secret.example.yaml's
 #      CLOUDFLARE_TUNNEL_TOKEN) instead of applying this with a placeholder.
 #
-# Cloudflare terminates TLS at their edge, so the public hostname gets HTTPS
-# automatically - no cert-manager involvement needed for it.
+# Cloudflare terminates TLS at their edge for visitors either way. The setup
+# above additionally keeps the hop from cloudflared to ingress-nginx
+# genuinely encrypted-and-verified, using a real Let's Encrypt cert from the
+# letsencrypt-dns01 ClusterIssuer already in this cluster (DNS-01, so no
+# inbound port needs to be open for issuance/renewal either).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
