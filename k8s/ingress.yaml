@@ -11,13 +11,13 @@
 # ClusterIssuer (already configured with a Cloudflare API token, so it can
 # complete the DNS-01 challenge for any domain in this Cloudflare account -
 # no port needs to be open for issuance either). Swap
-# vienna-thursday.yourdomain.com for your real public hostname in both the
+# vienna-thirstday.holzeis.me for your real public hostname in both the
 # `rules` entry and `tls.hosts` below.
 #
 # For cloudflared to actually verify this cert (rather than skipping
 # verification), its Public Hostname's origin must be configured with:
 #   URL: https://nginx-ingress-nginx-controller.nginx.svc.cluster.local:443
-#   Origin Server Name (TLS settings): vienna-thursday.yourdomain.com
+#   Origin Server Name (TLS settings): vienna-thirstday.holzeis.me
 # The Origin Server Name is what gets sent as the TLS SNI / validated against
 # the cert's name - it must be the public hostname, not the internal service
 # address the URL connects to, or ingress-nginx will present the wrong
@@ -34,7 +34,7 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - vienna-thursday.yourdomain.com
+        - vienna-thirstday.holzeis.me
       secretName: vienna-thursday-tls
   rules:
     - host: vienna-thursday.local
@@ -47,7 +47,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    - host: vienna-thursday.yourdomain.com
+    - host: vienna-thirstday.holzeis.me
       http:
         paths:
           - path: /

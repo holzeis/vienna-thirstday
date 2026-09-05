@@ -11,7 +11,7 @@
 #      gives you (a long string, NOT a JSON credentials file - this is the
 #      simpler token-based setup, no config.yml/cert.pem needed).
 #   2. On the same tunnel, add a Public Hostname: pick the hostname you want
-#      (e.g. vienna-thursday.yourdomain.com, on a domain already added to
+#      (e.g. vienna-thirstday.holzeis.me, on a domain already added to
 #      your Cloudflare account), type HTTPS, URL
 #        nginx-ingress-nginx-controller.nginx.svc.cluster.local:443
 #      then open that hostname's additional TLS settings and set
