@@ -4,7 +4,7 @@ import { db } from "../db/client";
 import { gamedays, playerGamedayStats, players, results } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
-import { computeCurrentForm, fetchStatRows } from "../services/playerStatsService";
+import { computeCurrentForm, computeMomentum, fetchStatRows } from "../services/playerStatsService";
 
 const router = Router();
 
@@ -78,14 +78,11 @@ router.get(
     // regardless of which season tab is being viewed.
     const allRows = await fetchStatRows(db);
 
-    const standingsWithExtras = standings.map((s) => {
-      const beforeRank = beforeRankByPlayer.get(s.playerId);
-      return {
-        ...s,
-        momentum: beforeRank === undefined ? ("new" as const) : beforeRank - s.rank,
-        currentForm: computeCurrentForm(allRows, s.playerId),
-      };
-    });
+    const standingsWithExtras = standings.map((s) => ({
+      ...s,
+      momentum: computeMomentum(beforeRankByPlayer.get(s.playerId), s.rank),
+      currentForm: computeCurrentForm(allRows, s.playerId),
+    }));
 
     res.json({ year, standings: standingsWithExtras });
   })

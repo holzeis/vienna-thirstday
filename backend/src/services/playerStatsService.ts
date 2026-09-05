@@ -248,6 +248,18 @@ export function computeCurrentForm(allRows: StatRow[], playerId: number): Curren
   return { veteran, undefeated, unlucky };
 }
 
+export type Momentum = number | "new";
+
+/**
+ * Rank movement since the "before" snapshot (e.g. standings as they stood
+ * immediately before the most recent gameday): positive = climbed that many
+ * places, negative = dropped, 0 = unchanged, "new" = no prior rank to
+ * compare against (a season debut).
+ */
+export function computeMomentum(beforeRank: number | undefined, currentRank: number): Momentum {
+  return beforeRank === undefined ? "new" : beforeRank - currentRank;
+}
+
 /**
  * Chains comparators left to right, falling through to the next only when
  * the previous one calls it a tie (returns 0) - the standard way to build a

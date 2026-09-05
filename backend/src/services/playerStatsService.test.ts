@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeCareerStats,
   computeCurrentForm,
+  computeMomentum,
   computePersonalAwards,
   computePlayerSeasonAwards,
   computeSeasonPodiums,
@@ -149,6 +150,24 @@ describe("computeCurrentForm", () => {
     const form = computeCurrentForm(rows, 1);
     expect(form.undefeated).toBe(false);
     expect(form.unlucky).toBe(false);
+  });
+});
+
+describe("computeMomentum", () => {
+  it("returns 'new' when there's no prior rank to compare (a season debut)", () => {
+    expect(computeMomentum(undefined, 3)).toBe("new");
+  });
+
+  it("returns a positive delta when rank improved (a lower rank number)", () => {
+    expect(computeMomentum(5, 2)).toBe(3);
+  });
+
+  it("returns a negative delta when rank dropped", () => {
+    expect(computeMomentum(2, 5)).toBe(-3);
+  });
+
+  it("returns 0 when rank is unchanged", () => {
+    expect(computeMomentum(4, 4)).toBe(0);
   });
 });
 
