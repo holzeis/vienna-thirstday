@@ -1,91 +1,68 @@
-# Handoff: Sunset Five-a-Side mobile/PWA redesign
+# Vienna Thursday Kicken — working conventions
 
-This note was written by a Claude session working through the desktop app's remote
-file bridge, to hand off to Claude Code running directly on this machine. Read this
-before touching frontend/ so you have the context the previous session had.
+Node/Express + Drizzle/Postgres backend, Vite/React frontend, deployed locally via
+`docker-compose` (`postgres`, `backend`, `frontend`/nginx). These are the standing
+conventions for this repo — follow them without being asked each time.
 
-## What's been done
+## Developing a new feature
 
-The `frontend/` app (Vite + React + react-router) was retheme'd to match a set of
-"Sunset Five-a-Side" mobile mockups and turned into an installable PWA:
+1. Make the change (backend and/or frontend).
+2. `cd backend && npm run build && npm test` — both must pass.
+3. `cd frontend && npm run build` — must pass (`tsc` catches type errors; there's
+   no frontend test suite).
+4. Add or update backend unit tests for any new/changed logic (see Testing below)
+   — do this as part of the change, not as a follow-up.
+5. If the schema changed: edit `backend/src/db/schema.ts`, run
+   `npm run db:generate` to create the migration, eyeball the generated SQL, then
+   `npm run db:migrate` against the dev DB.
+6. Deploy to the local stack: `docker compose build backend frontend && docker
+   compose up -d backend frontend` (only the services that changed).
+7. Verify against the live deployment, not just a clean build — curl the API with
+   the admin JWT (`admin@vienna-thursday.local` / the default password) and/or
+   exercise the affected page. A passing `tsc`/test run proves the code compiles
+   and the logic you tested is correct; it doesn't prove the feature works
+   end-to-end.
+8. Commit once verified (see Git below).
 
-- `frontend/src/index.css` — design tokens replaced with the Sunset palette (cream/
-  peach day mode, plum/violet night mode), fonts swapped to Baloo 2 (headings) +
-  Nunito (body). Both themes are driven by the existing `data-theme` attribute /
-  `vt-theme` localStorage toggle — that mechanism was already there, only the token
-  values and fonts changed.
-- `frontend/src/styles/app.css` — brand-mark restyled to use real logo images
-  (`public/brand/logo-compact-day.png` / `-night.png`, swapped via CSS based on
-  `[data-theme]`), plus a new bottom tab bar (`.tabbar`) for mobile and a
-  `@media (max-width: 760px)` block that replaces the top nav with it.
-- `frontend/src/components/Layout.tsx` — exports `BrandMark`, renders the bottom
-  tab bar (Home/Gamedays/Standings/Admin) alongside the existing top nav.
-- `frontend/src/pages/Login.tsx` / `Register.tsx` — added the brand mark above the
-  auth forms for identity consistency with the mockups.
-- `frontend/vite.config.ts` — added `vite-plugin-pwa` (manifest + Workbox service
-  worker, `NetworkFirst` for `/api`, `CacheFirst` for fonts). `npm run build`
-  produces `dist/sw.js` + `dist/manifest.webmanifest` cleanly.
-- `frontend/index.html` — Baloo 2/Nunito font links, favicon/apple-touch-icon/
-  theme-color meta, `viewport-fit=cover` for safe-area support.
-- `frontend/public/` — new `icons/` (192/512/maskable app icons), `brand/` (logo
-  PNGs used in-app), `favicon.ico`, `favicon.svg` replaced with the new mark.
+Postgres is exposed on `localhost:5432` (see `docker-compose.yml`), so one-off
+scripts (`npm run seed:sample`, migrations, etc.) can be run directly from
+`backend/` against the running container without exec-ing into it.
 
-All of this compiles (`npm run build` succeeds) but **could not be visually
-verified live** from the remote session — no reliable way to keep a background
-dev server alive or load `localhost` in a controlled browser from there. That's
-the main reason you're picking this up.
+## Testing
 
-## Known open issue: mobile layout still feels wrong
+- Backend uses Vitest: `cd backend && npm test`. Always add or update unit tests
+  when adding or changing a feature — this is a standing instruction, not
+  something to wait to be asked for.
+- The established pattern is one `*.test.ts` file per source file, testing pure/
+  computational functions with `describe`/`it` blocks per function (see
+  `backend/src/services/playerStatsService.test.ts`, `utils/scoring.test.ts`,
+  `utils/achievementThresholds.test.ts`).
+- If new logic ends up inline inside a route handler, extract it into a named,
+  exported function first so it's actually unit-testable — e.g. `computeMomentum`
+  was pulled out of `routes/standings.ts` into `playerStatsService.ts`
+  specifically for this reason. Don't leave non-trivial business logic buried
+  untested inside an Express handler.
+- DB-touching code (route handlers, services taking a `tx`/`db` handle) has no
+  unit-test harness in this repo — verify those via live API calls against the
+  running Docker deployment instead (curl with the admin JWT), and say so
+  explicitly rather than implying they're unit-tested.
+- No frontend test setup exists yet. Frontend changes are verified via
+  `npm run build` plus manual/API-level checks, unless asked to add one.
 
-User tested by installing via Chrome's "Add to Home Screen" on iPhone and reported:
-components jumping, bottom tab bar not staying put, header overlapping the status
-bar (battery/wifi icons).
+## Git
 
-Diagnosis so far (not yet confirmed on-device): iOS/WebKit resizes the visual
-viewport as the browser's toolbar shows/hides on scroll, which breaks naive
-`position: fixed`/`sticky` + `100%`/`100vh` layouts. Applied fix in `app.css`'s
-mobile media query: the `.app-shell` is locked to `100dvh` with `overflow: hidden`,
-`.main` is the only scrolling region (`overflow-y: auto`), and `.topbar`/`.tabbar`
-are now plain flex items (no `position: fixed`) so they can't detach from the
-shell during scroll. Also added `env(safe-area-inset-top)` padding to `.topbar`
-(always, not just mobile) and kept `env(safe-area-inset-bottom)` on `.tabbar`.
-
-This needs to actually be tested on the phone (`npm run dev -- --host` and hit it
-from the iPhone on the same network is the fastest loop). Also worth telling the
-user: Chrome on iOS does NOT support true standalone (chrome-less) launch from
-"Add to Home Screen" — only Safari does, since it's the only iOS browser that can
-launch a WebKit process without its own browser UI. If the header still looks off
-in Chrome specifically, some of that may just be Chrome's own toolbar, not a bug
-in this code — worth comparing against Safari's "Add to Home Screen" on the same
-phone to isolate what's actually broken here versus a platform limitation.
-
-## File permissions footgun (should be resolved, but verify)
-
-Files written through the earlier remote-desktop bridge landed with owner-only
-`600`/`700` permissions on disk (a FUSE quirk of that bridge — `chmod` through it
-silently no-ops). This caused 403s serving `public/` assets through nginx/Docker.
-The user was asked to manually run:
-
-```bash
-cd frontend
-find public -type d -exec chmod 755 {} \;
-find public -type f -exec chmod 644 {} \;
-```
-
-You're running directly on the filesystem now, so new files you write should get
-normal permissions — but it's worth a quick `ls -la frontend/public` sanity check
-before assuming this is fully resolved, in case some of the earlier 600 files are
-still sitting there.
-
-## Suggested next steps
-
-1. Run `cd frontend && npm run dev -- --host` and open the printed LAN URL on the
-   iPhone (same wifi) to get a real, live test loop — much faster than round-
-   tripping through a remote bridge.
-2. Verify the `.app-shell` / `100dvh` fix actually resolves the jump/overlap.
-   Test in both Safari (true standalone via its own Add to Home Screen) and
-   Chrome, since they behave differently on iOS.
-3. If it's still wrong, the likely next suspects: `.topbar`'s `backdrop-filter`
-   creating an unexpected stacking/containing-block context, or Safari's own
-   home-indicator safe area needing `env(safe-area-inset-bottom)` on `.app-shell`
-   itself rather than only on `.tabbar`.
+- Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+  `type(scope): summary` — `feat`, `fix`, `test`, `docs`, `refactor`, `chore` as
+  appropriate.
+- One commit per logical change. When a turn produces several logically-separate
+  changes (e.g. a UI restyle + a backend data fix + a seed-script change), split
+  them into separate commits rather than bundling everything together, as long as
+  the files involved aren't too entangled to separate cleanly.
+- Commit as each discrete piece of work is built, tested, and verified — don't
+  wait until the end of a long session to commit everything at once.
+- Every commit ends with the attribution footer currently in effect for the
+  session (`Co-Authored-By:` / `Claude-Session:` lines) — check the active
+  session's system reminder for the exact current text rather than reusing an
+  older one, since the session URL changes between sessions.
+- Never commit `backend/dist` or `frontend/dist` (gitignored build output) or
+  anything that looks like a secret/credential.
