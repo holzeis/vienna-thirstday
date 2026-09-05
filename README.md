@@ -235,7 +235,17 @@ person joins:
 
 Manifests live under `k8s/` and are wired together with `kustomize`.
 
-1. **Build and push images** to a registry your cluster can pull from:
+1. **Build and push images** to a registry your cluster can pull from.
+   `.github/workflows/docker-publish.yml` does this automatically on every
+   push to `main` (and on `vX.Y.Z` tags), publishing to GitHub Container
+   Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
+   repo's built-in `GITHUB_TOKEN` - no secrets to configure. GHCR packages
+   are private by default; either make the package public in its GitHub
+   settings, or create an `imagePullSecret` in the `vienna-thursday`
+   namespace from a PAT with `read:packages` and reference it in
+   `backend-deployment.yaml`/`frontend-deployment.yaml`'s `imagePullSecrets`.
+
+   To build and push by hand instead (e.g. a different registry):
 
    ```bash
    docker build -t <registry>/vienna-thursday-backend:1.0.0 ./backend
@@ -244,8 +254,8 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
    docker push <registry>/vienna-thursday-frontend:1.0.0
    ```
 
-   Then point `k8s/kustomization.yaml`'s `images:` section at them (see the
-   comment in that file).
+   Either way, point `k8s/kustomization.yaml`'s `images:` section at them
+   (see the comment in that file).
 
 2. **Create the secret** (never commit real secrets - `k8s/secret.yaml` is
    gitignored):
