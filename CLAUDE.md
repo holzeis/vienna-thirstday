@@ -17,11 +17,12 @@ conventions for this repo — follow them without being asked each time.
    `npm run db:migrate` against the dev DB.
 6. Deploy to the local stack: `docker compose build backend frontend && docker
    compose up -d backend frontend` (only the services that changed).
-7. Verify against the live deployment, not just a clean build — curl the API with
-   the admin JWT (`admin@vienna-thursday.local` / the default password) and/or
-   exercise the affected page. A passing `tsc`/test run proves the code compiles
-   and the logic you tested is correct; it doesn't prove the feature works
-   end-to-end.
+7. As a final sanity check, verify against the live deployment — curl the API
+   with the admin JWT (`admin@vienna-thursday.local` / the default password)
+   and/or exercise the affected page. This is a check that the built/deployed
+   artifact actually works, not a substitute for the regression tests from
+   step 4 — a manual curl session proves the code worked once, not that it
+   keeps working.
 8. Commit once verified (see Git below).
 
 Postgres is exposed on `localhost:5432` (see `docker-compose.yml`), so one-off
@@ -30,22 +31,38 @@ scripts (`npm run seed:sample`, migrations, etc.) can be run directly from
 
 ## Testing
 
-- Backend uses Vitest: `cd backend && npm test`. Always add or update unit tests
-  when adding or changing a feature — this is a standing instruction, not
-  something to wait to be asked for.
-- The established pattern is one `*.test.ts` file per source file, testing pure/
-  computational functions with `describe`/`it` blocks per function (see
-  `backend/src/services/playerStatsService.test.ts`, `utils/scoring.test.ts`,
-  `utils/achievementThresholds.test.ts`).
-- If new logic ends up inline inside a route handler, extract it into a named,
-  exported function first so it's actually unit-testable — e.g. `computeMomentum`
-  was pulled out of `routes/standings.ts` into `playerStatsService.ts`
-  specifically for this reason. Don't leave non-trivial business logic buried
-  untested inside an Express handler.
-- DB-touching code (route handlers, services taking a `tx`/`db` handle) has no
-  unit-test harness in this repo — verify those via live API calls against the
-  running Docker deployment instead (curl with the admin JWT), and say so
-  explicitly rather than implying they're unit-tested.
+- Backend uses Vitest: `cd backend && npm test`. Always add or update
+  automated, rerunnable regression tests when adding or changing a feature —
+  this is a standing instruction, not something to wait to be asked for, and
+  **manual curl/API verification is not a substitute for a test file.**
+  Curl proves the code worked once in that moment; it doesn't get rerun the
+  next time something nearby changes. Write the test first or alongside the
+  change, not as an afterthought.
+- Pure/computational logic: one `*.test.ts` file per source file, `describe`/
+  `it` blocks per function (see `backend/src/services/playerStatsService.test.ts`,
+  `utils/scoring.test.ts`, `utils/achievementThresholds.test.ts`). If new
+  logic ends up inline inside a route handler, extract it into a named,
+  exported function first so it's actually unit-testable — e.g.
+  `computeMomentum` was pulled out of `routes/standings.ts` into
+  `playerStatsService.ts` specifically for this reason. Don't leave
+  non-trivial business logic buried untested inside an Express handler.
+- DB-touching/route code has a real integration-test harness — use it, don't
+  fall back to curl. It lives in `backend/src/test/`: `testDb.ts` points
+  `DATABASE_URL` at a separate `vienna_thursday_test` Postgres database (must
+  be imported before anything else, including via Vitest's `setupFiles`, so
+  it wins before `db/client.ts` reads the env var), `globalSetup.ts` runs the
+  real Drizzle migrations against it once per test run, and `helpers.ts`
+  provides `resetDb()` (TRUNCATE ... RESTART IDENTITY CASCADE between tests)
+  plus small fixture builders (`createAdmin`, `createGuestPlayer`). Tests use
+  `supertest` against `createApp()` directly — see
+  `backend/src/test/onboarding.test.ts` for the full pattern: build fixtures
+  with direct `db.insert(...)` calls, hit routes with `request(app)`, assert
+  on both the HTTP response and the resulting DB state. `vitest.config.ts`
+  sets `fileParallelism: false` since test files share that one database via
+  truncate-between-tests, not per-test transactions.
+- Manual curl against the Docker deployment is still useful as a *final
+  sanity check* that the built/deployed artifact actually works end-to-end
+  (see step 7 above), but never in place of the test file.
 - No frontend test setup exists yet. Frontend changes are verified via
   `npm run build` plus manual/API-level checks, unless asked to add one.
 
