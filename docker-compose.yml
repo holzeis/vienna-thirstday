@@ -23,7 +23,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRES_IN: 7d
       PORT: 4000
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://0.0.0.0:8080}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vienna-thursday.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}

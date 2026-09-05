@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../api/endpoints";
 import { ApiClientError } from "../api/client";
+import { BrandMark } from "../components/Layout";
 
 export function Register() {
   const navigate = useNavigate();
@@ -30,6 +31,10 @@ export function Register() {
   return (
     <div className="auth-shell">
       <div className="card auth-card">
+        <div className="auth-brand">
+          <BrandMark />
+          <span>Vienna Thursday</span>
+        </div>
         <h1>Join the group</h1>
         <p className="sub">Create an account. An admin will approve it before you can sign up for gamedays.</p>
 

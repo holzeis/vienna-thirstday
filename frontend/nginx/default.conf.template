@@ -5,6 +5,10 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Phone camera photos routinely exceed nginx's 1m default before the
+    # backend's own (smaller) multer limit ever gets a chance to apply.
+    client_max_body_size 12m;
+
     location /api/ {
         proxy_pass http://${BACKEND_HOST}/api/;
         proxy_http_version 1.1;
@@ -12,6 +16,37 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # These are the PWA's "entry points" - the service worker script and the
+    # HTML/manifest that reference it. Without explicit no-cache headers,
+    # nginx's default heuristic caching can let a browser (especially mobile
+    # Safari) hold onto a stale sw.js/index.html well past a deploy, which
+    # silently defeats the update-check mechanism entirely: the client never
+    # even asks the server if anything changed. Hashed assets under /assets/
+    # are safe to cache forever since their filename changes on every build.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+
+    location = /registerSW.js {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+
+    location = /manifest.webmanifest {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     location / {

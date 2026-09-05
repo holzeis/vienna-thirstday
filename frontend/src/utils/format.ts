@@ -15,6 +15,11 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+export function formatMonthYear(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
 export function toDatetimeLocalValue(iso?: string): string {
   const d = iso ? new Date(iso) : new Date();
   const pad = (n: number) => String(n).padStart(2, "0");

@@ -1,97 +1,106 @@
 :root {
   color-scheme: dark;
 
-  --bg: #0e1512;
-  --bg-elevated: #141d19;
-  --bg-gradient-top: #16221c;
-  --card: rgba(24, 34, 29, 0.85);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --card-border-hover: rgba(255, 255, 255, 0.16);
+  --bg-a: #1c1230;
+  --bg-b: #3a1a3d;
+  --bg-elevated: rgba(255, 255, 255, 0.06);
+  --card: rgba(255, 255, 255, 0.06);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --card-border-hover: rgba(255, 255, 255, 0.18);
 
-  --text: #eef3f0;
-  --text-dim: #9db0a8;
-  --text-faint: #66796f;
+  --text: #fbeee8;
+  --text-dim: #cbb3c9;
+  --text-faint: #8d7590;
 
-  --accent: #3ddc84;
-  --accent-strong: #2bc470;
-  --accent-dim: rgba(61, 220, 132, 0.14);
-  --accent-contrast: #06231a;
+  --accent: #ff8a5c;
+  --accent2: #c15cff;
+  --accent-strong: #ff6f3c;
+  --accent-dim: rgba(255, 138, 92, 0.16);
+  --accent-contrast: #2a1030;
+  --accent-gradient: linear-gradient(135deg, var(--accent), var(--accent2));
 
-  --win: #3ddc84;
-  --loss: #e25c5c;
-  --draw: #e8b23d;
-  --gold: #e8c840;
-  --silver: #b8c4c9;
-  --bronze: #c98a4b;
+  --win: #58d68d;
+  --loss: #ff7a85;
+  --draw: #ffcf6b;
+  --gold: #ffd76a;
+  --silver: #cbb3c9;
+  --bronze: #e0a06a;
 
-  --topbar-bg: rgba(14, 21, 18, 0.75);
-  --input-bg: rgba(0, 0, 0, 0.2);
+  --topbar-bg: rgba(28, 18, 48, 0.75);
+  /* Solid, not translucent like --card - the fixed mobile tab bar has no
+     backdrop-filter, so a translucent background just lets scrolled content
+     bleed through it, which reads as a rendering bug rather than glassy. */
+  --tabbar-bg: #2a2040;
+  --input-bg: rgba(0, 0, 0, 0.22);
 
-  --overlay-1: rgba(255, 255, 255, 0.03);
-  --overlay-2: rgba(255, 255, 255, 0.06);
-  --overlay-3: rgba(255, 255, 255, 0.08);
-  --overlay-4: rgba(255, 255, 255, 0.14);
+  --overlay-1: rgba(255, 255, 255, 0.04);
+  --overlay-2: rgba(255, 255, 255, 0.07);
+  --overlay-3: rgba(255, 255, 255, 0.1);
+  --overlay-4: rgba(255, 255, 255, 0.16);
 
-  --alert-error-bg: rgba(226, 92, 92, 0.12);
-  --alert-error-border: rgba(226, 92, 92, 0.32);
-  --alert-error-text: #ff9d9d;
+  --alert-error-bg: rgba(255, 122, 133, 0.14);
+  --alert-error-border: rgba(255, 122, 133, 0.34);
+  --alert-error-text: #ffb0b6;
   --alert-success-bg: var(--accent-dim);
-  --alert-success-border: rgba(61, 220, 132, 0.3);
+  --alert-success-border: rgba(255, 138, 92, 0.32);
   --alert-success-text: var(--accent);
 
-  --select-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%239db0a8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --select-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23cbb3c9' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
-  --radius: 14px;
-  --radius-sm: 8px;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  --font-heading: "Rajdhani", "Segoe UI", sans-serif;
-  --font-body: "Inter", "Segoe UI", sans-serif;
+  --radius: 20px;
+  --radius-sm: 12px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --font-heading: "Baloo 2", "Segoe UI", sans-serif;
+  --font-body: "Nunito", "Segoe UI", sans-serif;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --bg: #f3f6f2;
+  --bg-a: #fff7ec;
+  --bg-b: #ffe3d1;
   --bg-elevated: #ffffff;
-  --bg-gradient-top: #e6efe3;
   --card: #ffffff;
-  --card-border: rgba(15, 35, 25, 0.1);
-  --card-border-hover: rgba(15, 35, 25, 0.22);
+  --card-border: rgba(60, 30, 10, 0.1);
+  --card-border-hover: rgba(60, 30, 10, 0.2);
 
-  --text: #142219;
-  --text-dim: #55695f;
-  --text-faint: #869587;
+  --text: #3a2418;
+  --text-dim: #8a6a54;
+  --text-faint: #b79a86;
 
-  --accent: #178a54;
-  --accent-strong: #10703f;
-  --accent-dim: rgba(23, 138, 84, 0.12);
-  --accent-contrast: #04170f;
+  --accent: #ff7a45;
+  --accent2: #ff5da2;
+  --accent-strong: #f4632b;
+  --accent-dim: rgba(255, 122, 69, 0.14);
+  --accent-contrast: #fff7ec;
+  --accent-gradient: linear-gradient(135deg, var(--accent), var(--accent2));
 
-  --win: #178a54;
-  --loss: #c23b3b;
-  --draw: #a06b0c;
-  --gold: #9c7a06;
-  --silver: #5f6f78;
-  --bronze: #8a5326;
+  --win: #1f9d63;
+  --loss: #c2453a;
+  --draw: #b9791a;
+  --gold: #b9791a;
+  --silver: #8a6a54;
+  --bronze: #9c5a2e;
 
-  --topbar-bg: rgba(255, 255, 255, 0.8);
-  --input-bg: rgba(15, 35, 25, 0.035);
+  --topbar-bg: rgba(255, 247, 236, 0.82);
+  --tabbar-bg: #ffffff;
+  --input-bg: rgba(60, 30, 10, 0.04);
 
-  --overlay-1: rgba(15, 35, 25, 0.035);
-  --overlay-2: rgba(15, 35, 25, 0.06);
-  --overlay-3: rgba(15, 35, 25, 0.08);
-  --overlay-4: rgba(15, 35, 25, 0.14);
+  --overlay-1: rgba(60, 30, 10, 0.035);
+  --overlay-2: rgba(60, 30, 10, 0.06);
+  --overlay-3: rgba(60, 30, 10, 0.09);
+  --overlay-4: rgba(60, 30, 10, 0.16);
 
-  --alert-error-bg: rgba(194, 59, 59, 0.1);
-  --alert-error-border: rgba(194, 59, 59, 0.3);
-  --alert-error-text: #a32d2d;
+  --alert-error-bg: rgba(194, 69, 58, 0.1);
+  --alert-error-border: rgba(194, 69, 58, 0.3);
+  --alert-error-text: #a3382d;
   --alert-success-bg: var(--accent-dim);
-  --alert-success-border: rgba(23, 138, 84, 0.3);
+  --alert-success-border: rgba(255, 122, 69, 0.3);
   --alert-success-text: var(--accent-strong);
 
-  --select-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2355695f' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --select-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238a6a54' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
-  --shadow: 0 8px 24px rgba(20, 34, 25, 0.08);
+  --shadow: 0 10px 26px rgba(200, 120, 60, 0.16);
 }
 
 * {
@@ -106,7 +115,7 @@ body,
 
 body {
   margin: 0;
-  background: radial-gradient(ellipse at top, var(--bg-gradient-top) 0%, var(--bg) 55%);
+  background: linear-gradient(160deg, var(--bg-a) 0%, var(--bg-b) 100%) fixed;
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -118,9 +127,10 @@ h2,
 h3,
 h4 {
   font-family: var(--font-heading);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
   margin: 0;
+  text-wrap: balance;
 }
 
 a {

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { BrandMark } from "../components/Layout";
 import { ApiClientError } from "../api/client";
 
 export function Login() {
@@ -29,6 +30,10 @@ export function Login() {
   return (
     <div className="auth-shell">
       <div className="card auth-card">
+        <div className="auth-brand">
+          <BrandMark />
+          <span>Vienna Thursday</span>
+        </div>
         <h1>Welcome back</h1>
         <p className="sub">Log in to sign up for gamedays and check the table.</p>
 

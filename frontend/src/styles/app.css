@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 28px;
+  padding: calc(16px + env(safe-area-inset-top)) 28px 16px;
   border-bottom: 1px solid var(--card-border);
   background: var(--topbar-bg);
   backdrop-filter: blur(10px);
@@ -27,12 +27,43 @@
 }
 
 .brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: conic-gradient(from 45deg, var(--accent), #1f6b45, var(--accent));
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  width: 34px;
+  height: 34px;
   flex: none;
+  position: relative;
+}
+
+.brand-mark img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px var(--accent-dim));
+}
+
+.brand-mark .mark-light {
+  opacity: 1;
+}
+
+.brand-mark .mark-dark {
+  opacity: 0;
+}
+
+:root[data-theme="light"] .brand-mark .mark-light {
+  opacity: 1;
+}
+
+:root[data-theme="light"] .brand-mark .mark-dark {
+  opacity: 0;
+}
+
+:root:not([data-theme="light"]) .brand-mark .mark-light {
+  opacity: 0;
+}
+
+:root:not([data-theme="light"]) .brand-mark .mark-dark {
+  opacity: 1;
 }
 
 .brand-text h1 {
@@ -380,6 +411,188 @@ td .select {
   background: var(--overlay-3);
   color: var(--text-dim);
 }
+.badge-tier-gold {
+  background: rgba(255, 215, 106, 0.18);
+  color: var(--gold);
+}
+.badge-tier-silver {
+  background: rgba(203, 179, 201, 0.18);
+  color: var(--silver);
+}
+.badge-tier-bronze {
+  background: rgba(224, 160, 106, 0.18);
+  color: var(--bronze);
+}
+.badge-tier-wood {
+  background: var(--overlay-2);
+  color: var(--text-faint);
+}
+
+.achievement-grid {
+  display: grid;
+  /* auto-fill (not auto-fit) keeps empty trailing tracks reserved instead of
+     collapsing them, so a tile is the same size whether there are 3 awards
+     or 30 - auto-fit would stretch the few-items case to fill the row. */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.achievement-tile {
+  background: var(--overlay-1);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: center;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.achievement-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--card-border-hover);
+}
+
+.achievement-tile.achievement-tier-wood {
+  opacity: 0.7;
+}
+
+.achievement-tile.achievement-tier-gold {
+  border-color: rgba(255, 215, 106, 0.5);
+}
+
+.achievement-tile.achievement-tier-silver {
+  border-color: rgba(203, 179, 201, 0.5);
+}
+
+.achievement-tile.achievement-tier-bronze {
+  border-color: rgba(224, 160, 106, 0.5);
+}
+
+.achievement-icon {
+  position: relative;
+  font-size: 34px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.achievement-medal {
+  position: absolute;
+  bottom: -6px;
+  right: calc(50% - 26px);
+  font-size: 16px;
+}
+
+.hof-table-wrap table {
+  font-size: 13.5px;
+}
+
+.hof-cat-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.medal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--overlay-2);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 6px 14px 6px 8px;
+  font-size: 13px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.medal-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--card-border-hover);
+}
+
+.medal-chip .m {
+  font-size: 15px;
+}
+
+.medal-chip .n {
+  color: var(--text);
+}
+
+.medal-chip .v {
+  color: var(--text-dim);
+  font-weight: 700;
+  font-family: var(--font-heading);
+  font-size: 12px;
+}
+
+.medal-chip-empty {
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.hof-list-wrap {
+  display: none;
+}
+
+.hof-list-card {
+  gap: 8px;
+}
+
+.hof-list-card .hof-cat-cell {
+  margin-bottom: 4px;
+}
+
+.hof-list-card .medal-chip {
+  justify-content: space-between;
+}
+
+.achievement-tile .label {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.achievement-tile .value {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 6px;
+}
+
+.player-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--overlay-2);
+  border: 1px solid var(--card-border);
+  flex: none;
+}
+
+.player-avatar-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--overlay-2);
+  border: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 26px;
+  color: var(--text-dim);
+  flex: none;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
 table {
   width: 100%;
@@ -430,7 +643,14 @@ tr.me td:first-child {
   color: var(--bronze);
 }
 
-.stat-tile {
+.form-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.form-badge {
   background: var(--overlay-1);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-sm);
@@ -438,18 +658,42 @@ tr.me td:first-child {
   text-align: center;
 }
 
-.stat-tile .value {
-  font-family: var(--font-heading);
-  font-size: 28px;
+.form-badge .icon {
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.form-badge .label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
   font-weight: 700;
 }
 
-.stat-tile .label {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  letter-spacing: 0.06em;
-  margin-top: 4px;
+.form-badge-veteran {
+  background: var(--accent-dim);
+  border-color: rgba(255, 138, 92, 0.35);
+}
+.form-badge-veteran .label {
+  color: var(--accent);
+}
+
+.form-badge-undefeated {
+  background: rgba(88, 214, 141, 0.1);
+  border-color: rgba(88, 214, 141, 0.35);
+}
+.form-badge-undefeated .label {
+  color: var(--win);
+}
+
+.form-badge-unlucky {
+  background: rgba(255, 122, 133, 0.1);
+  border-color: rgba(255, 122, 133, 0.35);
+}
+.form-badge-unlucky .label {
+  color: var(--loss);
 }
 
 .empty-state {
@@ -516,23 +760,6 @@ tr.me td:first-child {
   font-weight: 600;
 }
 
-.player-pill-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.player-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--overlay-2);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  padding: 6px 8px 6px 14px;
-  font-size: 13px;
-}
-
 .team-columns {
   display: grid;
   grid-template-columns: 1fr 44px 1fr;
@@ -572,6 +799,43 @@ tr.me td:first-child {
 .score-box .dash {
   color: var(--text-faint);
   font-size: 24px;
+}
+
+.score-entry {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 16px;
+  margin: 6px 0 4px;
+}
+
+.score-entry .field {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.score-entry .dash {
+  color: var(--text-faint);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 700;
+  padding-bottom: 10px;
+}
+
+.score-input {
+  width: 72px;
+  min-height: 56px;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 700;
+  -moz-appearance: textfield;
+}
+
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .loading {
@@ -628,4 +892,161 @@ tr.me td:first-child {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-contrast);
+}
+
+/* ---------- auth brand block ---------- */
+
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.auth-brand .brand-mark {
+  width: 56px;
+  height: 56px;
+}
+
+.auth-brand span {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+
+/* ---------- bottom tab bar (mobile nav) ---------- */
+
+.tabbar {
+  display: none;
+}
+
+.tabbar a {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 2px 6px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.tabbar a svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tabbar a .tab-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.tabbar a.active {
+  color: var(--accent2);
+}
+
+.tabbar a.active .tab-icon {
+  background: var(--accent-gradient);
+  color: #fff7ec;
+}
+
+/* ---------- responsive: mobile layout ---------- */
+
+@media (max-width: 760px) {
+  /* The tab bar and header are pinned with real position:fixed/sticky against
+     the viewport itself rather than by matching an ancestor's height to
+     100dvh — dvh vs. visualViewport vs. the true edge-to-edge screen have
+     proven inconsistent across iOS WebKit versions/devices, but fixed/sticky
+     positioning against the viewport is not, so the document just scrolls
+     normally and these two bars stay pinned regardless. */
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  .topbar {
+    flex: none;
+    padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+  }
+
+  .brand-text span {
+    display: none;
+  }
+
+  .topbar .nav {
+    display: none;
+  }
+
+  .user-chip span:first-child {
+    display: none;
+  }
+
+  .main {
+    padding: 18px 14px calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .page-header h2 {
+    font-size: 20px;
+  }
+
+  .tabbar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    background: var(--tabbar-bg);
+    border-top: 1px solid var(--card-border);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .team-columns {
+    grid-template-columns: 1fr 34px 1fr;
+  }
+
+  /* grid-3's auto-fit(minmax(180px,1fr)) lands on 1 or 2 columns depending
+     on the exact phone width - force a consistent 2-column layout. */
+  .achievement-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* A 4-column table doesn't fit an iPhone - swap to a stacked list. */
+  .hof-table-wrap {
+    display: none;
+  }
+
+  .hof-list-wrap {
+    display: block;
+  }
+
+  .score-box {
+    font-size: 32px;
+  }
+
+  /* iOS Safari auto-zooms the page on focus for any form control under
+     16px, which is what produces the jump/zoom/stray-scrollbar combo. */
+  input,
+  select,
+  textarea,
+  .field select,
+  .select,
+  .select-sm {
+    font-size: 16px;
+  }
 }
