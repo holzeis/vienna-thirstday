@@ -4,5 +4,5 @@ import { config } from "./config";
 const app = createApp();
 
 app.listen(config.port, () => {
-  console.log(`Vienna Thursday API listening on port ${config.port}`);
+  console.log(`Vienna Thirstday API listening on port ${config.port}`);
 });

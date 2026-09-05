@@ -1,4 +1,4 @@
-# Vienna Thursday Kicken — working conventions
+# Vienna Thirstday Kicken — working conventions
 
 Node/Express + Drizzle/Postgres backend, Vite/React frontend, deployed locally via
 `docker-compose` (`postgres`, `backend`, `frontend`/nginx). These are the standing
@@ -18,7 +18,7 @@ conventions for this repo — follow them without being asked each time.
 6. Deploy to the local stack: `docker compose build backend frontend && docker
    compose up -d backend frontend` (only the services that changed).
 7. As a final sanity check, verify against the live deployment — curl the API
-   with the admin JWT (`admin@vienna-thursday.local` / the default password)
+   with the admin JWT (`admin@vienna-thirstday.local` / the default password)
    and/or exercise the affected page. This is a check that the built/deployed
    artifact actually works, not a substitute for the regression tests from
    step 4 — a manual curl session proves the code worked once, not that it
@@ -48,7 +48,7 @@ scripts (`npm run seed:sample`, migrations, etc.) can be run directly from
   non-trivial business logic buried untested inside an Express handler.
 - DB-touching/route code has a real integration-test harness — use it, don't
   fall back to curl. It lives in `backend/src/test/`: `testDb.ts` points
-  `DATABASE_URL` at a separate `vienna_thursday_test` Postgres database (must
+  `DATABASE_URL` at a separate `vienna_thirstday_test` Postgres database (must
   be imported before anything else, including via Vitest's `setupFiles`, so
   it wins before `db/client.ts` reads the env var), `globalSetup.ts` runs the
   real Drizzle migrations against it once per test run, and `helpers.ts`

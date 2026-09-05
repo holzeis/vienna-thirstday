@@ -1,4 +1,4 @@
-# Vienna Thursday Kicken
+# Vienna Thirstday Kicken
 
 A web app for running the weekly Thursday pickup football group: admin-issued
 invite links for onboarding (no self-service registration), guest players,
@@ -46,13 +46,13 @@ Jan 1 – Dec 31 season standings table.
   draw = 2 pts, loss = 1 pt, plus/minus the goal difference.
 - **Season standings.** A season runs Jan 1 – Dec 31. Players are ranked by
   total points, then goal difference. Multiple seasons are kept and browsable.
-- **Merging imported/guest players into real accounts.** Historical players
+- **Onboarding imported/guest players into real accounts.** Historical players
   (from the spreadsheet import) and ad-hoc guests are both stored as "guest"
-  players, so they're excluded from standings until claimed. When approving a
-  pending user, an admin can optionally pick one of these unclaimed players
-  from a dropdown - the new account inherits that player's full history
-  (every past registration, team assignment, and gameday stat) and the guest
-  record is removed. See [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet).
+  players, so they're excluded from standings until claimed. An admin invites
+  one directly (Admin → Users → "Invite a player") - the guest is promoted in
+  place, so the resulting account keeps that player's full history (every
+  past registration, team assignment, and gameday stat) with nothing to
+  merge. See [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet).
 - **Light & dark themes.** A toggle in the top bar (next to "Log out") switches
   between a dark, pitch-inspired theme and a light theme. The choice is
   remembered per browser (defaulting to the device's system preference on
@@ -105,7 +105,7 @@ Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
 
    ```bash
    sudo -u postgres psql -c "CREATE USER vienna WITH PASSWORD 'vienna';"
-   sudo -u postgres psql -c "CREATE DATABASE vienna_thursday OWNER vienna;"
+   sudo -u postgres psql -c "CREATE DATABASE vienna_thirstday OWNER vienna;"
    ```
 
 2. **Backend.**
@@ -241,17 +241,17 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
    Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
    repo's built-in `GITHUB_TOKEN` - no secrets to configure. GHCR packages
    are private by default; either make the package public in its GitHub
-   settings, or create an `imagePullSecret` in the `vienna-thursday`
+   settings, or create an `imagePullSecret` in the `vienna-thirstday`
    namespace from a PAT with `read:packages` and reference it in
    `backend-deployment.yaml`/`frontend-deployment.yaml`'s `imagePullSecrets`.
 
    To build and push by hand instead (e.g. a different registry):
 
    ```bash
-   docker build -t <registry>/vienna-thursday-backend:1.0.0 ./backend
-   docker build -t <registry>/vienna-thursday-frontend:1.0.0 ./frontend
-   docker push <registry>/vienna-thursday-backend:1.0.0
-   docker push <registry>/vienna-thursday-frontend:1.0.0
+   docker build -t <registry>/vienna-thirstday-backend:1.0.0 ./backend
+   docker build -t <registry>/vienna-thirstday-frontend:1.0.0 ./frontend
+   docker push <registry>/vienna-thirstday-backend:1.0.0
+   docker push <registry>/vienna-thirstday-frontend:1.0.0
    ```
 
    Either way, point `k8s/kustomization.yaml`'s `images:` section at them
@@ -261,11 +261,11 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
    gitignored):
 
    ```bash
-   kubectl create namespace vienna-thursday
-   kubectl create secret generic vienna-thursday-secrets \
-     --namespace vienna-thursday \
+   kubectl create namespace vienna-thirstday
+   kubectl create secret generic vienna-thirstday-secrets \
+     --namespace vienna-thirstday \
      --from-literal=POSTGRES_PASSWORD='use-a-strong-password' \
-     --from-literal=DATABASE_URL='postgresql://vienna:use-a-strong-password@postgres:5432/vienna_thursday' \
+     --from-literal=DATABASE_URL='postgresql://vienna:use-a-strong-password@postgres:5432/vienna_thirstday' \
      --from-literal=JWT_SECRET="$(openssl rand -base64 48)" \
      --from-literal=ADMIN_PASSWORD='choose-a-first-admin-password' \
      --from-literal=ADMIN_NAME='Admin'
@@ -283,7 +283,7 @@ Manifests live under `k8s/` and are wired together with `kustomize`.
    ```bash
    kubectl apply -k k8s/
    kubectl apply -f k8s/backend-migration-job.yaml
-   kubectl wait --for=condition=complete job/backend-migrate -n vienna-thursday --timeout=120s
+   kubectl wait --for=condition=complete job/backend-migrate -n vienna-thirstday --timeout=120s
    kubectl apply -f k8s/backend-seed-job.yaml   # bootstraps the first admin; safe to re-run
    ```
 
@@ -356,7 +356,7 @@ Cloudflare's edge and leave the last hop in plaintext."
 | `JWT_EXPIRES_IN`  | Token lifetime                                       | `7d`                                                             |
 | `PORT`            | API port                                             | `4000`                                                           |
 | `CORS_ORIGIN`     | Allowed origin for browser requests                  | `http://localhost:5173`                                          |
-| `ADMIN_EMAIL`     | Used only by `npm run seed`                          | `admin@vienna-thursday.local`                                    |
+| `ADMIN_EMAIL`     | Used only by `npm run seed`                          | `admin@vienna-thirstday.local`                                    |
 | `ADMIN_PASSWORD`  | Used only by `npm run seed`                          | `changeme123`                                                    |
 | `ADMIN_NAME`      | Used only by `npm run seed`                          | `Admin`                                                          |
 

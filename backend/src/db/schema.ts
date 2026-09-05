@@ -1,4 +1,4 @@
-// Vienna Thursday Kicken - Drizzle schema
+// Vienna Thirstday Kicken - Drizzle schema
 //
 // Domain model:
 // - users: login account (email/password, JWT auth), roles, approval workflow

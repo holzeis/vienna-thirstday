@@ -74,7 +74,7 @@ export function AcceptInvite() {
       <div className="card auth-card">
         <div className="auth-brand">
           <BrandMark />
-          <span>Vienna Thursday</span>
+          <span>Vienna Thirstday</span>
         </div>
 
         {state.status === "loading" && <div className="loading">Checking your invite...</div>}
@@ -146,7 +146,7 @@ export function AcceptInvite() {
                 />
               </div>
               <button className="btn btn-primary" type="submit" disabled={submitting} style={{ width: "100%" }}>
-                {submitting ? "Setting up your account..." : "Join Vienna Thursday"}
+                {submitting ? "Setting up your account..." : "Join Vienna Thirstday"}
               </button>
             </form>
           </>

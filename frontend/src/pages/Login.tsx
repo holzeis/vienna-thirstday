@@ -32,7 +32,7 @@ export function Login() {
       <div className="card auth-card">
         <div className="auth-brand">
           <BrandMark />
-          <span>Vienna Thursday</span>
+          <span>Vienna Thirstday</span>
         </div>
         <h1>Welcome back</h1>
         <p className="sub">Log in to sign up for gamedays and check the table.</p>

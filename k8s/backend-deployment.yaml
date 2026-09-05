@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
-  namespace: vienna-thursday
+  namespace: vienna-thirstday
 spec:
   replicas: 2
   selector:
@@ -15,21 +15,21 @@ spec:
     spec:
       # GHCR packages are private by default. If ghcr.io/holzeis/vienna-thirstday-backend
       # is private, create a pull secret first and uncomment this:
-      #   kubectl create secret docker-registry ghcr-pull --namespace vienna-thursday \
+      #   kubectl create secret docker-registry ghcr-pull --namespace vienna-thirstday \
       #     --docker-server=ghcr.io --docker-username=<gh-username> \
       #     --docker-password=<PAT with read:packages>
       # imagePullSecrets:
       #   - name: ghcr-pull
       containers:
         - name: backend
-          image: vienna-thursday-backend:latest
+          image: vienna-thirstday-backend:latest
           ports:
             - containerPort: 4000
           envFrom:
             - configMapRef:
                 name: backend-config
             - secretRef:
-                name: vienna-thursday-secrets
+                name: vienna-thirstday-secrets
           readinessProbe:
             httpGet:
               path: /api/health
@@ -54,7 +54,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backend
-  namespace: vienna-thursday
+  namespace: vienna-thirstday
 spec:
   selector:
     app: backend

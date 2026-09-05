@@ -113,7 +113,7 @@ export function Layout() {
         <div className="brand">
           <BrandMark />
           <div className="brand-text">
-            <h1>Vienna Thursday</h1>
+            <h1>Vienna Thirstday</h1>
             <span>Donnerstags Kicken</span>
           </div>
         </div>

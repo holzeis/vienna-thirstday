@@ -4,13 +4,13 @@ services:
     environment:
       POSTGRES_USER: vienna
       POSTGRES_PASSWORD: vienna
-      POSTGRES_DB: vienna_thursday
+      POSTGRES_DB: vienna_thirstday
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vienna -d vienna_thursday"]
+      test: ["CMD-SHELL", "pg_isready -U vienna -d vienna_thirstday"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,12 +19,12 @@ services:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: postgresql://vienna:vienna@postgres:5432/vienna_thursday
+      DATABASE_URL: postgresql://vienna:vienna@postgres:5432/vienna_thirstday
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRES_IN: 7d
       PORT: 4000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://0.0.0.0:8080}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vienna-thursday.local}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vienna-thirstday.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
     depends_on:

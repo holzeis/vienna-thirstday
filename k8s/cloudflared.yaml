@@ -3,7 +3,7 @@
 # Cloudflare's edge; Cloudflare proxies public traffic for your chosen
 # hostname through that tunnel to the ingress-nginx controller already
 # running in this cluster (see the "nginx" namespace), which then routes by
-# Host header exactly like it does for vienna-thursday.local today.
+# Host header exactly like it does for vienna-thirstday.local today.
 #
 # One-time setup in the Cloudflare Zero Trust dashboard (dash.cloudflare.com
 # -> Zero Trust -> Networks -> Tunnels), before applying this file:
@@ -38,7 +38,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudflared
-  namespace: vienna-thursday
+  namespace: vienna-thirstday
 spec:
   replicas: 2 # 2+ is recommended by Cloudflare for tunnel availability during pod restarts/node drains
   selector:
@@ -60,7 +60,7 @@ spec:
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: vienna-thursday-secrets
+                  name: vienna-thirstday-secrets
                   key: CLOUDFLARE_TUNNEL_TOKEN
           resources:
             requests:

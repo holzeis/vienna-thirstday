@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: vienna-thursday
+  namespace: vienna-thirstday
   labels:
     app: postgres
 spec:
@@ -17,7 +17,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres
-  namespace: vienna-thursday
+  namespace: vienna-thirstday
 spec:
   serviceName: postgres
   replicas: 1
@@ -38,11 +38,11 @@ spec:
             - name: POSTGRES_USER
               value: vienna
             - name: POSTGRES_DB
-              value: vienna_thursday
+              value: vienna_thirstday
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: vienna-thursday-secrets
+                  name: vienna-thirstday-secrets
                   key: POSTGRES_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
@@ -51,12 +51,12 @@ spec:
               mountPath: /var/lib/postgresql/data
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "vienna", "-d", "vienna_thursday"]
+              command: ["pg_isready", "-U", "vienna", "-d", "vienna_thirstday"]
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "vienna", "-d", "vienna_thursday"]
+              command: ["pg_isready", "-U", "vienna", "-d", "vienna_thirstday"]
             initialDelaySeconds: 15
             periodSeconds: 20
   volumeClaimTemplates:

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
-  namespace: vienna-thursday
+  namespace: vienna-thirstday
 data:
   PORT: "4000"
   JWT_EXPIRES_IN: "7d"
@@ -10,4 +10,4 @@ data:
   # Ingress host). It's only used for the backend's CORS allow-list; the
   # frontend itself talks to the backend through its own reverse proxy, not
   # directly, so this rarely needs to change.
-  CORS_ORIGIN: "http://vienna-thursday.local"
+  CORS_ORIGIN: "http://vienna-thirstday.local"

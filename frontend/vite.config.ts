@@ -12,8 +12,8 @@ export default defineConfig({
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         id: "/",
-        name: "Vienna Thursday",
-        short_name: "Vienna Thursday",
+        name: "Vienna Thirstday",
+        short_name: "Vienna Thirstday",
         description: "Every Thursday in Vienna — gamedays, standings, and sign-ups.",
         start_url: "/",
         scope: "/",
