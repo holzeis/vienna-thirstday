@@ -52,6 +52,23 @@ const SCORELINES: [number, number][] = [
 // win-streak category something to show.
 const STAR_STREAK_RANGE: [number, number] = [40, 47];
 
+// The current-form badges (Veteran/Undefeated/Unlucky) are judged against
+// "today" - the league's most recent 5 completed gamedays - so a fixed
+// historical streak can't demonstrate them. This window (i=0..4, the most
+// recent gamedays generated below) is instead scripted to always feature
+// three showcase players so each badge has a live example on fresh data.
+const SHOWCASE_WINDOW = 5;
+const SHOWCASE_VETERAN = "Lukas"; // attends all of the last 5 -> Veteran.
+const SHOWCASE_UNDEFEATED = "Max"; // always on the winning side -> Undefeated.
+const SHOWCASE_UNLUCKY = "Sebastian"; // always on the losing side -> Unlucky.
+const SHOWCASE_SCORELINES: [number, number][] = [
+  [5, 2],
+  [4, 1],
+  [6, 3],
+  [3, 1],
+  [5, 3],
+];
+
 function mostRecentThursdayBefore(date: Date): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 18, 0, 0));
   const day = d.getUTCDay(); // 0=Sun..6=Sat, Thursday=4
@@ -87,44 +104,86 @@ async function main() {
   let skippedGamedays = 0;
   const lastThursday = mostRecentThursdayBefore(new Date());
 
+  let reconciledGamedays = 0;
+  // Counts actual showcase gamedays produced (not iterations) - a real gameday
+  // (e.g. imported legacy history) already sitting on one of the target weekly
+  // dates is left untouched, and the showcase window simply reaches one week
+  // further back instead, up to SHOWCASE_MAX_LOOKBACK as a safety valve. This
+  // keeps the 3 showcase players' own last-5-played games showcase games even
+  // when real history occupies a slot in between.
+  let showcaseFilled = 0;
+  const SHOWCASE_MAX_LOOKBACK = 20;
+
   for (let i = 0; i < NUM_PAST_GAMEDAYS; i++) {
     // Walking backwards from the most recent Thursday, one week at a time.
     const date = new Date(lastThursday);
     date.setUTCDate(date.getUTCDate() - 7 * i);
 
+    const isShowcase = showcaseFilled < SHOWCASE_WINDOW && i < SHOWCASE_MAX_LOOKBACK;
     const existing = await db.query.gamedays.findFirst({ where: eq(gamedays.date, date) });
     if (existing) {
-      skippedGamedays++;
-      continue;
+      if (isShowcase && existing.notes === "Sample data") {
+        // The showcase window depends on "today"'s most recent gamedays,
+        // so re-running the script after a fix must actually replace them
+        // rather than skip them as already-seeded. Cascades take results/
+        // playerGamedayStats with it.
+        await db.delete(gamedays).where(eq(gamedays.id, existing.id));
+        reconciledGamedays++;
+      } else {
+        // A non-sample (e.g. real imported) gameday already occupies this
+        // week - leave it alone and don't count it against the showcase
+        // window; the next iteration tries the next week back instead.
+        skippedGamedays++;
+        continue;
+      }
     }
 
-    const attendeeCount = 10 + (i % 5); // 10-14 players
-    const attendeeIndices: number[] = [];
-    for (let k = 0; k < attendeeCount; k++) attendeeIndices.push((i * 3 + k) % n);
-    const attendees = Array.from(new Set(attendeeIndices)).map((idx) => SAMPLE_PLAYERS[idx]);
+    let teamA: string[];
+    let teamB: string[];
+    let scoreA: number;
+    let scoreB: number;
 
-    const starIndex = attendees.indexOf(STAR_PLAYER);
-    // The star player attends the large majority of games (skip roughly 1 in 10).
-    const includeStar = i % 10 !== 0;
-    const roster = includeStar
-      ? starIndex === -1
-        ? [...attendees.slice(0, attendees.length - 1), STAR_PLAYER]
-        : attendees
-      : attendees.filter((p) => p !== STAR_PLAYER);
+    if (isShowcase) {
+      const others = SAMPLE_PLAYERS.filter((p) => p !== SHOWCASE_VETERAN && p !== SHOWCASE_UNDEFEATED && p !== SHOWCASE_UNLUCKY);
+      const fillerCount = 7 + (showcaseFilled % 3); // 7-9 extra players alongside the 3 showcase players
+      const fillerIndices: number[] = [];
+      for (let k = 0; k < fillerCount; k++) fillerIndices.push((showcaseFilled * 2 + k) % others.length);
+      const filler = Array.from(new Set(fillerIndices)).map((idx) => others[idx]);
+      const fillerHalf = Math.ceil(filler.length / 2);
 
-    const half = Math.ceil(roster.length / 2);
-    let teamA = roster.slice(0, half);
-    let teamB = roster.slice(half);
+      teamA = [SHOWCASE_VETERAN, SHOWCASE_UNDEFEATED, ...filler.slice(0, fillerHalf)];
+      teamB = [SHOWCASE_UNLUCKY, ...filler.slice(fillerHalf)];
+      [scoreA, scoreB] = SHOWCASE_SCORELINES[showcaseFilled % SHOWCASE_SCORELINES.length];
+      showcaseFilled++;
+    } else {
+      const attendeeCount = 10 + (i % 5); // 10-14 players
+      const attendeeIndices: number[] = [];
+      for (let k = 0; k < attendeeCount; k++) attendeeIndices.push((i * 3 + k) % n);
+      const attendees = Array.from(new Set(attendeeIndices)).map((idx) => SAMPLE_PLAYERS[idx]);
 
-    const inStreak = i >= STAR_STREAK_RANGE[0] && i <= STAR_STREAK_RANGE[1];
-    if (inStreak && !teamA.includes(STAR_PLAYER) && teamB.includes(STAR_PLAYER)) {
-      // Force the star onto team A (the winning side below) during the streak window.
-      teamB = teamB.filter((p) => p !== STAR_PLAYER);
-      teamA = [...teamA, STAR_PLAYER];
+      const starIndex = attendees.indexOf(STAR_PLAYER);
+      // The star player attends the large majority of games (skip roughly 1 in 10).
+      const includeStar = i % 10 !== 0;
+      const roster = includeStar
+        ? starIndex === -1
+          ? [...attendees.slice(0, attendees.length - 1), STAR_PLAYER]
+          : attendees
+        : attendees.filter((p) => p !== STAR_PLAYER);
+
+      const half = Math.ceil(roster.length / 2);
+      teamA = roster.slice(0, half);
+      teamB = roster.slice(half);
+
+      const inStreak = i >= STAR_STREAK_RANGE[0] && i <= STAR_STREAK_RANGE[1];
+      if (inStreak && !teamA.includes(STAR_PLAYER) && teamB.includes(STAR_PLAYER)) {
+        // Force the star onto team A (the winning side below) during the streak window.
+        teamB = teamB.filter((p) => p !== STAR_PLAYER);
+        teamA = [...teamA, STAR_PLAYER];
+      }
+
+      [scoreA, scoreB] = SCORELINES[i % SCORELINES.length];
+      if (inStreak && scoreA <= scoreB) [scoreA, scoreB] = [scoreB + 1, scoreA];
     }
-
-    let [scoreA, scoreB] = SCORELINES[i % SCORELINES.length];
-    if (inStreak && scoreA <= scoreB) [scoreA, scoreB] = [scoreB + 1, scoreA];
 
     const teamAStat = computeTeamResult(scoreA, scoreB);
     const teamBStat = computeTeamResult(scoreB, scoreA);
@@ -166,7 +225,9 @@ async function main() {
     createdGamedays++;
   }
 
-  console.log(`Past gamedays: created ${createdGamedays}, skipped ${skippedGamedays} (already present).`);
+  console.log(
+    `Past gamedays: created ${createdGamedays} (${reconciledGamedays} reconciled for the current-form showcase window), skipped ${skippedGamedays} (already present).`
+  );
 
   // A couple of upcoming open gamedays with some sign-ups, to demo the sign-up flow.
   let createdUpcoming = 0;
