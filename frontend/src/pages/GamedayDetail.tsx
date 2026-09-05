@@ -256,11 +256,11 @@ function GuestSignup({
       <div className="card-title" style={{ marginBottom: 8 }}>
         Bring a guest
       </div>
-      <div className="form-row" style={{ alignItems: "flex-end" }}>
-        <div className="field">
-          <label htmlFor="guest-name">Guest name</label>
+      <div className="form-row" style={{ alignItems: "center" }}>
+        <div className="field" style={{ marginBottom: 0 }}>
           <input
             id="guest-name"
+            aria-label="Guest name"
             list="guest-options"
             value={name}
             onChange={(e) => setName(e.target.value)}
