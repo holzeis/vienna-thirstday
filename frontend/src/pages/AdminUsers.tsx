@@ -181,7 +181,7 @@ export function AdminUsers() {
             />
             <datalist id="admin-guest-options">
               {guests?.map((g) => (
-                <option key={g.id} value={g.name} label={`${g.gamesPlayed} ${g.gamesPlayed === 1 ? "game" : "games"}`} />
+                <option key={g.id} value={g.name} />
               ))}
             </datalist>
           </div>
