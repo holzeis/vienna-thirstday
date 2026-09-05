@@ -11,6 +11,7 @@ import guestsRouter from "./routes/guests";
 import playersRouter from "./routes/players";
 import gamedaysRouter from "./routes/gamedays";
 import standingsRouter from "./routes/standings";
+import hallOfFameRouter from "./routes/hallOfFame";
 
 export function createApp() {
   const app = express();
@@ -28,6 +29,7 @@ export function createApp() {
   app.use("/api/players", playersRouter);
   app.use("/api/gamedays", gamedaysRouter);
   app.use("/api/seasons", standingsRouter);
+  app.use("/api/hall-of-fame", hallOfFameRouter);
 
   app.use((_req, _res, next) => next(ApiError.notFound("Route not found")));
 

@@ -1,8 +1,10 @@
-import { apiRequest } from "./client";
+import { apiRequest, API_BASE, getAuthToken, ApiClientError } from "./client";
 import type {
   GamedayDetail,
   GamedaySummary,
+  HallOfFameResponse,
   Player,
+  PlayerProfile,
   StandingRow,
   Team,
   User,
@@ -26,6 +28,10 @@ export function register(email: string, password: string, name: string) {
 
 export function fetchMe() {
   return apiRequest<{ user: User; player: Player | null }>("/auth/me");
+}
+
+export function updateMe(data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }) {
+  return apiRequest<{ user: User; player: Player | null }>("/auth/me", { method: "PATCH", body: data });
 }
 
 // ---- admin: users ----
@@ -74,6 +80,27 @@ export function listPlayers() {
   return apiRequest<{ players: Player[] }>("/players");
 }
 
+export function getPlayerProfile(id: number) {
+  return apiRequest<PlayerProfile>(`/players/${id}/profile`);
+}
+
+export async function uploadAvatar(playerId: number, file: File) {
+  const form = new FormData();
+  form.append("avatar", file);
+  const res = await fetch(`${API_BASE}/players/${playerId}/avatar`, {
+    method: "PUT",
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+    body: form,
+  });
+  const isJson = res.headers.get("content-type")?.includes("application/json");
+  const data = isJson ? await res.json().catch(() => ({})) : undefined;
+  if (!res.ok) {
+    const message = (data && (data as any).error) || res.statusText || "Upload failed";
+    throw new ApiClientError(res.status, message, data && (data as any).details);
+  }
+  return data as { player: Player };
+}
+
 // ---- gamedays ----
 
 export function listGamedays(season?: number) {
@@ -85,12 +112,16 @@ export function getGameday(id: number) {
   return apiRequest<{ gameday: GamedayDetail }>(`/gamedays/${id}`);
 }
 
-export function createGameday(data: { date: string; location?: string; minPlayers?: number; maxPlayers?: number; notes?: string }) {
+export function createGameday(data: { date: string; minPlayers?: number; maxPlayers?: number; notes?: string }) {
   return apiRequest<{ gameday: GamedayDetail }>("/gamedays", { method: "POST", body: data });
 }
 
-export function updateGameday(id: number, data: Partial<{ date: string; location: string; status: string; minPlayers: number; maxPlayers: number; notes: string }>) {
+export function updateGameday(id: number, data: Partial<{ date: string; status: string; minPlayers: number; maxPlayers: number; notes: string }>) {
   return apiRequest<{ gameday: GamedayDetail }>(`/gamedays/${id}`, { method: "PATCH", body: data });
+}
+
+export function deleteGameday(id: number) {
+  return apiRequest<void>(`/gamedays/${id}`, { method: "DELETE" });
 }
 
 export function registerForGameday(gamedayId: number, playerId?: number) {
@@ -123,4 +154,11 @@ export function listSeasons() {
 
 export function getStandings(year: number) {
   return apiRequest<{ year: number; standings: StandingRow[] }>(`/seasons/${year}/standings`);
+}
+
+// ---- hall of fame ----
+
+export function getHallOfFame(year?: number) {
+  const qs = year ? `?year=${year}` : "";
+  return apiRequest<HallOfFameResponse>(`/hall-of-fame${qs}`);
 }

@@ -23,12 +23,12 @@ export interface Player {
 export interface GamedaySummary {
   id: number;
   date: string;
-  location: string | null;
   status: GamedayStatus;
   minPlayers: number;
   maxPlayers: number;
   confirmedCount: number;
   waitlistedCount: number;
+  result: { teamAScore: number; teamBScore: number } | null;
 }
 
 export interface RegistrationView {
@@ -63,7 +63,6 @@ export interface ResultView {
 export interface GamedayDetail {
   id: number;
   date: string;
-  location: string | null;
   status: GamedayStatus;
   minPlayers: number;
   maxPlayers: number;
@@ -81,4 +80,65 @@ export interface StandingRow {
   points: number;
   goalDiff: number;
   gamesPlayed: number;
+}
+
+/**
+ * Competitive (season) awards and the isAdmin badge are always exactly
+ * gold/silver/bronze - if not earned, simply absent. The lifetime stat
+ * categories always render instead, using "wood" as the below-bronze rung
+ * so the real value stays visible.
+ */
+export type AwardTier = "gold" | "silver" | "bronze" | "wood";
+
+export type PersonalAwardCategory = "gamesPlayed" | "wins" | "draws" | "losses" | "points" | "goals" | "isAdmin";
+export type SeasonAwardCategory = "ranking" | "mostGames" | "mostGoals" | "longestWinStreak" | "longestLossStreak";
+export type AwardCategory = PersonalAwardCategory | SeasonAwardCategory;
+
+export interface PlayerAward {
+  category: AwardCategory;
+  tier: AwardTier;
+  kind: "personal" | "season";
+  season?: number;
+  value: number;
+}
+
+export interface TeammateRecord {
+  playerId: number;
+  name: string;
+  sharedGames: number;
+  sharedWins: number;
+  sharedLosses: number;
+}
+
+/** Transient - unlike awards these can be lost the moment the next game changes the picture. */
+export interface CurrentForm {
+  veteran: boolean;
+  undefeated: boolean;
+  unlucky: boolean;
+}
+
+export interface PlayerProfile {
+  player: { id: number; name: string; isGuest: boolean; avatarDataUri: string | null; joinedAt: string };
+  awards: PlayerAward[];
+  currentForm: CurrentForm;
+  teammates: { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null };
+}
+
+export interface PodiumEntry {
+  playerId: number;
+  name: string;
+  value: number;
+}
+
+/** There is always at most one winner per medal - ties are resolved by secondary factors. */
+export interface PodiumAward {
+  gold: PodiumEntry | null;
+  silver: PodiumEntry | null;
+  bronze: PodiumEntry | null;
+}
+
+export interface HallOfFameResponse {
+  year: number;
+  seasonComplete: boolean;
+  podiums: Record<SeasonAwardCategory, PodiumAward>;
 }

@@ -9,6 +9,8 @@ import { GamedaysList } from "./pages/GamedaysList";
 import { GamedayDetail } from "./pages/GamedayDetail";
 import { Standings } from "./pages/Standings";
 import { AdminUsers } from "./pages/AdminUsers";
+import { PlayerProfile } from "./pages/PlayerProfile";
+import { HallOfFame } from "./pages/HallOfFame";
 
 export default function App() {
   return (
@@ -28,6 +30,8 @@ export default function App() {
           <Route path="/gamedays" element={<GamedaysList />} />
           <Route path="/gamedays/:id" element={<GamedayDetail />} />
           <Route path="/standings" element={<Standings />} />
+          <Route path="/players/:id" element={<PlayerProfile />} />
+          <Route path="/hall-of-fame" element={<HallOfFame />} />
           <Route
             path="/admin/users"
             element={
