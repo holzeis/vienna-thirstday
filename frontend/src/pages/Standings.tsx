@@ -65,7 +65,7 @@ export function Standings() {
                     {typeof row.momentum === "number" && row.momentum !== 0 && (
                       <span
                         className={`momentum ${row.momentum > 0 ? "momentum-up" : "momentum-down"}`}
-                        title={row.momentum > 0 ? `Up ${row.momentum} since the last gameday` : `Down ${Math.abs(row.momentum)} since the last gameday`}
+                        title={row.momentum > 0 ? `Up ${row.momentum} since the last matchday` : `Down ${Math.abs(row.momentum)} since the last matchday`}
                       >
                         {row.momentum > 0 ? "▲" : "▼"}
                         {Math.abs(row.momentum)}

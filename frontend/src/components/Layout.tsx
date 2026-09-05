@@ -121,7 +121,7 @@ export function Layout() {
           <NavLink to="/" end>
             Overview
           </NavLink>
-          <NavLink to="/gamedays">Gamedays</NavLink>
+          <NavLink to="/gamedays">Matchdays</NavLink>
           <NavLink to="/standings">Leaderboard</NavLink>
           <NavLink to="/hall-of-fame">Hall of Fame</NavLink>
           {user?.isAdmin && <NavLink to="/admin/users">Admin</NavLink>}
@@ -152,7 +152,7 @@ export function Layout() {
           <span className="tab-icon">
             <GamedaysIcon />
           </span>
-          Gamedays
+          Matchdays
         </NavLink>
         <NavLink to="/standings">
           <span className="tab-icon">

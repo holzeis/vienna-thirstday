@@ -1,0 +1,61 @@
+import "./testDb";
+import { beforeEach, afterAll, describe, it, expect } from "vitest";
+import request from "supertest";
+import { createApp } from "../app";
+import { db } from "../db/client";
+import { gamedays, registrations } from "../db/schema";
+import { resetDb, closeDb, createAdmin, createGuestPlayer } from "./helpers";
+
+const app = createApp();
+
+beforeEach(resetDb);
+afterAll(closeDb);
+
+async function loginAs(name: string, password: string) {
+  const res = await request(app).post("/api/auth/login").send({ name, password });
+  return res.body.token as string;
+}
+
+describe("GET /gamedays", () => {
+  it("numbers matchdays chronologically within each year and restarts per year", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+
+    const [g2024a] = await db.insert(gamedays).values({ date: new Date("2024-01-04T19:00:00Z"), status: "COMPLETED", createdByUserId: user.id }).returning();
+    const [g2024b] = await db.insert(gamedays).values({ date: new Date("2024-01-11T19:00:00Z"), status: "COMPLETED", createdByUserId: user.id }).returning();
+    const [g2025a] = await db.insert(gamedays).values({ date: new Date("2025-01-02T19:00:00Z"), status: "COMPLETED", createdByUserId: user.id }).returning();
+
+    const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const byId = new Map(res.body.gamedays.map((g: any) => [g.id, g.matchday]));
+    expect(byId.get(g2024a.id)).toBe(1);
+    expect(byId.get(g2024b.id)).toBe(2);
+    expect(byId.get(g2025a.id)).toBe(1);
+  });
+
+  it("filters by ?season= while keeping matchday numbers computed across the full history", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+
+    await db.insert(gamedays).values({ date: new Date("2024-06-01T19:00:00Z"), status: "COMPLETED", createdByUserId: user.id });
+    const [g2025] = await db.insert(gamedays).values({ date: new Date("2025-06-01T19:00:00Z"), status: "COMPLETED", createdByUserId: user.id }).returning();
+
+    const res = await request(app).get("/api/gamedays?season=2025").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.gamedays).toHaveLength(1);
+    expect(res.body.gamedays[0].id).toBe(g2025.id);
+    expect(res.body.gamedays[0].matchday).toBe(1);
+  });
+
+  it("derives the player count from registrations, not a hardcoded default", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const [gameday] = await db.insert(gamedays).values({ date: new Date(), status: "COMPLETED", createdByUserId: user.id }).returning();
+    const guest = await createGuestPlayer("Robert");
+    await db.insert(registrations).values({ gamedayId: gameday.id, playerId: guest.id, status: "CONFIRMED", registeredByUserId: user.id });
+
+    const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
+    const match = res.body.gamedays.find((g: any) => g.id === gameday.id);
+    expect(match.confirmedCount).toBe(1);
+  });
+});

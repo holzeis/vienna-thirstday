@@ -330,14 +330,14 @@ function AdminSection({
   }
 
   async function handleDelete() {
-    if (!window.confirm("Delete this gameday? This cannot be undone.")) return;
+    if (!window.confirm("Delete this matchday? This cannot be undone.")) return;
     setError(null);
     setBusy(true);
     try {
       await deleteGameday(gamedayId);
       navigate("/gamedays");
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not delete gameday");
+      setError(err instanceof ApiClientError ? err.message : "Could not delete matchday");
       setBusy(false);
     }
   }
@@ -349,7 +349,7 @@ function AdminSection({
           Admin: teams &amp; result
         </div>
         <button className="btn btn-sm btn-danger" disabled={busy} onClick={handleDelete}>
-          Delete gameday
+          Delete matchday
         </button>
       </div>
       {error && <div className="alert alert-error">{error}</div>}

@@ -46,7 +46,7 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { db, pool } from "./client";
-import { gamedays, players, results, playerGamedayStats, users } from "./schema";
+import { gamedays, players, results, playerGamedayStats, registrations, users } from "./schema";
 import { eq } from "drizzle-orm";
 
 interface ImportEntry {
@@ -89,10 +89,16 @@ async function importFile(filePath: string, admin: { id: number }) {
   let created = 0;
   let reconciled = 0;
   for (const gd of data.gamedays) {
-    const date = new Date(`${gd.date}T18:00:00.000Z`);
+    // The spreadsheet never recorded a kickoff time, but the league always
+    // played at 19:00 - that's the one part of "when" we do know for sure.
+    const date = new Date(`${gd.date}T19:00:00.000Z`);
+    const roster = [...gd.teamA, ...gd.teamB]
+      .map((e) => playerIdByName.get(e.name))
+      .filter((id): id is number => id !== undefined);
 
-    // Skip creating a duplicate on re-runs, but still reconcile the score if
-    // this gameday was imported before the placeholder-score bug was fixed.
+    // Skip creating a duplicate on re-runs, but still reconcile the score
+    // (and backfill any missing registrations - e.g. from before this
+    // importer started creating them) if this gameday already exists.
     const existingGameday = await db.query.gamedays.findFirst({ where: eq(gamedays.date, date) });
     if (existingGameday) {
       const existingResult = await db.query.results.findFirst({ where: eq(results.gamedayId, existingGameday.id) });
@@ -105,6 +111,20 @@ async function importFile(filePath: string, admin: { id: number }) {
           .set({ teamAScore: gd.placeholderScoreA, teamBScore: gd.placeholderScoreB, updatedAt: new Date() })
           .where(eq(results.id, existingResult.id));
         reconciled++;
+      }
+
+      const existingRegs = await db.query.registrations.findMany({ where: eq(registrations.gamedayId, existingGameday.id) });
+      const alreadyRegistered = new Set(existingRegs.map((r) => r.playerId));
+      const missingRegs = roster
+        .filter((playerId) => !alreadyRegistered.has(playerId))
+        .map((playerId) => ({
+          gamedayId: existingGameday.id,
+          playerId,
+          status: "CONFIRMED" as const,
+          registeredByUserId: admin.id,
+        }));
+      if (missingRegs.length > 0) {
+        await db.insert(registrations).values(missingRegs);
       }
       continue;
     }
@@ -149,6 +169,21 @@ async function importFile(filePath: string, admin: { id: number }) {
 
       if (statRows.length > 0) {
         await tx.insert(playerGamedayStats).values(statRows);
+      }
+
+      // The actual player count for an imported gameday should reflect who
+      // really played, not the default max-players capacity - registering
+      // everyone who has a stat row for this gameday makes the "confirmed"
+      // count derive correctly with no special-casing elsewhere.
+      if (roster.length > 0) {
+        await tx.insert(registrations).values(
+          roster.map((playerId) => ({
+            gamedayId: gameday.id,
+            playerId,
+            status: "CONFIRMED" as const,
+            registeredByUserId: admin.id,
+          }))
+        );
       }
     });
     created++;

@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
 import { recomputeGamedayWaitlist } from "../services/registrationService";
 import { computeTeamResult } from "../utils/scoring";
+import { computeMatchdayNumbers } from "../utils/matchday";
 
 const router = Router();
 
@@ -47,31 +48,38 @@ router.get(
   asyncHandler(async (req, res) => {
     const seasonParam = req.query.season as string | undefined;
     const all = await db.query.gamedays.findMany({
-      orderBy: (g, { desc }) => desc(g.date),
+      orderBy: (g, { asc }) => asc(g.date),
       with: {
         registrations: { where: ne(registrations.status, "CANCELLED") },
         result: true,
       },
     });
 
+    // `all` is ascending by date (the query's orderBy above), which
+    // computeMatchdayNumbers requires.
+    const matchdayById = computeMatchdayNumbers(all);
+
     const filtered = seasonParam
       ? all.filter((g) => g.date.getUTCFullYear() === parseInt(seasonParam, 10))
       : all;
 
-    const summarized = filtered.map((g) => {
-      const regs = (g as any).registrations as { status: string }[];
-      const result = (g as any).result as { teamAScore: number; teamBScore: number } | null;
-      return {
-        id: g.id,
-        date: g.date,
-        status: g.status,
-        minPlayers: g.minPlayers,
-        maxPlayers: g.maxPlayers,
-        confirmedCount: regs.filter((r) => r.status === "CONFIRMED").length,
-        waitlistedCount: regs.filter((r) => r.status === "WAITLISTED").length,
-        result: g.status === "COMPLETED" && result ? { teamAScore: result.teamAScore, teamBScore: result.teamBScore } : null,
-      };
-    });
+    const summarized = filtered
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .map((g) => {
+        const regs = (g as any).registrations as { status: string }[];
+        const result = (g as any).result as { teamAScore: number; teamBScore: number } | null;
+        return {
+          id: g.id,
+          date: g.date,
+          status: g.status,
+          minPlayers: g.minPlayers,
+          maxPlayers: g.maxPlayers,
+          matchday: matchdayById.get(g.id)!,
+          confirmedCount: regs.filter((r) => r.status === "CONFIRMED").length,
+          waitlistedCount: regs.filter((r) => r.status === "WAITLISTED").length,
+          result: g.status === "COMPLETED" && result ? { teamAScore: result.teamAScore, teamBScore: result.teamBScore } : null,
+        };
+      });
 
     res.json({ gamedays: summarized });
   })

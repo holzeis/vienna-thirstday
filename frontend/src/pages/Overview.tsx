@@ -48,7 +48,7 @@ export function Overview() {
           <div className="card-title">Admin shortcuts</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Link to="/gamedays?new=1" className="btn btn-primary btn-sm">
-              Create a gameday
+              Create a matchday
             </Link>
           </div>
         </div>
@@ -56,9 +56,9 @@ export function Overview() {
 
       <div className="grid grid-2">
         <div className="card">
-          <div className="card-title">Next gamedays</div>
+          <div className="card-title">Next matchdays</div>
           {upcoming === null && <div className="loading">Loading...</div>}
-          {upcoming?.length === 0 && <div className="empty-state">No upcoming gamedays yet.</div>}
+          {upcoming?.length === 0 && <div className="empty-state">No upcoming matchdays yet.</div>}
           {upcoming && upcoming.length > 0 && (
             <ul className="subtle-list">
               {upcoming.map((g) => (
@@ -76,7 +76,7 @@ export function Overview() {
           )}
           <div className="card-footer">
             <Link to="/gamedays" className="btn btn-sm">
-              View all gamedays
+              View all matchdays
             </Link>
           </div>
         </div>

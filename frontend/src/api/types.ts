@@ -48,6 +48,8 @@ export interface GamedaySummary {
   status: GamedayStatus;
   minPlayers: number;
   maxPlayers: number;
+  /** 1-based position of this gameday within its own calendar year, chronologically. */
+  matchday: number;
   confirmedCount: number;
   waitlistedCount: number;
   result: { teamAScore: number; teamBScore: number } | null;
