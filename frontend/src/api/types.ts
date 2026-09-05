@@ -122,6 +122,14 @@ export interface TeammateRecord {
   avatarDataUri: string | null;
 }
 
+export interface OpponentRecord {
+  playerId: number;
+  name: string;
+  gamesAgainst: number;
+  lossesAgainst: number;
+  avatarDataUri: string | null;
+}
+
 /** Transient - unlike awards these can be lost the moment the next game changes the picture. */
 export interface CurrentForm {
   veteran: boolean;
@@ -134,6 +142,7 @@ export interface PlayerProfile {
   awards: PlayerAward[];
   currentForm: CurrentForm;
   teammates: { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null };
+  nemesis: OpponentRecord | null;
 }
 
 export interface PodiumEntry {

@@ -10,11 +10,11 @@ import { ApiError } from "../utils/errors";
 import {
   computeCareerStats,
   computeCurrentForm,
+  computeNemesis,
   computePersonalAwards,
   computePlayerSeasonAwards,
   computeTeammateTally,
   fetchStatRows,
-  type TeammateRecord,
 } from "../services/playerStatsService";
 
 const router = Router();
@@ -25,25 +25,29 @@ function avatarDataUri(row: { avatarData: string | null; avatarMimeType: string 
   return row.avatarData ? `data:${row.avatarMimeType || "image/jpeg"};base64,${row.avatarData}` : null;
 }
 
-/** Attaches each teammate's profile picture - the Locker Room card uses it as that tile's visual anchor. */
-async function withTeammateAvatars<T extends { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null }>(
-  teammates: T
-): Promise<T> {
-  const ids = [teammates.favorite?.playerId, teammates.unfavorite?.playerId, teammates.mostPlayedWith?.playerId].filter(
-    (id): id is number => id !== undefined
-  );
-  if (ids.length === 0) return teammates;
+type HasAvatarSlot = { playerId: number; avatarDataUri: string | null };
+
+/**
+ * Attaches each record's profile picture - the Locker Room card uses it as
+ * that tile's visual anchor. Takes a named bag of nullable records (e.g.
+ * `{favorite, unfavorite, mostPlayedWith, nemesis}`) and batches a single
+ * lookup for every distinct player involved.
+ */
+async function attachAvatars<T extends Record<string, HasAvatarSlot | null>>(records: T): Promise<T> {
+  const ids = Object.values(records)
+    .map((r) => r?.playerId)
+    .filter((id): id is number => id !== undefined);
+  if (ids.length === 0) return records;
 
   const rows = await db.query.players.findMany({ where: inArray(players.id, Array.from(new Set(ids))) });
   const byId = new Map(rows.map((r) => [r.id, avatarDataUri(r)]));
 
-  const attach = (rec: TeammateRecord | null): TeammateRecord | null => (rec ? { ...rec, avatarDataUri: byId.get(rec.playerId) ?? null } : null);
-  return {
-    ...teammates,
-    favorite: attach(teammates.favorite),
-    unfavorite: attach(teammates.unfavorite),
-    mostPlayedWith: attach(teammates.mostPlayedWith),
-  };
+  const result = { ...records };
+  for (const key of Object.keys(records) as (keyof T)[]) {
+    const rec = records[key];
+    if (rec) result[key] = { ...rec, avatarDataUri: byId.get(rec.playerId) ?? null } as T[keyof T];
+  }
+  return result;
 }
 
 /** List all registered (non-guest) players - used for admin team assignment, guest pickers, etc. */
@@ -81,7 +85,11 @@ router.get(
       [...myRows].sort((a, b) => a.date.getTime() - b.date.getTime()).slice(-5).map((r) => r.gamedayId)
     );
     const formRows = allRows.filter((r) => lastFiveGamedayIds.has(r.gamedayId));
-    const teammates = await withTeammateAvatars(computeTeammateTally(formRows, id));
+    const { favorite, unfavorite, mostPlayedWith, nemesis } = await attachAvatars({
+      ...computeTeammateTally(formRows, id),
+      nemesis: computeNemesis(formRows, id),
+    });
+    const teammates = { favorite, unfavorite, mostPlayedWith };
 
     res.json({
       player: {
@@ -97,6 +105,7 @@ router.get(
       awards,
       currentForm,
       teammates,
+      nemesis,
     });
   })
 );

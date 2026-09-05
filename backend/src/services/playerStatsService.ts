@@ -210,6 +210,55 @@ export function computeTeammateTally(
   return { favorite: favorite ?? null, unfavorite: unfavorite ?? null, mostPlayedWith: mostPlayedWith ?? null };
 }
 
+export interface OpponentRecord {
+  playerId: number;
+  name: string;
+  gamesAgainst: number;
+  lossesAgainst: number;
+  /** Populated by the route layer (this service has no DB access) - null until enriched. */
+  avatarDataUri: string | null;
+}
+
+const NEMESIS_LOSS_THRESHOLD = 3;
+
+/**
+ * The opponent this player has struggled against most within `rows`
+ * (expected to already be scoped to the player's own last 5 games, same
+ * window as the teammate tally) - null unless they've lost to that specific
+ * opponent at least `NEMESIS_LOSS_THRESHOLD` times in that window. Ties
+ * broken by games faced, then name, for a single deterministic nemesis.
+ */
+export function computeNemesis(rows: StatRow[], playerId: number): OpponentRecord | null {
+  const groups = new Map<number, StatRow[]>();
+  for (const r of rows) {
+    const list = groups.get(r.gamedayId);
+    if (list) list.push(r);
+    else groups.set(r.gamedayId, [r]);
+  }
+
+  const tally = new Map<number, OpponentRecord>();
+  for (const group of groups.values()) {
+    const mine = group.find((r) => r.playerId === playerId);
+    if (!mine) continue;
+    for (const other of group) {
+      if (other.playerId === playerId || other.team === mine.team) continue;
+      let rec = tally.get(other.playerId);
+      if (!rec) {
+        rec = { playerId: other.playerId, name: other.playerName, gamesAgainst: 0, lossesAgainst: 0, avatarDataUri: null };
+        tally.set(other.playerId, rec);
+      }
+      rec.gamesAgainst++;
+      if (mine.points === 1) rec.lossesAgainst++;
+    }
+  }
+
+  const nemesis = Array.from(tally.values())
+    .filter((r) => r.lossesAgainst >= NEMESIS_LOSS_THRESHOLD)
+    .sort((a, b) => b.lossesAgainst - a.lossesAgainst || b.gamesAgainst - a.gamesAgainst || a.name.localeCompare(b.name))[0];
+
+  return nemesis ?? null;
+}
+
 export interface CurrentForm {
   veteran: boolean;
   undefeated: boolean;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPlayerProfile, updateMe, uploadAvatar } from "../api/endpoints";
-import type { AwardCategory, AwardTier, PlayerProfile as PlayerProfileType, TeammateRecord } from "../api/types";
+import type { AwardCategory, AwardTier, PlayerProfile as PlayerProfileType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatMonthYear } from "../utils/format";
@@ -70,7 +70,8 @@ export function PlayerProfile() {
   const isOwnProfile = me?.id === playerId;
   const { veteran, undefeated, unlucky } = profile.currentForm;
   const { mostPlayedWith, favorite, unfavorite } = profile.teammates;
-  const hasLockerRoomContent = veteran || undefeated || unlucky || !!mostPlayedWith || !!favorite || !!unfavorite;
+  const { nemesis } = profile;
+  const hasLockerRoomContent = veteran || undefeated || unlucky || !!mostPlayedWith || !!favorite || !!unfavorite || !!nemesis;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -162,6 +163,9 @@ export function PlayerProfile() {
             {unfavorite && (
               <TeammateTile teammate={unfavorite} emoji="💀" label="Jinx" stat={`${unfavorite.sharedLosses} losses in last 5`} />
             )}
+            {nemesis && (
+              <TeammateTile teammate={nemesis} emoji="😈" label="Nemesis" stat={`${nemesis.lossesAgainst} losses to them in last 5`} />
+            )}
           </div>
         ) : (
           <div className="empty-state">Form and teammate chemistry will show up here after a few more games.</div>
@@ -201,7 +205,17 @@ export function PlayerProfile() {
   );
 }
 
-function TeammateTile({ teammate, emoji, label, stat }: { teammate: TeammateRecord; emoji: string; label: string; stat: string }) {
+function TeammateTile({
+  teammate,
+  emoji,
+  label,
+  stat,
+}: {
+  teammate: { playerId: number; name: string; avatarDataUri: string | null };
+  emoji: string;
+  label: string;
+  stat: string;
+}) {
   return (
     <div className="achievement-tile">
       <div className="achievement-icon">

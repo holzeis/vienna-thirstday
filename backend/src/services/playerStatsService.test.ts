@@ -3,6 +3,7 @@ import {
   computeCareerStats,
   computeCurrentForm,
   computeMomentum,
+  computeNemesis,
   computePersonalAwards,
   computePlayerSeasonAwards,
   computeSeasonPodiums,
@@ -108,6 +109,62 @@ describe("computeTeammateTally", () => {
   it("returns nulls when the player has never shared a team with anyone", () => {
     const result = computeTeammateTally([row({ playerId: 1 })], 1);
     expect(result).toEqual({ favorite: null, unfavorite: null, mostPlayedWith: null });
+  });
+});
+
+describe("computeNemesis", () => {
+  it("names an opponent as nemesis after losing to them at least 3 times", () => {
+    const rows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 1 }),
+      row({ playerId: 2, playerName: "Nemesis", gamedayId, team: "B", points: 4 }),
+    ]);
+    const nemesis = computeNemesis(rows, 1);
+    expect(nemesis).toMatchObject({ playerId: 2, name: "Nemesis", gamesAgainst: 3, lossesAgainst: 3 });
+  });
+
+  it("returns null when losses against an opponent fall short of the threshold", () => {
+    const rows: StatRow[] = [1, 2].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 1 }),
+      row({ playerId: 2, gamedayId, team: "B", points: 4 }),
+    ]);
+    expect(computeNemesis(rows, 1)).toBeNull();
+  });
+
+  it("only counts games actually lost against that opponent, not wins or draws", () => {
+    const points = [1, 4, 1, 1]; // 1 win mixed in among 3 losses, same opponent every game
+    const rows: StatRow[] = points.flatMap((p, i) => [
+      row({ playerId: 1, gamedayId: i, team: "A", points: p }),
+      row({ playerId: 2, gamedayId: i, team: "B", points: p === 1 ? 4 : 1 }),
+    ]);
+    const nemesis = computeNemesis(rows, 1);
+    expect(nemesis).toMatchObject({ playerId: 2, gamesAgainst: 4, lossesAgainst: 3 });
+  });
+
+  it("ignores teammates - only the opposing team counts as an opponent", () => {
+    const rows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 1 }),
+      // Same team every game and would tie on losses/games-faced if wrongly
+      // tallied as an opponent - and would win the name tie-break too, so
+      // this only passes if the team filter correctly excludes them.
+      row({ playerId: 2, playerName: "AAA Teammate", gamedayId, team: "A", points: 1 }),
+      row({ playerId: 3, playerName: "ZZZ Opponent", gamedayId, team: "B", points: 4 }),
+    ]);
+    expect(computeNemesis(rows, 1)?.playerId).toBe(3);
+  });
+
+  it("breaks a tie between two qualifying nemeses by games faced, then name", () => {
+    const rows: StatRow[] = [1, 2, 3]
+      .flatMap((gamedayId) => [
+        row({ playerId: 1, gamedayId, team: "A", points: 1 }),
+        row({ playerId: 2, playerName: "Bob", gamedayId, team: "B", points: 4 }),
+      ])
+      .concat(
+        [4, 5, 6].flatMap((gamedayId) => [
+          row({ playerId: 1, gamedayId, team: "A", points: 1 }),
+          row({ playerId: 3, playerName: "Alice", gamedayId, team: "B", points: 4 }),
+        ])
+      );
+    expect(computeNemesis(rows, 1)?.name).toBe("Alice");
   });
 });
 
