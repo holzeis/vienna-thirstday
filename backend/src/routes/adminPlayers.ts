@@ -4,6 +4,7 @@ import { db } from "../db/client";
 import { players, playerGamedayStats } from "../db/schema";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
+import { undoPlayerMerge } from "../services/playerMergeService";
 
 const router = Router();
 
@@ -32,6 +33,37 @@ router.get(
       .orderBy(players.name);
 
     res.json({ guests: rows });
+  })
+);
+
+/** Guest-into-player merge history, so an admin can spot and undo a wrong one. */
+router.get(
+  "/merges",
+  asyncHandler(async (_req, res) => {
+    const merges = await db.query.playerMerges.findMany({
+      with: { targetPlayer: true, mergedBy: true },
+      orderBy: (m, { desc }) => desc(m.createdAt),
+    });
+    res.json({
+      merges: merges.map((m) => ({
+        id: m.id,
+        guestPlayerName: m.guestPlayerName,
+        targetPlayer: { id: m.targetPlayer.id, name: m.targetPlayer.name },
+        mergedBy: { id: m.mergedBy.id, email: m.mergedBy.email },
+        undoneAt: m.undoneAt,
+        createdAt: m.createdAt,
+      })),
+    });
+  })
+);
+
+/** Reverses a merge: recreates the guest and moves back exactly the rows that were reassigned. */
+router.post(
+  "/merges/:id/undo",
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const restored = await db.transaction((tx) => undoPlayerMerge(tx, id));
+    res.json({ guest: restored });
   })
 );
 

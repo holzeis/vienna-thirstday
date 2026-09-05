@@ -4,6 +4,7 @@ import type {
   GamedaySummary,
   HallOfFameResponse,
   Player,
+  PlayerMerge,
   PlayerProfile,
   StandingRow,
   Team,
@@ -56,8 +57,20 @@ export function adminRejectUser(id: number) {
   return apiRequest<{ user: User }>(`/admin/users/${id}/reject`, { method: "POST" });
 }
 
-export function adminSetRoles(id: number, roles: { isAdmin?: boolean; isPlayer?: boolean }) {
+export function adminSetRoles(id: number, roles: { isAdmin?: boolean }) {
   return apiRequest<{ user: User }>(`/admin/users/${id}/roles`, { method: "PATCH", body: roles });
+}
+
+export function adminDeleteUser(id: number) {
+  return apiRequest<void>(`/admin/users/${id}`, { method: "DELETE" });
+}
+
+export function adminListMerges() {
+  return apiRequest<{ merges: PlayerMerge[] }>("/admin/players/merges");
+}
+
+export function adminUndoMerge(id: number) {
+  return apiRequest<{ guest: Player }>(`/admin/players/merges/${id}/undo`, { method: "POST" });
 }
 
 // ---- guests ----

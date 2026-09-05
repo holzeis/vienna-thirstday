@@ -42,7 +42,6 @@ router.post(
           passwordHash,
           status: "PENDING",
           isAdmin: false,
-          isPlayer: true,
           playerId: player.id,
         })
         .returning();
@@ -85,7 +84,7 @@ router.post(
       throw ApiError.forbidden("Your account registration was rejected");
     }
 
-    const token = signToken({ userId: user.id, isAdmin: user.isAdmin, isPlayer: user.isPlayer });
+    const token = signToken({ userId: user.id, isAdmin: user.isAdmin });
     res.json({ token, user: sanitizeUser(user) });
   })
 );

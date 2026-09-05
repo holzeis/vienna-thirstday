@@ -610,6 +610,77 @@ td .select {
   display: none;
 }
 
+.users-list-wrap {
+  display: none;
+}
+
+.user-card {
+  padding: 14px 16px;
+}
+
+.user-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.user-card-name {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.user-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--card-border);
+  background: var(--overlay-1);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  flex: none;
+}
+.icon-btn:hover {
+  border-color: var(--card-border-hover);
+  background: var(--overlay-3);
+}
+
+.user-card-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.user-card-email {
+  color: var(--text-dim);
+  font-size: 13px;
+  word-break: break-all;
+}
+
 .hof-list-card {
   gap: 8px;
 }
@@ -1073,6 +1144,16 @@ tr.me td:first-child {
   }
 
   .hof-list-wrap {
+    display: block;
+  }
+
+  /* Same swap for the admin "All users" table - email/delete move behind
+     each card's hamburger toggle instead of squeezing into more columns. */
+  .users-table-wrap {
+    display: none;
+  }
+
+  .users-list-wrap {
     display: block;
   }
 

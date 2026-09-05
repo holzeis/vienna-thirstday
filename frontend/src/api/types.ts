@@ -8,7 +8,6 @@ export interface User {
   email: string;
   status: UserStatus;
   isAdmin: boolean;
-  isPlayer: boolean;
   playerId: number | null;
   createdAt: string;
 }
@@ -18,6 +17,15 @@ export interface Player {
   name: string;
   isGuest: boolean;
   addedByUserId: number | null;
+}
+
+export interface PlayerMerge {
+  id: number;
+  guestPlayerName: string;
+  targetPlayer: { id: number; name: string };
+  mergedBy: { id: number; email: string };
+  undoneAt: string | null;
+  createdAt: string;
 }
 
 export interface GamedaySummary {

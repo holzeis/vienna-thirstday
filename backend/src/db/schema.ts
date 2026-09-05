@@ -34,7 +34,6 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   status: userStatusEnum("status").notNull().default("PENDING"),
   isAdmin: boolean("is_admin").notNull().default(false),
-  isPlayer: boolean("is_player").notNull().default(true),
   playerId: integer("player_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -151,6 +150,29 @@ export const playerGamedayStats = pgTable(
   })
 );
 
+/**
+ * Audit log for guest-into-player merges (playerMergeService). The guest
+ * player row is deleted once merged, so its name is captured here; the
+ * moved-row id lists (JSON arrays of registration/team-assignment/gameday-
+ * stat ids) are what makes `undoPlayerMerge` possible - reversing a merge
+ * means recreating the guest and pointing exactly those rows back at it.
+ */
+export const playerMerges = pgTable("player_merges", {
+  id: serial("id").primaryKey(),
+  guestPlayerName: varchar("guest_player_name", { length: 255 }).notNull(),
+  targetPlayerId: integer("target_player_id")
+    .notNull()
+    .references(() => players.id, { onDelete: "cascade" }),
+  mergedByUserId: integer("merged_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  movedRegistrationIds: text("moved_registration_ids").notNull(),
+  movedTeamAssignmentIds: text("moved_team_assignment_ids").notNull(),
+  movedStatIds: text("moved_stat_ids").notNull(),
+  undoneAt: timestamp("undone_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ---- relations (for query API ergonomics) ----
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -195,4 +217,9 @@ export const resultsRelations = relations(results, ({ one, many }) => ({
 export const playerGamedayStatsRelations = relations(playerGamedayStats, ({ one }) => ({
   result: one(results, { fields: [playerGamedayStats.resultId], references: [results.id] }),
   player: one(players, { fields: [playerGamedayStats.playerId], references: [players.id] }),
+}));
+
+export const playerMergesRelations = relations(playerMerges, ({ one }) => ({
+  targetPlayer: one(players, { fields: [playerMerges.targetPlayerId], references: [players.id] }),
+  mergedBy: one(users, { fields: [playerMerges.mergedByUserId], references: [users.id] }),
 }));

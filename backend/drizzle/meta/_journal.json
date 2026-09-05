@@ -15,6 +15,13 @@
       "when": 1788549858918,
       "tag": "0001_futuristic_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788600852765,
+      "tag": "0002_safe_songbird",
+      "breakpoints": true
     }
   ]
 }

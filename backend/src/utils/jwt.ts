@@ -4,7 +4,6 @@ import { config } from "../config";
 export interface JwtPayload {
   userId: number;
   isAdmin: boolean;
-  isPlayer: boolean;
 }
 
 export function signToken(payload: JwtPayload): string {

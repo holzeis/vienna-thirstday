@@ -31,7 +31,6 @@ async function main() {
       passwordHash,
       status: "APPROVED",
       isAdmin: true,
-      isPlayer: true,
       playerId: player.id,
     });
   });
