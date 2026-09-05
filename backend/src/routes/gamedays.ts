@@ -182,9 +182,9 @@ router.post(
     } else {
       const guest = await db.query.players.findFirst({ where: eq(players.id, playerId) });
       if (!guest) throw ApiError.notFound("Player/guest not found");
-      if (guest.isGuest && guest.addedByUserId !== req.user!.userId && !req.user!.isAdmin) {
-        throw ApiError.forbidden("You can only register guests you added");
-      }
+      // Guests are a shared, system-wide pool (including ones imported from
+      // the legacy spreadsheet) so anyone can bring one along, regardless of
+      // who originally added that guest profile.
     }
 
     const existing = await db.query.registrations.findFirst({

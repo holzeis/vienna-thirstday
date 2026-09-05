@@ -411,6 +411,28 @@ td .select {
   background: var(--overlay-3);
   color: var(--text-dim);
 }
+
+/* Sized to match .btn so "you're confirmed" reads as the resolved state of
+   the "I'm in" button it replaces, not a demoted afterthought. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 18px;
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(88, 214, 141, 0.14);
+  color: var(--win);
+  border: 1px solid rgba(88, 214, 141, 0.35);
+}
+.status-pill-waitlisted {
+  background: rgba(232, 178, 61, 0.14);
+  color: var(--draw);
+  border-color: rgba(232, 178, 61, 0.35);
+}
 .badge-tier-gold {
   background: rgba(255, 215, 106, 0.18);
   color: var(--gold);

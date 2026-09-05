@@ -5,7 +5,7 @@ import {
   createGuest,
   deleteGameday,
   getGameday,
-  listMyGuests,
+  listGuests,
   registerForGameday,
   setResult,
   setTeams,
@@ -28,7 +28,7 @@ export function GamedayDetail() {
   const { user, player } = useAuth();
 
   const [gameday, setGameday] = useState<GamedayDetailType | null>(null);
-  const [myGuests, setMyGuests] = useState<Player[] | null>(null);
+  const [guests, setGuests] = useState<Player[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,7 +40,7 @@ export function GamedayDetail() {
 
   useEffect(load, [gamedayId]);
   useEffect(() => {
-    listMyGuests().then((res) => setMyGuests(res.guests));
+    listGuests().then((res) => setGuests(res.guests));
   }, []);
 
   if (gameday === null) return <div className="loading">Loading...</div>;
@@ -49,9 +49,7 @@ export function GamedayDetail() {
   const confirmed = activeRegs.filter((r) => r.status === "CONFIRMED");
   const waitlisted = activeRegs.filter((r) => r.status === "WAITLISTED");
   const myRegistration = activeRegs.find((r) => r.player.id === player?.id);
-  const myGuestRegistrations = activeRegs.filter(
-    (r) => r.player.isGuest && r.registeredBy.id === user?.id && r.player.id !== player?.id
-  );
+  const registeredPlayerIds = activeRegs.map((r) => r.player.id);
 
   async function doAction(fn: () => Promise<unknown>) {
     setError(null);
@@ -112,20 +110,22 @@ export function GamedayDetail() {
               I'm in
             </button>
           ) : (
-            <div className="badge badge-confirmed">You're {myRegistration.status.toLowerCase()}</div>
+            <div className={`status-pill ${myRegistration.status === "WAITLISTED" ? "status-pill-waitlisted" : ""}`}>
+              {myRegistration.status === "CONFIRMED" ? "✓ You're in" : "⏳ You're waitlisted"}
+            </div>
           )}
 
           <div className="divider" />
           <GuestSignup
-            myGuests={myGuests}
-            alreadyRegisteredGuestIds={myGuestRegistrations.map((r) => r.player.id)}
+            guests={guests}
+            registeredPlayerIds={registeredPlayerIds}
             busy={busy}
-            onCreateAndRegister={async (name) => {
+            onAddAndRegister={async (name) => {
               setError(null);
               setBusy(true);
               try {
                 const { guest } = await createGuest(name);
-                setMyGuests((g) => [...(g || []), guest]);
+                setGuests((g) => (g?.some((x) => x.id === guest.id) ? g : [...(g || []), guest]));
                 await registerForGameday(gamedayId, guest.id);
                 load();
               } catch (err) {
@@ -134,7 +134,6 @@ export function GamedayDetail() {
                 setBusy(false);
               }
             }}
-            onRegisterExisting={(playerId) => doAction(() => registerForGameday(gamedayId, playerId))}
           />
         </div>
       )}
@@ -228,67 +227,54 @@ function PlayerList({
 }
 
 function GuestSignup({
-  myGuests,
-  alreadyRegisteredGuestIds,
+  guests,
+  registeredPlayerIds,
   busy,
-  onCreateAndRegister,
-  onRegisterExisting,
+  onAddAndRegister,
 }: {
-  myGuests: Player[] | null;
-  alreadyRegisteredGuestIds: number[];
+  guests: Player[] | null;
+  registeredPlayerIds: number[];
   busy: boolean;
-  onCreateAndRegister: (name: string) => void;
-  onRegisterExisting: (playerId: number) => void;
+  onAddAndRegister: (name: string) => void;
 }) {
-  const [selected, setSelected] = useState<string>("");
-  const [newName, setNewName] = useState("");
+  const [name, setName] = useState("");
 
-  const available = (myGuests || []).filter((g) => !alreadyRegisteredGuestIds.includes(g.id));
+  // Only suggest guests not already signed up for this gameday - typing a
+  // name that already exists (this list or not) reuses that guest rather
+  // than creating a duplicate; the backend resolves that match by name.
+  const available = (guests || []).filter((g) => !registeredPlayerIds.includes(g.id));
+
+  function submit() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onAddAndRegister(trimmed);
+    setName("");
+  }
 
   return (
     <div>
       <div className="card-title" style={{ marginBottom: 8 }}>
         Bring a guest
       </div>
-      {available.length > 0 && (
-        <div className="form-row" style={{ alignItems: "flex-end" }}>
-          <div className="field">
-            <label>Existing guest</label>
-            <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-              <option value="">Select a guest...</option>
-              {available.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            className="btn"
-            disabled={busy || !selected}
-            onClick={() => {
-              onRegisterExisting(parseInt(selected, 10));
-              setSelected("");
-            }}
-          >
-            Register guest
-          </button>
-        </div>
-      )}
-      <div className="form-row" style={{ alignItems: "flex-end", marginTop: 8 }}>
+      <div className="form-row" style={{ alignItems: "flex-end" }}>
         <div className="field">
-          <label>New guest name</label>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Bob" />
+          <label htmlFor="guest-name">Guest name</label>
+          <input
+            id="guest-name"
+            list="guest-options"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="Type a name or pick an existing guest..."
+          />
+          <datalist id="guest-options">
+            {available.map((g) => (
+              <option key={g.id} value={g.name} />
+            ))}
+          </datalist>
         </div>
-        <button
-          className="btn"
-          disabled={busy || !newName.trim()}
-          onClick={() => {
-            onCreateAndRegister(newName.trim());
-            setNewName("");
-          }}
-        >
-          Add &amp; register guest
+        <button className="btn" disabled={busy || !name.trim()} onClick={submit}>
+          Add guest
         </button>
       </div>
     </div>

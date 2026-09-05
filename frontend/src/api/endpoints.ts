@@ -62,10 +62,12 @@ export function adminSetRoles(id: number, roles: { isAdmin?: boolean; isPlayer?:
 
 // ---- guests ----
 
-export function listMyGuests() {
+/** Every guest player system-wide (including ones imported from the legacy spreadsheet), not just ones the current user added. */
+export function listGuests() {
   return apiRequest<{ guests: Player[] }>("/guests");
 }
 
+/** Finds an existing guest by name (case-insensitive) or creates a new one - never a duplicate. */
 export function createGuest(name: string) {
   return apiRequest<{ guest: Player }>("/guests", { method: "POST", body: { name } });
 }
