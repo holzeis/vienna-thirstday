@@ -23,16 +23,17 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const userStatusEnum = pgEnum("user_status", ["PENDING", "APPROVED", "REJECTED"]);
 export const gamedayStatusEnum = pgEnum("gameday_status", ["OPEN", "CLOSED", "CANCELLED", "COMPLETED"]);
 export const registrationStatusEnum = pgEnum("registration_status", ["CONFIRMED", "WAITLISTED", "CANCELLED"]);
 export const teamEnum = pgEnum("team", ["A", "B"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
+  // Optional contact info only - not used for login. A user row is only
+  // ever created fully-formed by accepting an invite (routes/invites.ts),
+  // so there's no pending/approval state to track here.
+  email: varchar("email", { length: 255 }).unique(),
   passwordHash: text("password_hash").notNull(),
-  status: userStatusEnum("status").notNull().default("PENDING"),
   isAdmin: boolean("is_admin").notNull().default(false),
   playerId: integer("player_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -151,6 +152,41 @@ export const playerGamedayStats = pgTable(
 );
 
 /**
+ * Admin-issued onboarding links. There is no self-service registration and
+ * no "brand new player" option - every invite starts from an existing guest
+ * player, which is promoted (isGuest -> false) the moment the invite is
+ * created. Whoever opens the link confirms/changes that player's name
+ * (must be unique among account-linked players), sets a password, and
+ * optionally a photo and an email. The token is the only credential needed
+ * to onboard, so it's a long random string (see utils/inviteToken.ts)
+ * rather than anything guessable. Kept in plaintext (not hashed) so an
+ * admin can re-open the "Invites" list and copy a still-pending link again
+ * without having to regenerate it.
+ */
+export const invites = pgTable(
+  "invites",
+  {
+    id: serial("id").primaryKey(),
+    token: varchar("token", { length: 64 }).notNull().unique(),
+    note: varchar("note", { length: 255 }),
+    guestPlayerId: integer("guest_player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    createdByUserId: integer("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    usedByUserId: integer("used_by_user_id").references(() => users.id),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    createdByIdx: index("invites_created_by_idx").on(t.createdByUserId),
+  })
+);
+
+/**
  * Audit log for guest-into-player merges (playerMergeService). The guest
  * player row is deleted once merged, so its name is captured here; the
  * moved-row id lists (JSON arrays of registration/team-assignment/gameday-
@@ -222,4 +258,10 @@ export const playerGamedayStatsRelations = relations(playerGamedayStats, ({ one 
 export const playerMergesRelations = relations(playerMerges, ({ one }) => ({
   targetPlayer: one(players, { fields: [playerMerges.targetPlayerId], references: [players.id] }),
   mergedBy: one(users, { fields: [playerMerges.mergedByUserId], references: [users.id] }),
+}));
+
+export const invitesRelations = relations(invites, ({ one }) => ({
+  guestPlayer: one(players, { fields: [invites.guestPlayerId], references: [players.id] }),
+  createdBy: one(users, { fields: [invites.createdByUserId], references: [users.id] }),
+  usedBy: one(users, { fields: [invites.usedByUserId], references: [users.id] }),
 }));

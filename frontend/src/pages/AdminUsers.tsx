@@ -1,30 +1,53 @@
 import { useEffect, useState } from "react";
 import {
-  adminApproveUser,
+  adminCreateInvite,
   adminDeleteUser,
   adminListGuestPlayers,
+  adminListInvites,
   adminListMerges,
   adminListUsers,
-  adminRejectUser,
+  adminRevokeInvite,
   adminSetRoles,
   adminUndoMerge,
+  createGuest,
 } from "../api/endpoints";
-import type { Player, PlayerMerge, User } from "../api/types";
+import type { Invite, Player, PlayerMerge, User } from "../api/types";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 
 type UserWithPlayer = User & { player: Player | null };
 type GuestOption = Player & { gamesPlayed: number };
 
+const INVITE_STATUS_LABEL: Record<Invite["status"], string> = {
+  pending: "Invited",
+  used: "Accepted",
+  expired: "Expired",
+  revoked: "Revoked",
+};
+
+const INVITE_STATUS_BADGE: Record<Invite["status"], string> = {
+  pending: "badge-waitlisted",
+  used: "badge-confirmed",
+  expired: "badge-cancelled",
+  revoked: "badge-cancelled",
+};
+
 export function AdminUsers() {
   const [users, setUsers] = useState<UserWithPlayer[] | null>(null);
   const [guests, setGuests] = useState<GuestOption[] | null>(null);
   const [merges, setMerges] = useState<PlayerMerge[] | null>(null);
-  const [mergeChoice, setMergeChoice] = useState<Record<number, string>>({});
+  const [invites, setInvites] = useState<Invite[] | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [busyMergeId, setBusyMergeId] = useState<number | null>(null);
+
+  const [inviteGuestName, setInviteGuestName] = useState("");
+  const [inviteExpiresInDays, setInviteExpiresInDays] = useState(7);
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [busyInviteId, setBusyInviteId] = useState<number | null>(null);
+  const [justCreatedLink, setJustCreatedLink] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   function load() {
     adminListUsers()
@@ -36,9 +59,61 @@ export function AdminUsers() {
     adminListMerges()
       .then((res) => setMerges(res.merges))
       .catch(() => setMerges([]));
+    adminListInvites()
+      .then((res) => setInvites(res.invites))
+      .catch(() => setInvites([]));
   }
 
   useEffect(load, []);
+
+  function inviteLink(token: string) {
+    return `${window.location.origin}/invite/${token}`;
+  }
+
+  async function copyLink(token: string) {
+    const link = inviteLink(token);
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      window.prompt("Copy this invite link:", link);
+      return;
+    }
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken((t) => (t === token ? null : t)), 1500);
+  }
+
+  async function createInvite() {
+    const name = inviteGuestName.trim();
+    if (!name) return;
+    setError(null);
+    setJustCreatedLink(null);
+    setCreatingInvite(true);
+    try {
+      const { guest } = await createGuest(name);
+      const res = await adminCreateInvite({ guestPlayerId: guest.id, expiresInDays: inviteExpiresInDays });
+      setJustCreatedLink(inviteLink(res.invite.token));
+      setInviteGuestName("");
+      load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not create invite");
+    } finally {
+      setCreatingInvite(false);
+    }
+  }
+
+  async function revokeInvite(invite: Invite) {
+    if (!window.confirm("Revoke this invite? The link will stop working immediately.")) return;
+    setError(null);
+    setBusyInviteId(invite.id);
+    try {
+      await adminRevokeInvite(invite.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not revoke invite");
+    } finally {
+      setBusyInviteId(null);
+    }
+  }
 
   async function withBusy(id: number, fn: () => Promise<unknown>) {
     setError(null);
@@ -53,14 +128,8 @@ export function AdminUsers() {
     }
   }
 
-  function approve(u: UserWithPlayer) {
-    const choice = mergeChoice[u.id];
-    const guestId = choice ? parseInt(choice, 10) : undefined;
-    withBusy(u.id, () => adminApproveUser(u.id, guestId));
-  }
-
   function deleteUser(u: UserWithPlayer) {
-    if (!window.confirm(`Delete the account for ${u.player?.name || u.email}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete the account for ${u.player?.name || "this user"}? This cannot be undone.`)) return;
     withBusy(u.id, () => adminDeleteUser(u.id));
   }
 
@@ -81,81 +150,114 @@ export function AdminUsers() {
 
   if (users === null) return <div className="loading">Loading...</div>;
 
-  const pending = users.filter((u) => u.status === "PENDING");
-  const others = users.filter((u) => u.status !== "PENDING");
-
   return (
     <div>
       <div className="page-header">
         <div>
           <h2>Admin: users</h2>
-          <p>Approve new sign-ups and manage roles.</p>
+          <p>Invite players and manage roles.</p>
         </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
-        <div className="card-title">Pending approval ({pending.length})</div>
-        {pending.length === 0 && <div className="empty-state">Nothing pending.</div>}
-        {pending.length > 0 && (
+        <div className="card-title">Invite a player</div>
+        <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+          Every invite starts from a guest - pick an existing one to onboard them with their history attached, or
+          type a new name to create one first. There's no self-service sign-up; send the resulting link however
+          you'd reach this person.
+        </p>
+        <div className="form-row">
+          <div className="field">
+            <label htmlFor="invite-guest">Player</label>
+            <input
+              id="invite-guest"
+              list="admin-guest-options"
+              placeholder="Type or pick an existing guest..."
+              value={inviteGuestName}
+              disabled={creatingInvite}
+              onChange={(e) => setInviteGuestName(e.target.value)}
+            />
+            <datalist id="admin-guest-options">
+              {guests?.map((g) => (
+                <option key={g.id} value={g.name}>
+                  {g.gamesPlayed} {g.gamesPlayed === 1 ? "game" : "games"}
+                </option>
+              ))}
+            </datalist>
+          </div>
+          <div className="field">
+            <label htmlFor="invite-expires">Expires in (days)</label>
+            <input
+              id="invite-expires"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={90}
+              value={inviteExpiresInDays}
+              disabled={creatingInvite}
+              onChange={(e) => setInviteExpiresInDays(Math.min(90, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+            />
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" disabled={creatingInvite || !inviteGuestName.trim()} onClick={createInvite}>
+          {creatingInvite ? "Creating..." : "Create invite link"}
+        </button>
+
+        {justCreatedLink && (
+          <div className="alert alert-success" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ wordBreak: "break-all" }}>{justCreatedLink}</span>
+            <button className="btn btn-sm" onClick={() => copyLink(justCreatedLink.split("/invite/")[1])}>
+              {copiedToken === justCreatedLink.split("/invite/")[1] ? "Copied" : "Copy"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {invites && invites.length > 0 && (
+        <div className="card">
+          <div className="card-title">Invites</div>
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Merge with existing player</th>
+                <th>Player</th>
+                <th>Status</th>
+                <th>Expires</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {pending.map((u) => (
-                <tr key={u.id}>
+              {invites.map((inv) => (
+                <tr key={inv.id}>
                   <td>
-                    {u.player?.name || u.email}
-                    <div style={{ color: "var(--text-faint)", fontSize: 12 }}>{u.email}</div>
+                    {inv.guestPlayer.name}
+                    {inv.usedBy?.email && <div style={{ color: "var(--text-faint)", fontSize: 12 }}>accepted, {inv.usedBy.email}</div>}
                   </td>
                   <td>
-                    <select
-                      className="select"
-                      value={mergeChoice[u.id] || ""}
-                      disabled={busyId === u.id || !guests || guests.length === 0}
-                      onChange={(e) => setMergeChoice((prev) => ({ ...prev, [u.id]: e.target.value }))}
-                    >
-                      <option value="">— new player, no history —</option>
-                      {guests?.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name} ({g.gamesPlayed} {g.gamesPlayed === 1 ? "game" : "games"})
-                        </option>
-                      ))}
-                    </select>
+                    <span className={`badge ${INVITE_STATUS_BADGE[inv.status]}`}>{INVITE_STATUS_LABEL[inv.status]}</span>
                   </td>
+                  <td>{formatDateTime(inv.expiresAt)}</td>
                   <td>
                     <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button className="btn btn-sm btn-primary" disabled={busyId === u.id} onClick={() => approve(u)}>
-                        Approve
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        disabled={busyId === u.id}
-                        onClick={() => withBusy(u.id, () => adminRejectUser(u.id))}
-                      >
-                        Reject
-                      </button>
+                      {inv.status === "pending" && (
+                        <>
+                          <button className="btn btn-sm" onClick={() => copyLink(inv.token)}>
+                            {copiedToken === inv.token ? "Copied" : "Copy link"}
+                          </button>
+                          <button className="btn btn-sm btn-danger" disabled={busyInviteId === inv.id} onClick={() => revokeInvite(inv)}>
+                            Revoke
+                          </button>
+                        </>
+                      )}
                     </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-        {guests && guests.length > 0 && (
-          <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 10 }}>
-            "Merge with existing player" picks up an unclaimed guest/imported player's full history (points, goal
-            difference, past gamedays) and attaches it to this new account. Use it when you recognize the new
-            sign-up as someone who already has history from before the app existed.
-          </p>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="card users-table-wrap">
         <div className="card-title">All users</div>
@@ -163,25 +265,16 @@ export function AdminUsers() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Email</th>
-              <th>Status</th>
               <th>Admin</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {others.map((u) => (
+            {users.map((u) => (
               <tr key={u.id}>
-                <td>{u.player?.name || "—"}</td>
-                <td>{u.email}</td>
                 <td>
-                  <span
-                    className={`badge ${
-                      u.status === "APPROVED" ? "badge-confirmed" : u.status === "REJECTED" ? "badge-cancelled" : "badge-waitlisted"
-                    }`}
-                  >
-                    {u.status}
-                  </span>
+                  {u.player?.name || "—"}
+                  {u.email && <div style={{ color: "var(--text-faint)", fontSize: 12 }}>{u.email}</div>}
                 </td>
                 <td>
                   <input
@@ -206,18 +299,12 @@ export function AdminUsers() {
         <div className="card-title" style={{ marginBottom: 10 }}>
           All users
         </div>
-        {others.map((u) => (
+        {users.map((u) => (
           <div className="card user-card" key={u.id}>
             <div className="user-card-row">
               <div>
                 <div className="user-card-name">{u.player?.name || "—"}</div>
-                <span
-                  className={`badge ${
-                    u.status === "APPROVED" ? "badge-confirmed" : u.status === "REJECTED" ? "badge-cancelled" : "badge-waitlisted"
-                  }`}
-                >
-                  {u.status}
-                </span>
+                {u.email && <div style={{ color: "var(--text-faint)", fontSize: 12 }}>{u.email}</div>}
               </div>
               <div className="user-card-actions">
                 <label className="admin-toggle">
@@ -241,7 +328,6 @@ export function AdminUsers() {
             </div>
             {expandedUserId === u.id && (
               <div className="user-card-details">
-                <div className="user-card-email">{u.email}</div>
                 <button className="btn btn-sm btn-danger" disabled={busyId === u.id} onClick={() => deleteUser(u)}>
                   Delete user
                 </button>
@@ -260,7 +346,7 @@ export function AdminUsers() {
                 <span>
                   <strong>{m.guestPlayerName}</strong> merged into <strong>{m.targetPlayer.name}</strong>
                   <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
-                    {formatDateTime(m.createdAt)} by {m.mergedBy.email}
+                    {formatDateTime(m.createdAt)} by {m.mergedBy.email || "an admin"}
                     {m.undoneAt && " · undone"}
                   </div>
                 </span>

@@ -1,12 +1,10 @@
-export type UserStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type GamedayStatus = "OPEN" | "CLOSED" | "CANCELLED" | "COMPLETED";
 export type RegistrationStatus = "CONFIRMED" | "WAITLISTED" | "CANCELLED";
 export type Team = "A" | "B";
 
 export interface User {
   id: number;
-  email: string;
-  status: UserStatus;
+  email: string | null;
   isAdmin: boolean;
   playerId: number | null;
   createdAt: string;
@@ -23,9 +21,25 @@ export interface PlayerMerge {
   id: number;
   guestPlayerName: string;
   targetPlayer: { id: number; name: string };
-  mergedBy: { id: number; email: string };
+  mergedBy: { id: number; email: string | null };
   undoneAt: string | null;
   createdAt: string;
+}
+
+export type InviteStatus = "pending" | "used" | "expired" | "revoked";
+
+export interface Invite {
+  id: number;
+  token: string;
+  note: string | null;
+  guestPlayer: { id: number; name: string };
+  createdBy: { id: number; email: string | null };
+  expiresAt: string;
+  usedAt: string | null;
+  usedBy: { id: number; email: string | null } | null;
+  revokedAt: string | null;
+  createdAt: string;
+  status: InviteStatus;
 }
 
 export interface GamedaySummary {

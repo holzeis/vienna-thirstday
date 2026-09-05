@@ -3,7 +3,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAdmin, RequireAuth } from "./auth/RequireAuth";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
+import { AcceptInvite } from "./pages/AcceptInvite";
 import { Overview } from "./pages/Overview";
 import { GamedaysList } from "./pages/GamedaysList";
 import { GamedayDetail } from "./pages/GamedayDetail";
@@ -17,7 +17,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/invite/:token" element={<AcceptInvite />} />
 
         <Route
           element={

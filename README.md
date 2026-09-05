@@ -1,9 +1,9 @@
 # Vienna Thursday Kicken
 
-A web app for running the weekly Thursday pickup football group: registration
-with admin-approved accounts, guest players, gameday sign-up with an
-auto-managed waitlist, admin-entered results, and a Jan 1 – Dec 31 season
-standings table.
+A web app for running the weekly Thursday pickup football group: admin-issued
+invite links for onboarding (no self-service registration), guest players,
+gameday sign-up with an auto-managed waitlist, admin-entered results, and a
+Jan 1 – Dec 31 season standings table.
 
 ## Contents
 
@@ -20,9 +20,18 @@ standings table.
 
 ## Features
 
-- **Accounts & roles.** Self-service registration; new accounts are `PENDING`
-  until an admin approves them. A user can be `Player`, `Admin`, or both.
-- **Guests.** Any approved player can create reusable guest profiles and bring
+- **Accounts & roles.** No self-service registration - every account starts
+  from a guest/placeholder player. An admin picks (or first creates) that
+  guest on the Admin → Users → "Invite a player" page, which immediately
+  promotes it to a real player and generates a link, shared however they'd
+  normally reach the group. Opening the link lets that person confirm or
+  change their name (this is also their login - no email required), set a
+  password, and optionally add a photo and an email address. The account is
+  active immediately, no separate approval step. Links expire on a
+  configurable timer (default 7 days, up to 90) and can be revoked before
+  they're used, which reverts the guest promotion. Any account can also be
+  granted the `Admin` role.
+- **Guests.** Any logged-in user can create reusable guest profiles and bring
   them to gamedays. Guests count toward a gameday's capacity/waitlist but are
   excluded from the season standings table.
 - **Gamedays & waitlist.** Admins create gamedays (date, location, min/max
@@ -122,7 +131,7 @@ Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
    ```
 
 4. Open http://localhost:5173, log in with the seeded admin, and start
-   approving players / creating gamedays.
+   inviting players / creating gamedays.
 
 ### Useful backend scripts
 
@@ -186,31 +195,35 @@ cd backend && npm run seed
 npm run seed:import-xlsx
 ```
 
-A pre-generated `kicken-2026-import.json` (from the spreadsheet supplied
-during development) is already committed under
-`backend/src/db/seed-data/`, so step 1 is only needed if you want to
-regenerate it from an updated spreadsheet. The import is idempotent - it
-skips gamedays that already exist for a given date, so it's safe to re-run.
+Pre-generated `kicken-2024-import.json` / `kicken-2025-import.json` /
+`kicken-2026-import.json` (one per season, from the spreadsheets supplied
+during development) are already committed under `backend/src/db/seed-data/`,
+so step 1 is only needed if you want to regenerate one from an updated
+spreadsheet. `npm run seed:import-xlsx` with no argument imports every
+`*-import.json` file found there; pass a filename to import just one. The
+import is idempotent - it skips gamedays that already exist for a given
+date, so it's safe to re-run. A player appearing in multiple seasons' files
+is matched by exact name and shares one player record across years.
 
-### Claiming imported players
+### Onboarding an imported player
 
-The importer creates all 33 historical players as **guests** - nobody has an
-account yet, and guests are excluded from the standings table, so right after
-importing, `/standings` will look empty. That's expected. As each real person
-signs up:
+The importer creates every historical player as a **guest** - nobody has an
+account yet, and guests are excluded from the standings table, so right
+after importing, `/standings` will look empty. That's expected. As each real
+person joins:
 
-1. They register normally on the `/register` page.
-2. On the **Admin → Users** page, in the "Pending approval" section, pick
-   their name from the **"Merge with existing player"** dropdown next to
-   their pending row (it lists every unclaimed guest with a games-played
-   count, e.g. "Benji (15 games)").
-3. Click **Approve**.
-
-Their new account immediately inherits that player's entire history - every
-past registration, team assignment, and gameday stat - and they'll show up in
-the standings table with their real season total. Approving without picking
-anything from the dropdown just creates a fresh player with no history, which
-is the right call for someone who's genuinely new to the group.
+1. On the **Admin → Users** page, under "Invite a player", type or pick their
+   name (the field suggests every unclaimed guest with a games-played count,
+   e.g. "Benji (15 games)"; typing a name with no match creates a fresh
+   guest), set how many days the link should stay valid, and click
+   **Create invite link**. This immediately promotes that guest to a real
+   player.
+2. Send them the generated link however you'd normally reach them.
+3. When they open it, confirm or change their name, set a password, and
+   optionally add a photo and an email - their account immediately inherits
+   that player's entire history (since it's the same player record, not a
+   merge) and they'll show up in the standings table with their real season
+   total.
 
 > If you already ran the importer before this merge feature existed (so your
 > historical players were created as regular, non-guest players instead of
@@ -344,16 +357,22 @@ docker-compose.yml    Local multi-container setup
   difference purely for display on those historical gamedays; treat the
   reconstructed score and team roster for pre-launch gamedays as
   illustrative, not exact.
-- **Merge is guest-only, and matches by hand.** `mergeGuestIntoPlayer` only
-  merges a player flagged as a guest into a real one - there's no support for
-  merging two real (already-claimed) player accounts if someone somehow ends
-  up claimed twice. Matching a new sign-up to their old guest record is also
-  entirely manual (an admin picking from a dropdown), not automatic
-  name-matching - deliberately, since auto-matching on a name string risks
-  silently merging the wrong person (e.g. two different people who both go by
-  "Max").
-- **No email delivery.** Admin approval, etc. all happen inside the app - no
-  emails are sent when an account is approved/rejected. Worth adding if the
-  group would rather not have to tell people to check back.
+- **Every invite starts from a guest, matched by hand.** There's no "brand
+  new player" option and no automatic name-matching when an admin creates an
+  invite - they always pick (or first create) the specific guest to onboard,
+  deliberately, since auto-matching on a name string risks silently pairing
+  the wrong person (e.g. two different people who both go by "Max"). The
+  underlying `mergeGuestIntoPlayer`/"Recent guest merges" audit log (Admin →
+  Users) still exists so a past merge can be reviewed and undone, but nothing
+  in the UI currently creates a *new* merge anymore - onboarding doesn't need
+  one since it promotes the guest in place. Attaching a second, later-
+  discovered guest identity onto an already-onboarded account would need a
+  one-off script or a small admin-route addition; there's no button for it
+  today.
+- **No email delivery.** Invite links are generated in the app but not
+  emailed - an admin copies the link and sends it however they'd normally
+  reach the group (WhatsApp, email, etc.). Worth automating with a
+  transactional email provider if the group grows past the point where
+  that's convenient.
 - **Single default season length.** Seasons are always calendar years
   (Jan 1 – Dec 31); there's no support for a different season boundary.

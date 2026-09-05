@@ -3,6 +3,7 @@ import type {
   GamedayDetail,
   GamedaySummary,
   HallOfFameResponse,
+  Invite,
   Player,
   PlayerMerge,
   PlayerProfile,
@@ -13,17 +14,10 @@ import type {
 
 // ---- auth ----
 
-export function login(email: string, password: string) {
+export function login(name: string, password: string) {
   return apiRequest<{ token: string; user: User }>("/auth/login", {
     method: "POST",
-    body: { email, password },
-  });
-}
-
-export function register(email: string, password: string, name: string) {
-  return apiRequest<{ message: string; user: User }>("/auth/register", {
-    method: "POST",
-    body: { email, password, name },
+    body: { name, password },
   });
 }
 
@@ -42,19 +36,8 @@ export function adminListUsers(status?: string) {
   return apiRequest<{ users: (User & { player: Player | null })[] }>(`/admin/users${qs}`);
 }
 
-export function adminApproveUser(id: number, mergeGuestPlayerId?: number) {
-  return apiRequest<{ user: User }>(`/admin/users/${id}/approve`, {
-    method: "POST",
-    body: mergeGuestPlayerId ? { mergeGuestPlayerId } : {},
-  });
-}
-
 export function adminListGuestPlayers() {
   return apiRequest<{ guests: (Player & { gamesPlayed: number })[] }>("/admin/players/guests");
-}
-
-export function adminRejectUser(id: number) {
-  return apiRequest<{ user: User }>(`/admin/users/${id}/reject`, { method: "POST" });
 }
 
 export function adminSetRoles(id: number, roles: { isAdmin?: boolean }) {
@@ -71,6 +54,48 @@ export function adminListMerges() {
 
 export function adminUndoMerge(id: number) {
   return apiRequest<{ guest: Player }>(`/admin/players/merges/${id}/undo`, { method: "POST" });
+}
+
+// ---- admin: invites ----
+// There is no self-service registration - accounts only come from an admin
+// creating one of these and sharing the resulting link.
+
+export function adminListInvites() {
+  return apiRequest<{ invites: Invite[] }>("/admin/invites");
+}
+
+export function adminCreateInvite(data: { guestPlayerId: number; note?: string; expiresInDays?: number }) {
+  return apiRequest<{ invite: Invite }>("/admin/invites", { method: "POST", body: data });
+}
+
+export function adminRevokeInvite(id: number) {
+  return apiRequest<{ invite: Invite }>(`/admin/invites/${id}/revoke`, { method: "POST" });
+}
+
+// ---- invites (public - accepting one is how an account gets created) ----
+
+export function getInvite(token: string) {
+  return apiRequest<{ guest: { id: number; name: string } }>(`/invites/${token}`);
+}
+
+export async function acceptInvite(
+  token: string,
+  data: { name: string; password: string; email?: string; avatar?: File }
+) {
+  const form = new FormData();
+  form.append("name", data.name);
+  form.append("password", data.password);
+  if (data.email) form.append("email", data.email);
+  if (data.avatar) form.append("avatar", data.avatar);
+
+  const res = await fetch(`${API_BASE}/invites/${token}/accept`, { method: "POST", body: form });
+  const isJson = res.headers.get("content-type")?.includes("application/json");
+  const body = isJson ? await res.json().catch(() => ({})) : undefined;
+  if (!res.ok) {
+    const message = (body && (body as any).error) || res.statusText || "Could not complete onboarding";
+    throw new ApiClientError(res.status, message, body && (body as any).details);
+  }
+  return body as { token: string; user: User };
 }
 
 // ---- guests ----

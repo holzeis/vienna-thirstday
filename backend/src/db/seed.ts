@@ -1,7 +1,7 @@
 /**
- * Bootstraps a first admin account so someone can log in and start approving
- * other users / creating gamedays. Safe to run multiple times (idempotent on
- * email). Configure via env vars or edit the defaults below.
+ * Bootstraps a first admin account so someone can log in and start creating
+ * gamedays and invites. Safe to run multiple times (idempotent on name).
+ * Configure via env vars or edit the defaults below.
  *
  * Usage: npm run seed
  */
@@ -9,16 +9,16 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { db, pool } from "./client";
 import { users, players } from "./schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 async function main() {
-  const email = (process.env.ADMIN_EMAIL || "admin@vienna-thursday.local").toLowerCase();
-  const password = process.env.ADMIN_PASSWORD || "changeme123";
   const name = process.env.ADMIN_NAME || "Admin";
+  const password = process.env.ADMIN_PASSWORD || "changeme123";
+  const email = process.env.ADMIN_EMAIL?.toLowerCase();
 
-  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
+  const existing = await db.query.players.findFirst({ where: sql`lower(${players.name}) = lower(${name})` });
   if (existing) {
-    console.log(`Admin user ${email} already exists (id=${existing.id}). Nothing to do.`);
+    console.log(`Player "${name}" already exists (id=${existing.id}). Nothing to do.`);
     return;
   }
 
@@ -27,15 +27,14 @@ async function main() {
   await db.transaction(async (tx) => {
     const [player] = await tx.insert(players).values({ name, isGuest: false }).returning();
     await tx.insert(users).values({
-      email,
+      email: email || null,
       passwordHash,
-      status: "APPROVED",
       isAdmin: true,
       playerId: player.id,
     });
   });
 
-  console.log(`Created admin user: ${email} / ${password}`);
+  console.log(`Created admin user: ${name} / ${password}`);
   console.log("IMPORTANT: change this password after first login.");
 }
 

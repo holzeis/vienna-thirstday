@@ -235,11 +235,11 @@ function TeammateTile({
   );
 }
 
-function AccountSettings({ name, email, onSaved }: { name: string; email: string; onSaved: () => void }) {
+function AccountSettings({ name, email, onSaved }: { name: string; email: string | null; onSaved: () => void }) {
   const { refresh } = useAuth();
   const [open, setOpen] = useState(false);
   const [nameInput, setNameInput] = useState(name);
-  const [emailInput, setEmailInput] = useState(email);
+  const [emailInput, setEmailInput] = useState(email ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -254,7 +254,7 @@ function AccountSettings({ name, email, onSaved }: { name: string; email: string
     try {
       const payload: { name?: string; email?: string; currentPassword?: string; newPassword?: string } = {};
       if (nameInput.trim() && nameInput.trim() !== name) payload.name = nameInput.trim();
-      if (emailInput.trim() && emailInput.trim() !== email) payload.email = emailInput.trim();
+      if (emailInput.trim() && emailInput.trim() !== (email ?? "")) payload.email = emailInput.trim();
       if (newPassword) {
         payload.currentPassword = currentPassword;
         payload.newPassword = newPassword;
@@ -292,13 +292,12 @@ function AccountSettings({ name, email, onSaved }: { name: string; email: string
               <input id="settings-name" value={nameInput} onChange={(e) => setNameInput(e.target.value)} required />
             </div>
             <div className="field">
-              <label htmlFor="settings-email">Email</label>
+              <label htmlFor="settings-email">Email (optional)</label>
               <input
                 id="settings-email"
                 type="email"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                required
               />
             </div>
           </div>

@@ -1,12 +1,11 @@
 import { Router } from "express";
-import multer from "multer";
-import sharp from "sharp";
 import { db } from "../db/client";
 import { players, users } from "../db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
+import { avatarUpload, resizeAvatar } from "../utils/avatarUpload";
 import {
   computeCareerStats,
   computeCurrentForm,
@@ -110,20 +109,11 @@ router.get(
   })
 );
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Only JPEG, PNG, or WebP images are allowed"));
-  },
-});
-
 /** Upload/replace a player's avatar. Only the linked user (or an admin) may do this. */
 router.put(
   "/:id/avatar",
   (req, res, next) => {
-    upload.single("avatar")(req, res, (err) => {
+    avatarUpload.single("avatar")(req, res, (err) => {
       if (err) {
         const message = err.code === "LIMIT_FILE_SIZE" ? "Image is too large - please use one under 10MB" : err.message || "Invalid upload";
         return next(ApiError.badRequest(message));
@@ -143,10 +133,7 @@ router.put(
 
     let resized: Buffer;
     try {
-      // .rotate() with no args applies the EXIF orientation tag (phone cameras
-      // store the sensor image unrotated and just flag how to display it) then
-      // strips it, so the resize/crop below operates on the upright image.
-      resized = await sharp(file.buffer).rotate().resize(256, 256, { fit: "cover" }).jpeg({ quality: 82 }).toBuffer();
+      resized = await resizeAvatar(file.buffer);
     } catch {
       throw ApiError.badRequest("Could not process image - is it a valid JPEG, PNG, or WebP file?");
     }

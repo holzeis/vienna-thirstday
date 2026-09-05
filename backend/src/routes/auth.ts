@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "../db/client";
 import { users, players } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt";
 import { ApiError } from "../utils/errors";
 import { requireAuth } from "../middleware/auth";
@@ -11,52 +11,23 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().min(1, "Name is required").max(255),
-});
+// There is no self-service registration. Accounts are created only by
+// accepting an admin-issued invite (see routes/invites.ts) - that's what
+// replaces both a register endpoint and any pending-approval step.
 
-router.post(
-  "/register",
-  asyncHandler(async (req, res) => {
-    const parsed = registerSchema.safeParse(req.body);
-    if (!parsed.success) {
-      throw ApiError.badRequest("Invalid registration data", parsed.error.flatten());
-    }
-    const { email, password, name } = parsed.data;
-
-    const existing = await db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
-    if (existing) {
-      throw ApiError.conflict("An account with this email already exists");
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const result = await db.transaction(async (tx) => {
-      const [player] = await tx.insert(players).values({ name, isGuest: false }).returning();
-      const [user] = await tx
-        .insert(users)
-        .values({
-          email: email.toLowerCase(),
-          passwordHash,
-          status: "PENDING",
-          isAdmin: false,
-          playerId: player.id,
-        })
-        .returning();
-      return { user, player };
-    });
-
-    res.status(201).json({
-      message: "Registration received. An admin needs to approve your account before you can log in.",
-      user: sanitizeUser(result.user),
-    });
-  })
-);
+/** True if some OTHER account-linked player already has this name (case-insensitive). Unclaimed guests never collide - only login disambiguation matters here. */
+export async function nameTakenByAnotherPlayer(name: string, excludePlayerId: number): Promise<boolean> {
+  const row = await db
+    .select({ id: players.id })
+    .from(players)
+    .innerJoin(users, eq(users.playerId, players.id))
+    .where(sql`lower(${players.name}) = lower(${name}) and ${players.id} != ${excludePlayerId}`)
+    .limit(1);
+  return row.length > 0;
+}
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  name: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -67,25 +38,24 @@ router.post(
     if (!parsed.success) {
       throw ApiError.badRequest("Invalid login data");
     }
-    const { email, password } = parsed.data;
+    const { name, password } = parsed.data;
 
-    const user = await db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
-    if (!user) {
-      throw ApiError.unauthorized("Invalid email or password");
+    const [match] = await db
+      .select({ user: users })
+      .from(users)
+      .innerJoin(players, eq(users.playerId, players.id))
+      .where(sql`lower(${players.name}) = lower(${name})`)
+      .limit(1);
+    if (!match) {
+      throw ApiError.unauthorized("Invalid name or password");
     }
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, match.user.passwordHash);
     if (!valid) {
-      throw ApiError.unauthorized("Invalid email or password");
-    }
-    if (user.status === "PENDING") {
-      throw ApiError.forbidden("Your account is still pending admin approval");
-    }
-    if (user.status === "REJECTED") {
-      throw ApiError.forbidden("Your account registration was rejected");
+      throw ApiError.unauthorized("Invalid name or password");
     }
 
-    const token = signToken({ userId: user.id, isAdmin: user.isAdmin });
-    res.json({ token, user: sanitizeUser(user) });
+    const token = signToken({ userId: match.user.id, isAdmin: match.user.isAdmin });
+    res.json({ token, user: sanitizeUser(match.user) });
   })
 );
 
@@ -109,7 +79,7 @@ const updateMeSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
-/** Self-service account settings: name (own player), email, and/or password. */
+/** Self-service account settings: name (own player, must be unique), email (optional), and/or password. */
 router.patch(
   "/me",
   requireAuth,
@@ -131,6 +101,10 @@ router.patch(
     if (normalizedEmail && normalizedEmail !== user.email) {
       const existing = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) });
       if (existing && existing.id !== user.id) throw ApiError.conflict("An account with this email already exists");
+    }
+
+    if (name && user.playerId && (await nameTakenByAnotherPlayer(name, user.playerId))) {
+      throw ApiError.conflict("This name is already taken");
     }
 
     await db.transaction(async (tx) => {
