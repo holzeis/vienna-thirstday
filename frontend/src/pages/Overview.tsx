@@ -50,9 +50,6 @@ export function Overview() {
             <Link to="/gamedays?new=1" className="btn btn-primary btn-sm">
               Create a gameday
             </Link>
-            <Link to="/admin/users" className="btn btn-sm">
-              Approve pending users
-            </Link>
           </div>
         </div>
       )}
