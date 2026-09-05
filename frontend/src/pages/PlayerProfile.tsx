@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPlayerProfile, updateMe, uploadAvatar } from "../api/endpoints";
-import type { AwardCategory, AwardTier, PlayerProfile as PlayerProfileType } from "../api/types";
+import type { AwardCategory, AwardTier, PlayerProfile as PlayerProfileType, TeammateRecord } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatMonthYear } from "../utils/format";
@@ -69,7 +69,8 @@ export function PlayerProfile() {
 
   const isOwnProfile = me?.id === playerId;
   const { veteran, undefeated, unlucky } = profile.currentForm;
-  const hasFormBadge = veteran || undefeated || unlucky;
+  const { mostPlayedWith, favorite, unfavorite } = profile.teammates;
+  const hasLockerRoomContent = veteran || undefeated || unlucky || !!mostPlayedWith || !!favorite || !!unfavorite;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -128,6 +129,46 @@ export function PlayerProfile() {
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
+        <div className="card-title">Locker Room</div>
+        {hasLockerRoomContent ? (
+          <div className="achievement-grid">
+            {veteran && (
+              <div className="achievement-tile form-tier-veteran">
+                <div className="achievement-icon">🎖️</div>
+                <div className="label">Veteran</div>
+                <div className="value">Played all of the last 5</div>
+              </div>
+            )}
+            {undefeated && (
+              <div className="achievement-tile form-tier-undefeated">
+                <div className="achievement-icon">🛡️</div>
+                <div className="label">Undefeated</div>
+                <div className="value">Unbeaten in the last 5</div>
+              </div>
+            )}
+            {unlucky && (
+              <div className="achievement-tile form-tier-unlucky">
+                <div className="achievement-icon">🌧️</div>
+                <div className="label">Unlucky</div>
+                <div className="value">Lost the last 5</div>
+              </div>
+            )}
+            {mostPlayedWith && (
+              <TeammateTile teammate={mostPlayedWith} emoji="🫂" label="Partner in Crime" stat={`${mostPlayedWith.sharedGames} of last 5 together`} />
+            )}
+            {favorite && (
+              <TeammateTile teammate={favorite} emoji="🍀" label="Lucky Charm" stat={`${favorite.sharedWins} wins in last 5`} />
+            )}
+            {unfavorite && (
+              <TeammateTile teammate={unfavorite} emoji="💀" label="Jinx" stat={`${unfavorite.sharedLosses} losses in last 5`} />
+            )}
+          </div>
+        ) : (
+          <div className="empty-state">Form and teammate chemistry will show up here after a few more games.</div>
+        )}
+      </div>
+
+      <div className="card">
         <div className="card-title">Awards</div>
         <div className="achievement-grid">
           {profile.awards.map((a, i) => (
@@ -147,75 +188,6 @@ export function PlayerProfile() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-title">Current Form</div>
-        {hasFormBadge && (
-          <div className="form-badge-grid">
-            {veteran && (
-              <div className="form-badge form-badge-veteran">
-                <div className="icon">🎖️</div>
-                <div className="label">Veteran</div>
-              </div>
-            )}
-            {undefeated && (
-              <div className="form-badge form-badge-undefeated">
-                <div className="icon">🛡️</div>
-                <div className="label">Undefeated</div>
-              </div>
-            )}
-            {unlucky && (
-              <div className="form-badge form-badge-unlucky">
-                <div className="icon">🌧️</div>
-                <div className="label">Unlucky</div>
-              </div>
-            )}
-          </div>
-        )}
-        <ul className="subtle-list">
-          <li>
-            <span>🫂 Partner in Crime</span>
-            <span>
-              {profile.teammates.mostPlayedWith ? (
-                <>
-                  <Link to={`/players/${profile.teammates.mostPlayedWith.playerId}`}>
-                    {profile.teammates.mostPlayedWith.name}
-                  </Link>
-                  {` — ${profile.teammates.mostPlayedWith.sharedGames} of last 5 together`}
-                </>
-              ) : (
-                "—"
-              )}
-            </span>
-          </li>
-          <li>
-            <span>🍀 Lucky Charm</span>
-            <span>
-              {profile.teammates.favorite ? (
-                <>
-                  <Link to={`/players/${profile.teammates.favorite.playerId}`}>{profile.teammates.favorite.name}</Link>
-                  {` — ${profile.teammates.favorite.sharedWins} wins in last 5`}
-                </>
-              ) : (
-                "—"
-              )}
-            </span>
-          </li>
-          <li>
-            <span>💀 Jinx</span>
-            <span>
-              {profile.teammates.unfavorite ? (
-                <>
-                  <Link to={`/players/${profile.teammates.unfavorite.playerId}`}>{profile.teammates.unfavorite.name}</Link>
-                  {` — ${profile.teammates.unfavorite.sharedLosses} losses in last 5`}
-                </>
-              ) : (
-                "—"
-              )}
-            </span>
-          </li>
-        </ul>
-      </div>
-
       {isOwnProfile && myUser && (
         <AccountSettings
           name={profile.player.name}
@@ -225,6 +197,26 @@ export function PlayerProfile() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function TeammateTile({ teammate, emoji, label, stat }: { teammate: TeammateRecord; emoji: string; label: string; stat: string }) {
+  return (
+    <div className="achievement-tile">
+      <div className="achievement-icon">
+        {teammate.avatarDataUri ? (
+          <img className="teammate-avatar" src={teammate.avatarDataUri} alt="" />
+        ) : (
+          <div className="teammate-avatar-placeholder">{teammate.name.charAt(0).toUpperCase()}</div>
+        )}
+        <span className="achievement-medal">{emoji}</span>
+      </div>
+      <div className="label">{label}</div>
+      <div className="value">
+        <Link to={`/players/${teammate.playerId}`}>{teammate.name}</Link>
+      </div>
+      <div className="value">{stat}</div>
     </div>
   );
 }

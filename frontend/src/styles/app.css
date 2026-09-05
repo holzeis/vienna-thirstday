@@ -481,6 +481,57 @@ td .select {
   font-size: 16px;
 }
 
+/* Locker Room: personal form badges reuse the achievement-tile shell with an
+   accent-colored border instead of a medal tier. */
+.achievement-tile.form-tier-veteran {
+  border-color: rgba(255, 138, 92, 0.5);
+}
+.achievement-tile.form-tier-veteran .label {
+  color: var(--accent);
+}
+.achievement-tile.form-tier-undefeated {
+  border-color: rgba(88, 214, 141, 0.5);
+}
+.achievement-tile.form-tier-undefeated .label {
+  color: var(--win);
+}
+.achievement-tile.form-tier-unlucky {
+  border-color: rgba(255, 122, 133, 0.5);
+}
+.achievement-tile.form-tier-unlucky .label {
+  color: var(--loss);
+}
+
+/* Locker Room: teammate tiles use the other player's photo as the tile's
+   "icon", with the relationship emoji as a medal-style overlay badge. */
+.teammate-avatar,
+.teammate-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin: 0 auto;
+}
+.teammate-avatar {
+  object-fit: cover;
+  background: var(--overlay-2);
+  border: 1px solid var(--card-border);
+}
+.teammate-avatar-placeholder {
+  background: var(--overlay-2);
+  border: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
+.achievement-tile .value a {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .hof-table-wrap table {
   font-size: 13.5px;
 }
@@ -641,59 +692,6 @@ tr.me td:first-child {
 }
 .rank-3 {
   color: var(--bronze);
-}
-
-.form-badge-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.form-badge {
-  background: var(--overlay-1);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  text-align: center;
-}
-
-.form-badge .icon {
-  font-size: 26px;
-  line-height: 1;
-  margin-bottom: 6px;
-}
-
-.form-badge .label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-  font-weight: 700;
-}
-
-.form-badge-veteran {
-  background: var(--accent-dim);
-  border-color: rgba(255, 138, 92, 0.35);
-}
-.form-badge-veteran .label {
-  color: var(--accent);
-}
-
-.form-badge-undefeated {
-  background: rgba(88, 214, 141, 0.1);
-  border-color: rgba(88, 214, 141, 0.35);
-}
-.form-badge-undefeated .label {
-  color: var(--win);
-}
-
-.form-badge-unlucky {
-  background: rgba(255, 122, 133, 0.1);
-  border-color: rgba(255, 122, 133, 0.35);
-}
-.form-badge-unlucky .label {
-  color: var(--loss);
 }
 
 .empty-state {
