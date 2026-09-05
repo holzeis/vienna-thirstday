@@ -6,6 +6,7 @@ import {
   adminListInvites,
   adminListMerges,
   adminListUsers,
+  adminMergeIntoPlayer,
   adminRevokeInvite,
   adminSetRoles,
   adminUndoMerge,
@@ -48,6 +49,10 @@ export function AdminUsers() {
   const [busyInviteId, setBusyInviteId] = useState<number | null>(null);
   const [justCreatedLink, setJustCreatedLink] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const [mergeGuestName, setMergeGuestName] = useState("");
+  const [mergeTargetPlayerId, setMergeTargetPlayerId] = useState<number | "">("");
+  const [merging, setMerging] = useState(false);
 
   function load() {
     adminListUsers()
@@ -131,6 +136,30 @@ export function AdminUsers() {
   function deleteUser(u: UserWithPlayer) {
     if (!window.confirm(`Delete the account for ${u.player?.name || "this user"}? This cannot be undone.`)) return;
     withBusy(u.id, () => adminDeleteUser(u.id));
+  }
+
+  async function performMerge() {
+    const guest = guests?.find((g) => g.name.toLowerCase() === mergeGuestName.trim().toLowerCase());
+    if (!mergeTargetPlayerId || !guest) return;
+    const targetName = users?.find((u) => u.player?.id === mergeTargetPlayerId)?.player?.name || "this account";
+    if (
+      !window.confirm(
+        `Attach ${guest.name}'s ${guest.gamesPlayed} game(s) to ${targetName}? ${guest.name} is removed as a separate guest (reversible from "Recent guest merges" below).`
+      )
+    )
+      return;
+    setError(null);
+    setMerging(true);
+    try {
+      await adminMergeIntoPlayer(mergeTargetPlayerId, guest.id);
+      setMergeGuestName("");
+      setMergeTargetPlayerId("");
+      load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not merge guest into account");
+    } finally {
+      setMerging(false);
+    }
   }
 
   async function undoMerge(m: PlayerMerge) {
@@ -334,6 +363,60 @@ export function AdminUsers() {
           </div>
         ))}
       </div>
+
+      {guests && guests.length > 0 && (
+        <div className="card">
+          <div className="card-title">Merge guest history into an account</div>
+          <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+            For a guest that's really the same person as an existing account - e.g. re-imported under a
+            name they've since changed - moves the guest's registrations, team assignments, and stats
+            onto the account and removes the guest. Reversible below.
+          </p>
+          <div className="form-row">
+            <div className="field">
+              <label htmlFor="merge-guest">Guest</label>
+              <input
+                id="merge-guest"
+                list="admin-merge-guest-options"
+                placeholder="Type or pick a guest..."
+                value={mergeGuestName}
+                disabled={merging}
+                onChange={(e) => setMergeGuestName(e.target.value)}
+              />
+              <datalist id="admin-merge-guest-options">
+                {guests.map((g) => (
+                  <option key={g.id} value={g.name} />
+                ))}
+              </datalist>
+            </div>
+            <div className="field">
+              <label htmlFor="merge-target">Into account</label>
+              <select
+                id="merge-target"
+                value={mergeTargetPlayerId}
+                disabled={merging}
+                onChange={(e) => setMergeTargetPlayerId(e.target.value ? Number(e.target.value) : "")}
+              >
+                <option value="">Select an account...</option>
+                {users
+                  .filter((u) => u.player)
+                  .map((u) => (
+                    <option key={u.player!.id} value={u.player!.id}>
+                      {u.player!.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={merging || !mergeGuestName.trim() || !mergeTargetPlayerId}
+            onClick={performMerge}
+          >
+            {merging ? "Merging..." : "Merge"}
+          </button>
+        </div>
+      )}
 
       {merges && merges.length > 0 && (
         <div className="card">

@@ -1,10 +1,12 @@
 import { Router } from "express";
+import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { players, playerGamedayStats } from "../db/schema";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
-import { undoPlayerMerge } from "../services/playerMergeService";
+import { ApiError } from "../utils/errors";
+import { mergeGuestIntoPlayer, undoPlayerMerge } from "../services/playerMergeService";
 
 const router = Router();
 
@@ -33,6 +35,33 @@ router.get(
       .orderBy(players.name);
 
     res.json({ guests: rows });
+  })
+);
+
+const mergeSchema = z.object({
+  guestPlayerId: z.number().int(),
+});
+
+/**
+ * Attaches an unclaimed guest's history to an already-existing (account-linked)
+ * player - e.g. a guest imported from the legacy spreadsheet under a name the
+ * player has since changed, so the importer created a fresh duplicate instead
+ * of matching their real account. Unlike the invite flow (which promotes a
+ * guest into a brand-new account), this is for a target that's already claimed.
+ */
+router.post(
+  "/:targetPlayerId/merge",
+  asyncHandler(async (req, res) => {
+    const targetPlayerId = parseInt(req.params.targetPlayerId, 10);
+    const parsed = mergeSchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid merge payload", parsed.error.flatten());
+
+    const target = await db.query.players.findFirst({ where: eq(players.id, targetPlayerId) });
+    if (!target) throw ApiError.notFound("Target player not found");
+    if (target.isGuest) throw ApiError.badRequest("Target must be an already-claimed player, not a guest");
+
+    await db.transaction((tx) => mergeGuestIntoPlayer(tx, parsed.data.guestPlayerId, targetPlayerId, req.user!.userId));
+    res.json({ ok: true });
   })
 );
 

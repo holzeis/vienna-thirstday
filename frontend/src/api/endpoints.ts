@@ -56,6 +56,11 @@ export function adminUndoMerge(id: number) {
   return apiRequest<{ guest: Player }>(`/admin/players/merges/${id}/undo`, { method: "POST" });
 }
 
+/** Attaches an unclaimed guest's history to an already-claimed player (unlike the invite flow, which promotes a guest into a brand-new account). */
+export function adminMergeIntoPlayer(targetPlayerId: number, guestPlayerId: number) {
+  return apiRequest<{ ok: true }>(`/admin/players/${targetPlayerId}/merge`, { method: "POST", body: { guestPlayerId } });
+}
+
 // ---- admin: invites ----
 // There is no self-service registration - accounts only come from an admin
 // creating one of these and sharing the resulting link.
