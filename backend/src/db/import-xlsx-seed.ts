@@ -11,32 +11,36 @@
  * Imported players are created as GUESTS, not real players. Nobody has an
  * account yet, so there's no user to "own" this history - and per the season
  * standings rule, guests don't appear in the ranking table. That's
- * intentional: until an admin merges an imported player into a real
- * registered account (see the "merge with existing player" option when
- * approving a pending user, `mergeGuestIntoPlayer` in
- * src/services/playerMergeService.ts), their history stays parked on the
- * placeholder guest record and out of the live standings. Once merged, the
+ * intentional: until an admin invites one of them (promoting the guest in
+ * place - see routes/invites.ts), their history stays parked on the
+ * placeholder guest record and out of the live standings. Once claimed, the
  * real account inherits the guest's full history and appears in standings
  * normally.
  *
  * IMPORTANT CAVEAT: the legacy spreadsheet recorded each player's exact points
  * (4/2/1) and goal difference per matchday, and those are imported verbatim -
- * once a player is merged into a real account, their contribution to the
+ * once a player's guest is claimed via an invite, their contribution to the
  * season standings matches the original spreadsheet's table exactly (you can
- * verify this by merging everyone and comparing). What the spreadsheet never
- * recorded is the two teams' rosters as a first-class concept, or the literal
- * final score (e.g. "5:3") - only the differential. This importer
- * reconstructs a team A / team B split (points==4 group vs points==1 group)
- * and a placeholder score with the right goal difference purely for display;
- * treat the reconstructed score and team split for historical gamedays as
- * illustrative, not exact.
+ * verify this by claiming everyone and comparing). What the spreadsheet never
+ * recorded is the literal final score (e.g. "5:3") - only the differential -
+ * or a kickoff time. This importer reconstructs a team A / team B split
+ * (points==4 group vs points==1 group, also used to create real
+ * teamAssignments rows) and a placeholder score with the right goal
+ * difference purely for display; treat the reconstructed score for
+ * historical gamedays as illustrative, not exact. The team split itself
+ * *is* exact - it's the same points-based grouping the standings math
+ * already relies on. Kickoff is set to 19:00 Europe/Vienna time (the
+ * league's fixed slot), converted to UTC with the correct seasonal DST
+ * offset - see utils/timezone.ts.
  *
  * Run `npm run seed` first (bootstraps an admin) before running this.
  *
  * Safe to re-run after regenerating the JSON (e.g. after a fix to
- * scripts/export_xlsx_to_json.py's placeholder-score logic): gamedays that
- * already exist are not duplicated, but their `results` row is reconciled to
- * the (possibly corrected) placeholder score if it changed.
+ * scripts/export_xlsx_to_json.py's placeholder-score logic, or a kickoff-time
+ * fix here): an existing gameday is matched by calendar date (not the exact
+ * timestamp, so a time-of-day correction doesn't create a duplicate) and its
+ * date/score/registrations/team assignments are reconciled in place rather
+ * than re-created.
  *
  * Usage:
  *   npm run seed:import-xlsx                       # imports every *-import.json in seed-data/
@@ -46,8 +50,13 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { db, pool } from "./client";
-import { gamedays, players, results, playerGamedayStats, registrations, users } from "./schema";
-import { eq } from "drizzle-orm";
+import { gamedays, players, results, playerGamedayStats, registrations, teamAssignments, users } from "./schema";
+import { and, eq, gte, like, lt } from "drizzle-orm";
+import { zonedTimeToUtc } from "../utils/timezone";
+
+const KICKOFF_HOUR = 19;
+const LEAGUE_TIMEZONE = "Europe/Vienna";
+const IMPORT_NOTE_PREFIX = "Imported from legacy spreadsheet";
 
 interface ImportEntry {
   name: string;
@@ -89,18 +98,31 @@ async function importFile(filePath: string, admin: { id: number }) {
   let created = 0;
   let reconciled = 0;
   for (const gd of data.gamedays) {
-    // The spreadsheet never recorded a kickoff time, but the league always
-    // played at 19:00 - that's the one part of "when" we do know for sure.
-    const date = new Date(`${gd.date}T19:00:00.000Z`);
-    const roster = [...gd.teamA, ...gd.teamB]
-      .map((e) => playerIdByName.get(e.name))
-      .filter((id): id is number => id !== undefined);
+    const date = zonedTimeToUtc(gd.date, KICKOFF_HOUR, 0, LEAGUE_TIMEZONE);
+    const dayStart = new Date(`${gd.date}T00:00:00.000Z`);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
-    // Skip creating a duplicate on re-runs, but still reconcile the score
-    // (and backfill any missing registrations - e.g. from before this
-    // importer started creating them) if this gameday already exists.
-    const existingGameday = await db.query.gamedays.findFirst({ where: eq(gamedays.date, date) });
+    const teamAIds = gd.teamA.map((e) => playerIdByName.get(e.name)).filter((id): id is number => id !== undefined);
+    const teamBIds = gd.teamB.map((e) => playerIdByName.get(e.name)).filter((id): id is number => id !== undefined);
+    const roster = [...teamAIds, ...teamBIds];
+
+    // Matched by calendar date, not the exact timestamp - so a future
+    // kickoff-time correction reconciles the existing row instead of being
+    // mistaken for a new gameday and duplicated. Scoped to previously
+    // imported rows so this can never collide with an unrelated gameday
+    // someone created by hand on the same date.
+    const existingGameday = await db.query.gamedays.findFirst({
+      where: and(gte(gamedays.date, dayStart), lt(gamedays.date, dayEnd), like(gamedays.notes, `${IMPORT_NOTE_PREFIX}%`)),
+    });
     if (existingGameday) {
+      let touched = false;
+
+      if (existingGameday.date.getTime() !== date.getTime()) {
+        await db.update(gamedays).set({ date, updatedAt: new Date() }).where(eq(gamedays.id, existingGameday.id));
+        touched = true;
+      }
+
       const existingResult = await db.query.results.findFirst({ where: eq(results.gamedayId, existingGameday.id) });
       if (
         existingResult &&
@@ -110,22 +132,31 @@ async function importFile(filePath: string, admin: { id: number }) {
           .update(results)
           .set({ teamAScore: gd.placeholderScoreA, teamBScore: gd.placeholderScoreB, updatedAt: new Date() })
           .where(eq(results.id, existingResult.id));
-        reconciled++;
+        touched = true;
       }
 
       const existingRegs = await db.query.registrations.findMany({ where: eq(registrations.gamedayId, existingGameday.id) });
       const alreadyRegistered = new Set(existingRegs.map((r) => r.playerId));
       const missingRegs = roster
         .filter((playerId) => !alreadyRegistered.has(playerId))
-        .map((playerId) => ({
-          gamedayId: existingGameday.id,
-          playerId,
-          status: "CONFIRMED" as const,
-          registeredByUserId: admin.id,
-        }));
+        .map((playerId) => ({ gamedayId: existingGameday.id, playerId, status: "CONFIRMED" as const, registeredByUserId: admin.id }));
       if (missingRegs.length > 0) {
         await db.insert(registrations).values(missingRegs);
+        touched = true;
       }
+
+      const existingAssignments = await db.query.teamAssignments.findMany({ where: eq(teamAssignments.gamedayId, existingGameday.id) });
+      const alreadyAssigned = new Set(existingAssignments.map((a) => a.playerId));
+      const missingAssignments = [
+        ...teamAIds.filter((id) => !alreadyAssigned.has(id)).map((playerId) => ({ gamedayId: existingGameday.id, playerId, team: "A" as const })),
+        ...teamBIds.filter((id) => !alreadyAssigned.has(id)).map((playerId) => ({ gamedayId: existingGameday.id, playerId, team: "B" as const })),
+      ];
+      if (missingAssignments.length > 0) {
+        await db.insert(teamAssignments).values(missingAssignments);
+        touched = true;
+      }
+
+      if (touched) reconciled++;
       continue;
     }
 
@@ -136,7 +167,7 @@ async function importFile(filePath: string, admin: { id: number }) {
           date,
           status: "COMPLETED",
           createdByUserId: admin.id,
-          notes: `Imported from legacy spreadsheet (Spieltag ${gd.spieltag}). Team split and score are best-effort reconstructions; points/goal-diff are exact.`,
+          notes: `${IMPORT_NOTE_PREFIX} (Spieltag ${gd.spieltag}). Team split and score are best-effort reconstructions; points/goal-diff are exact.`,
         })
         .returning();
 
@@ -185,12 +216,23 @@ async function importFile(filePath: string, admin: { id: number }) {
           }))
         );
       }
+
+      // The team split is already known exactly (it's the same points-based
+      // grouping the score reconstruction above relies on), so there's no
+      // reason to leave an admin to re-assign everyone by hand later.
+      const assignmentRows = [
+        ...teamAIds.map((playerId) => ({ gamedayId: gameday.id, playerId, team: "A" as const })),
+        ...teamBIds.map((playerId) => ({ gamedayId: gameday.id, playerId, team: "B" as const })),
+      ];
+      if (assignmentRows.length > 0) {
+        await tx.insert(teamAssignments).values(assignmentRows);
+      }
     });
     created++;
   }
 
   console.log(
-    `Imported ${created} new gamedays, reconciled ${reconciled} existing score(s) (${
+    `Imported ${created} new gamedays, reconciled ${reconciled} existing one(s) (${
       data.gamedays.length - created - reconciled
     } already up to date).`
   );
