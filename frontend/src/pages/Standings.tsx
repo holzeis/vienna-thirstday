@@ -29,7 +29,7 @@ export function Standings() {
       <div className="page-header">
         <div>
           <h2>Season leaderboard</h2>
-          <p>Ranked by points, then goal difference. Jan 1 – Dec 31 each year. Guests aren't ranked.</p>
+          <p>Ranked by points, then goal difference. Jan 1 – Dec 31 each year. 👤 marks a guest.</p>
         </div>
       </div>
 
@@ -76,6 +76,11 @@ export function Standings() {
                     <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
                       {row.name}
                     </Link>
+                    {row.isGuest && (
+                      <span className="mini-badge" title="Guest">
+                        👤
+                      </span>
+                    )}
                     {row.currentForm.veteran && (
                       <span className="mini-badge" title="Veteran - played all of the last 5">
                         🎖️

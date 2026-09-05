@@ -101,6 +101,7 @@ export interface StandingRow {
   rank: number;
   playerId: number;
   name: string;
+  isGuest: boolean;
   points: number;
   goalDiff: number;
   gamesPlayed: number;
@@ -164,6 +165,7 @@ export interface PlayerProfile {
 export interface PodiumEntry {
   playerId: number;
   name: string;
+  isGuest: boolean;
   value: number;
 }
 

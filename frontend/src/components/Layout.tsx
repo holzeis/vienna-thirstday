@@ -70,8 +70,9 @@ const GamedaysIcon = () => (
 
 const StandingsIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 21h8M12 17v4M6 3h12v4a6 6 0 0 1-12 0V3Z" />
-    <path d="M6 5H3v2a3 3 0 0 0 3 3M18 5h3v2a3 3 0 0 1-3 3" />
+    <rect x="4" y="12" width="4" height="8" rx="1" />
+    <rect x="10" y="8" width="4" height="12" rx="1" />
+    <rect x="16" y="4" width="4" height="16" rx="1" />
   </svg>
 );
 
@@ -142,36 +143,31 @@ export function Layout() {
         <Outlet />
       </main>
       <nav className="tabbar">
-        <NavLink to="/" end>
+        <NavLink to="/" end aria-label="Home">
           <span className="tab-icon">
             <HomeIcon />
           </span>
-          Home
         </NavLink>
-        <NavLink to="/gamedays">
+        <NavLink to="/gamedays" aria-label="Matchdays">
           <span className="tab-icon">
             <GamedaysIcon />
           </span>
-          Matchdays
         </NavLink>
-        <NavLink to="/standings">
+        <NavLink to="/standings" aria-label="Leaderboard">
           <span className="tab-icon">
             <StandingsIcon />
           </span>
-          Leaderboard
         </NavLink>
-        <NavLink to="/hall-of-fame">
+        <NavLink to="/hall-of-fame" aria-label="Hall of Fame">
           <span className="tab-icon">
             <TrophyIcon />
           </span>
-          Hall of Fame
         </NavLink>
         {user?.isAdmin && (
-          <NavLink to="/admin/users">
+          <NavLink to="/admin/users" aria-label="Admin">
             <span className="tab-icon">
               <AdminIcon />
             </span>
-            Admin
           </NavLink>
         )}
       </nav>
