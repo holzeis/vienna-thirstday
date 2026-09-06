@@ -116,8 +116,7 @@ export function GamedaysList() {
                     <span className={`badge ${statusClass[g.status] || ""}`}>{statusLabel[g.status] || g.status}</span>
                   </td>
                   <td className="num">
-                    {g.confirmedCount}/{g.maxPlayers}
-                    {g.waitlistedCount > 0 ? ` (+${g.waitlistedCount})` : ""}
+                    {g.confirmedCount + g.waitlistedCount}/{g.maxPlayers}
                   </td>
                 </tr>
               ))}
