@@ -70,10 +70,10 @@ export function PlayerProfile() {
   if (profile === null) return <div className="loading">Loading...</div>;
 
   const isOwnProfile = me?.id === playerId;
-  const { veteran, undefeated, unlucky } = profile.currentForm;
+  const { veteran, undefeated, unlucky, ghost } = profile.currentForm;
   const { mostPlayedWith, favorite, unfavorite } = profile.teammates;
   const { nemesis } = profile;
-  const hasLockerRoomContent = veteran || undefeated || unlucky || !!mostPlayedWith || !!favorite || !!unfavorite || !!nemesis;
+  const hasLockerRoomContent = veteran || undefeated || unlucky || ghost || !!mostPlayedWith || !!favorite || !!unfavorite || !!nemesis;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -140,6 +140,13 @@ export function PlayerProfile() {
                 <div className="achievement-icon">🎖️</div>
                 <div className="label">Veteran</div>
                 <div className="value">Played all of the last 5</div>
+              </div>
+            )}
+            {ghost && (
+              <div className="achievement-tile form-tier-ghost">
+                <div className="achievement-icon">👻</div>
+                <div className="label">Ghost</div>
+                <div className="value">Missed the last 5</div>
               </div>
             )}
             {undefeated && (

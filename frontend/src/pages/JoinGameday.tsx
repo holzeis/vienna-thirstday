@@ -29,21 +29,34 @@ function rememberPlayerId(token: string, playerId: number) {
   }
 }
 
-function Roster({ gameday }: { gameday: GamedayPublicSummary }) {
-  if (gameday.confirmed.length === 0 && gameday.waitlisted.length === 0) return null;
+function RosterList({ players }: { players: { name: string; isGuest: boolean }[] }) {
+  if (players.length === 0) return <div className="empty-state">Nobody yet.</div>;
   return (
-    <div className="card" style={{ marginTop: 16, marginBottom: 16, textAlign: "left" }}>
-      <div className="card-title">Who's in</div>
-      {gameday.confirmed.length > 0 && (
-        <p style={{ margin: "0 0 8px", fontSize: 13 }}>
-          <strong>Confirmed:</strong> {gameday.confirmed.map((p) => p.name).join(", ")}
-        </p>
-      )}
-      {gameday.waitlisted.length > 0 && (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--text-dim)" }}>
-          <strong>Waitlist:</strong> {gameday.waitlisted.map((p) => p.name).join(", ")}
-        </p>
-      )}
+    <ul className="subtle-list">
+      {players.map((p, i) => (
+        <li key={i}>
+          <span>
+            {p.name} {p.isGuest && <span className="badge badge-guest">Guest</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Roster({ gameday }: { gameday: GamedayPublicSummary }) {
+  return (
+    <div className="grid grid-2" style={{ marginTop: 16, marginBottom: 16, textAlign: "left" }}>
+      <div className="card">
+        <div className="card-title">
+          Confirmed ({gameday.confirmedCount}/{gameday.maxPlayers})
+        </div>
+        <RosterList players={gameday.confirmed} />
+      </div>
+      <div className="card">
+        <div className="card-title">Waitlist ({gameday.waitlistedCount})</div>
+        <RosterList players={gameday.waitlisted} />
+      </div>
     </div>
   );
 }
@@ -195,7 +208,7 @@ export function JoinGameday() {
               {mode === "login" ? (
                 <form onSubmit={handleLogin}>
                   <div className="field">
-                    <label htmlFor="join-name">Name</label>
+                    <label htmlFor="join-name">Name or email</label>
                     <input id="join-name" required value={name} onChange={(e) => setName(e.target.value)} />
                   </div>
                   <div className="field">

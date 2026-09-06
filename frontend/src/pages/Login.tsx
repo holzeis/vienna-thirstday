@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { BrandMark } from "../components/Layout";
 import { ApiClientError } from "../api/client";
+import { APP_VERSION } from "../appVersion";
 
 export function Login() {
   const { login } = useAuth();
@@ -42,7 +43,7 @@ export function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label htmlFor="name">Name</label>
+            <label htmlFor="name">Name or email</label>
             <input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="field">
@@ -61,6 +62,9 @@ export function Login() {
         </form>
 
         <div className="auth-switch">New to the group? Ask an admin for an invite link.</div>
+        <span className="app-version" style={{ textAlign: "center", marginTop: 12 }}>
+          v{APP_VERSION}
+        </span>
       </div>
     </div>
   );

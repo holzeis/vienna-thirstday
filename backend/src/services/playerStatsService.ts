@@ -272,6 +272,7 @@ export interface CurrentForm {
   veteran: boolean;
   undefeated: boolean;
   unlucky: boolean;
+  ghost: boolean;
 }
 
 /**
@@ -281,6 +282,8 @@ export interface CurrentForm {
  * all time) so the league's most recent gamedays can be found regardless of
  * whether this player was in all of them.
  *  - veteran: played in every one of the league's last 5 completed gamedays.
+ *  - ghost: the exact opposite - played in none of them (including someone
+ *    who's never played at all).
  *  - undefeated / unlucky: this player's own last 5 played games were all
  *    wins-or-draws / all losses. Needs at least 5 games of their own history
  *    to judge either way.
@@ -297,13 +300,14 @@ export function computeCurrentForm(allRows: StatRow[], playerId: number): Curren
 
   const playedGamedayIds = new Set(allRows.filter((r) => r.playerId === playerId).map((r) => r.gamedayId));
   const veteran = recentGamedayIds.length === 5 && recentGamedayIds.every((id) => playedGamedayIds.has(id));
+  const ghost = recentGamedayIds.length === 5 && recentGamedayIds.every((id) => !playedGamedayIds.has(id));
 
   const myRowsByDate = allRows.filter((r) => r.playerId === playerId).sort((a, b) => a.date.getTime() - b.date.getTime());
   const lastFive = myRowsByDate.slice(-5);
   const undefeated = lastFive.length === 5 && lastFive.every((r) => r.points !== 1);
   const unlucky = lastFive.length === 5 && lastFive.every((r) => r.points === 1);
 
-  return { veteran, undefeated, unlucky };
+  return { veteran, undefeated, unlucky, ghost };
 }
 
 export type Momentum = number | "new";

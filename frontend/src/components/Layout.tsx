@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-
-/** Incrementing build number baked in at build time (see Dockerfile/docker-publish.yml) - "dev" outside Docker. */
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
+import { APP_VERSION } from "../appVersion";
 
 type ThemeName = "dark" | "light";
 

@@ -78,7 +78,7 @@
   letter-spacing: 0.14em;
 }
 
-.brand-text .app-version {
+.app-version {
   display: block;
   font-size: 9px;
   color: var(--text-faint);
@@ -531,6 +531,13 @@ td .select {
 }
 .achievement-tile.form-tier-unlucky .label {
   color: var(--loss);
+}
+.achievement-tile.form-tier-ghost {
+  border-color: var(--text-faint);
+  opacity: 0.75;
+}
+.achievement-tile.form-tier-ghost .label {
+  color: var(--text-faint);
 }
 
 /* Locker Room: teammate tiles use the other player's photo as the tile's

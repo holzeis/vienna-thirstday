@@ -168,6 +168,7 @@ export interface CurrentForm {
   veteran: boolean;
   undefeated: boolean;
   unlucky: boolean;
+  ghost: boolean;
 }
 
 export interface PlayerProfile {

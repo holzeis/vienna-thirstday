@@ -219,6 +219,26 @@ describe("computeCurrentForm", () => {
     expect(form.undefeated).toBe(false);
     expect(form.unlucky).toBe(false);
   });
+
+  it("awards ghost when the player appears in none of the league's last 5 gamedays", () => {
+    const allRows: StatRow[] = [1, 2, 3, 4, 5].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
+    // Player 1 never shows up in any of those gamedays.
+    expect(computeCurrentForm(allRows, 1).ghost).toBe(true);
+    expect(computeCurrentForm(allRows, 1).veteran).toBe(false);
+  });
+
+  it("does not award ghost if the player appeared in even one of the last 5 gamedays", () => {
+    const allRows: StatRow[] = [1, 2, 3, 4, 5].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
+    const mine = [row({ playerId: 1, gamedayId: 3, date: new Date(2024, 0, 3) })];
+    expect(computeCurrentForm([...allRows, ...mine], 1).ghost).toBe(false);
+  });
+
+  it("does not award ghost or veteran when the league has fewer than 5 gamedays yet", () => {
+    const allRows: StatRow[] = [1, 2].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
+    const form = computeCurrentForm(allRows, 1);
+    expect(form.ghost).toBe(false);
+    expect(form.veteran).toBe(false);
+  });
 });
 
 describe("computeMomentum", () => {
