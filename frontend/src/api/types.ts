@@ -127,14 +127,13 @@ export interface StandingRow {
 }
 
 /**
- * Competitive (season) awards and the isAdmin badge are always exactly
- * gold/silver/bronze - if not earned, simply absent. The lifetime stat
- * categories always render instead, using "wood" as the below-bronze rung
- * so the real value stays visible.
+ * Competitive (season) awards are always exactly gold/silver/bronze - if not
+ * earned, simply absent. The lifetime stat categories always render instead,
+ * using "wood" as the below-bronze rung so the real value stays visible.
  */
 export type AwardTier = "gold" | "silver" | "bronze" | "wood";
 
-export type PersonalAwardCategory = "gamesPlayed" | "wins" | "draws" | "losses" | "points" | "goals" | "isAdmin";
+export type PersonalAwardCategory = "gamesPlayed" | "wins" | "draws" | "losses" | "points" | "goals";
 export type SeasonAwardCategory = "ranking" | "mostGames" | "mostGoals" | "longestWinStreak" | "longestLossStreak";
 export type AwardCategory = PersonalAwardCategory | SeasonAwardCategory;
 
@@ -172,7 +171,7 @@ export interface CurrentForm {
 }
 
 export interface PlayerProfile {
-  player: { id: number; name: string; isGuest: boolean; avatarDataUri: string | null; joinedAt: string };
+  player: { id: number; name: string; isGuest: boolean; isAdmin: boolean; avatarDataUri: string | null; joinedAt: string };
   awards: PlayerAward[];
   currentForm: CurrentForm;
   teammates: { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null };

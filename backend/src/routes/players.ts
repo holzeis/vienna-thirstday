@@ -14,7 +14,11 @@ import {
   computePlayerSeasonAwards,
   computeTeammateTally,
   fetchStatRows,
+  recentLeagueGamedayIds,
+  type AwardTier,
 } from "../services/playerStatsService";
+
+const AWARD_TIER_RANK: Record<AwardTier, number> = { gold: 0, silver: 1, bronze: 2, wood: 3 };
 
 const router = Router();
 
@@ -75,15 +79,17 @@ router.get(
     const myRows = allRows.filter((r) => r.playerId === id);
     const career = computeCareerStats(myRows);
 
-    const awards = [...computePersonalAwards(career, !!linkedUser?.isAdmin), ...computePlayerSeasonAwards(allRows, id)];
+    const awards = [...computePersonalAwards(career), ...computePlayerSeasonAwards(allRows, id)].sort(
+      (a, b) => AWARD_TIER_RANK[a.tier] - AWARD_TIER_RANK[b.tier]
+    );
     const currentForm = computeCurrentForm(allRows, id);
 
-    // Teammates card reflects current form too - scoped to this player's own
-    // last 5 played games, not their whole career.
-    const lastFiveGamedayIds = new Set(
-      [...myRows].sort((a, b) => a.date.getTime() - b.date.getTime()).slice(-5).map((r) => r.gamedayId)
-    );
-    const formRows = allRows.filter((r) => lastFiveGamedayIds.has(r.gamedayId));
+    // Teammate chemistry reflects the same "recent" window as the current-form
+    // badges - the league's actual last 5 gamedays, not this player's own
+    // last 5 played games (which could reach further back for someone who
+    // plays sporadically).
+    const recentGamedayIds = new Set(recentLeagueGamedayIds(allRows));
+    const formRows = allRows.filter((r) => recentGamedayIds.has(r.gamedayId));
     const { favorite, unfavorite, mostPlayedWith, nemesis } = await attachAvatars({
       ...computeTeammateTally(formRows, id),
       nemesis: computeNemesis(formRows, id),
@@ -95,6 +101,7 @@ router.get(
         id: player.id,
         name: player.name,
         isGuest: player.isGuest,
+        isAdmin: !!linkedUser?.isAdmin,
         avatarDataUri: avatarDataUri(player),
         // A real member's join date is when their account was registered;
         // guests/unmerged imports have no account, so fall back to when

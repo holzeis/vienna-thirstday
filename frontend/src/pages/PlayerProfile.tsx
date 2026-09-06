@@ -15,7 +15,6 @@ const AWARD_LABELS: Record<AwardCategory, string> = {
   losses: "Losses",
   points: "Points",
   goals: "Goals",
-  isAdmin: "Admin",
   ranking: "Season Ranking",
   mostGames: "Most Games",
   mostGoals: "Most Goals",
@@ -30,7 +29,6 @@ const AWARD_ICONS: Record<AwardCategory, string> = {
   losses: "💔",
   points: "⭐",
   goals: "⚽",
-  isAdmin: "👑",
   ranking: "🏆",
   mostGames: "🏃",
   mostGoals: "⚽",
@@ -101,8 +99,10 @@ export function PlayerProfile() {
             <div className="player-avatar-placeholder">{profile.player.name.charAt(0).toUpperCase()}</div>
           )}
           <div>
-            <h2>
-              {profile.player.name} {profile.player.isGuest && <span className="badge badge-guest">Guest</span>}
+            <h2 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span>{profile.player.name}</span>
+              {profile.player.isGuest && <span className="badge badge-guest">Guest</span>}
+              {profile.player.isAdmin && <span className="badge badge-admin">Admin</span>}
             </h2>
             <p>Joined {formatMonthYear(profile.player.joinedAt)}</p>
             {isOwnProfile && (

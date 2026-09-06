@@ -276,6 +276,27 @@ export interface CurrentForm {
 }
 
 /**
+ * The ids of the league's last 5 completed gamedays (by date), across all
+ * players - the one shared "recent" window for every Locker Room tile
+ * (current-form badges, teammate chemistry). Deliberately never a specific
+ * player's own last 5 played games, which could reach arbitrarily far back
+ * for someone who plays sporadically - using one shared window keeps badges
+ * like ghost/undefeated mutually consistent, and keeps "Partner in Crime" /
+ * "Lucky Charm" / "Jinx" / "Nemesis" reflecting the actual last 5 gamedays
+ * rather than some other stretch of this player's history.
+ */
+export function recentLeagueGamedayIds(allRows: StatRow[]): number[] {
+  const gamedayDates = new Map<number, number>();
+  for (const r of allRows) {
+    if (!gamedayDates.has(r.gamedayId)) gamedayDates.set(r.gamedayId, r.date.getTime());
+  }
+  return Array.from(gamedayDates.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id]) => id);
+}
+
+/**
  * Transient current-form badges - unlike awards these can be lost the
  * moment the next gameday changes the picture, so they're recomputed fresh
  * every time rather than accumulated. `allRows` is unfiltered (all players,
@@ -295,14 +316,7 @@ export interface CurrentForm {
  *    those 5 results was a win-or-draw / a loss.
  */
 export function computeCurrentForm(allRows: StatRow[], playerId: number): CurrentForm {
-  const gamedayDates = new Map<number, number>();
-  for (const r of allRows) {
-    if (!gamedayDates.has(r.gamedayId)) gamedayDates.set(r.gamedayId, r.date.getTime());
-  }
-  const recentGamedayIds = Array.from(gamedayDates.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([id]) => id);
+  const recentGamedayIds = recentLeagueGamedayIds(allRows);
 
   const myRecentRows = allRows.filter((r) => r.playerId === playerId && recentGamedayIds.includes(r.gamedayId));
   const veteran = recentGamedayIds.length === 5 && myRecentRows.length === 5;
@@ -429,8 +443,8 @@ export function groupRowsByYear(rows: StatRow[]): Map<number, StatRow[]> {
   return byYear;
 }
 
-/** Lifetime personal awards (never season-gated) - only the ones actually earned. */
-export function computePersonalAwards(career: CareerStats, isAdmin: boolean): PlayerAward[] {
+/** Lifetime personal awards (never season-gated) - "wood" keeps the real number visible even before bronze is reached, so these always render. */
+export function computePersonalAwards(career: CareerStats): PlayerAward[] {
   const values: Record<PersonalAwardCategory, number> = {
     gamesPlayed: career.gamesPlayed,
     wins: career.wins,
@@ -438,15 +452,10 @@ export function computePersonalAwards(career: CareerStats, isAdmin: boolean): Pl
     losses: career.losses,
     points: career.points,
     goals: career.goals,
-    isAdmin: isAdmin ? 1 : 0,
   };
   const awards: PlayerAward[] = [];
   for (const category of Object.keys(ACHIEVEMENT_THRESHOLDS) as PersonalAwardCategory[]) {
     const tier = tierForValue(category, values[category]);
-    // isAdmin is a real badge, omitted until earned. The rest are the old
-    // "stats" tiles reborn as awards, so they always render - "wood" keeps
-    // the real number visible even before bronze is reached.
-    if (category === "isAdmin" && tier === "wood") continue;
     awards.push({ category, tier, kind: "personal", value: values[category] });
   }
   return awards;

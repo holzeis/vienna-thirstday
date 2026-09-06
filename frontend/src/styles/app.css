@@ -420,6 +420,10 @@ td .select {
   background: var(--overlay-3);
   color: var(--text-dim);
 }
+.badge-admin {
+  background: rgba(255, 215, 106, 0.18);
+  color: var(--gold);
+}
 
 /* Sized to match .btn so "you're confirmed" reads as the resolved state of
    the "I'm in" button it replaces, not a demoted afterthought. */

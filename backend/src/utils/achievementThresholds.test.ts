@@ -19,14 +19,9 @@ describe("tierForValue", () => {
   });
 
   it("has a threshold entry for every declared category", () => {
-    const categories: AchievementCategory[] = ["gamesPlayed", "wins", "draws", "losses", "points", "goals", "isAdmin"];
+    const categories: AchievementCategory[] = ["gamesPlayed", "wins", "draws", "losses", "points", "goals"];
     for (const category of categories) {
       expect(ACHIEVEMENT_THRESHOLDS[category]).toBeDefined();
     }
-  });
-
-  it("isAdmin is a binary badge - any positive value reaches gold with no bronze/silver rung", () => {
-    expect(tierForValue("isAdmin", 0)).toBe("wood");
-    expect(tierForValue("isAdmin", 1)).toBe("gold");
   });
 });

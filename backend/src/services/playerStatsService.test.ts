@@ -9,6 +9,7 @@ import {
   computeSeasonPodiums,
   computeStreaks,
   computeTeammateTally,
+  recentLeagueGamedayIds,
   type StatRow,
 } from "./playerStatsService";
 
@@ -179,6 +180,18 @@ describe("computeNemesis", () => {
   });
 });
 
+describe("recentLeagueGamedayIds", () => {
+  it("returns the 5 most recent gamedays by date, across all players", () => {
+    const allRows: StatRow[] = [1, 2, 3, 4, 5, 6].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
+    expect(recentLeagueGamedayIds(allRows)).toEqual([6, 5, 4, 3, 2]);
+  });
+
+  it("returns fewer than 5 ids when the league has fewer than 5 gamedays yet", () => {
+    const allRows: StatRow[] = [1, 2].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
+    expect(recentLeagueGamedayIds(allRows)).toEqual([2, 1]);
+  });
+});
+
 describe("computeCurrentForm", () => {
   it("awards veteran when the player appears in all of the league's last 5 gamedays", () => {
     const allRows: StatRow[] = [1, 2, 3, 4, 5].map((gamedayId) =>
@@ -337,25 +350,15 @@ describe("computePersonalAwards", () => {
   const zeroCareer = { gamesPlayed: 0, wins: 0, draws: 0, losses: 0, points: 0, goalDiff: 0, goals: 0 };
 
   it("always includes the lifetime stat categories, using 'wood' below bronze", () => {
-    const awards = computePersonalAwards(zeroCareer, false);
+    const awards = computePersonalAwards(zeroCareer);
     const categories = awards.map((a) => a.category);
     expect(categories).toEqual(expect.arrayContaining(["gamesPlayed", "wins", "draws", "losses", "points", "goals"]));
     expect(awards.find((a) => a.category === "gamesPlayed")).toMatchObject({ tier: "wood", value: 0 });
   });
 
-  it("omits the admin badge when the player is not an admin", () => {
-    const awards = computePersonalAwards(zeroCareer, false);
-    expect(awards.find((a) => a.category === "isAdmin")).toBeUndefined();
-  });
-
-  it("includes the admin badge (gold) when the player is an admin", () => {
-    const awards = computePersonalAwards(zeroCareer, true);
-    expect(awards.find((a) => a.category === "isAdmin")).toMatchObject({ tier: "gold", value: 1 });
-  });
-
   it("promotes a stat to bronze/silver/gold once it crosses each threshold", () => {
     const career = { ...zeroCareer, wins: 40 }; // silver threshold for wins
-    const award = computePersonalAwards(career, false).find((a) => a.category === "wins");
+    const award = computePersonalAwards(career).find((a) => a.category === "wins");
     expect(award).toMatchObject({ tier: "silver", value: 40 });
   });
 });
