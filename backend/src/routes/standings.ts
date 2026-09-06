@@ -4,9 +4,11 @@ import { db } from "../db/client";
 import { gamedays, playerGamedayStats, players, results } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
-import { computeCurrentForm, computeMomentum, fetchStatRows } from "../services/playerStatsService";
+import { computeCurrentForm, computeMomentum, fetchStatRows, type CurrentForm } from "../services/playerStatsService";
 
 const router = Router();
+
+const NO_CURRENT_FORM: CurrentForm = { veteran: false, undefeated: false, unlucky: false, ghost: false };
 
 router.use(requireAuth);
 
@@ -79,15 +81,15 @@ router.get(
       }
     }
 
-    // Current form (Locker Room) badges reflect the live league state, not
-    // this season's history, so they're computed from all-time rows
-    // regardless of which season tab is being viewed.
-    const allRows = await fetchStatRows(db);
+    // Current form (Locker Room) badges reflect the live league state, so
+    // - like momentum - they only make sense while looking at the current,
+    // ongoing season; a past season shows none of them.
+    const allRows = isCurrentSeason ? await fetchStatRows(db) : null;
 
     const standingsWithExtras = standings.map((s) => ({
       ...s,
       momentum: computeMomentum(beforeRankByPlayer.get(s.playerId), s.rank),
-      currentForm: computeCurrentForm(allRows, s.playerId),
+      currentForm: allRows ? computeCurrentForm(allRows, s.playerId) : NO_CURRENT_FORM,
     }));
 
     res.json({ year, standings: standingsWithExtras });

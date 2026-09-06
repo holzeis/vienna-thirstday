@@ -91,4 +91,26 @@ describe("GET /:year/standings momentum", () => {
     expect(byId.get(player.id)?.momentum).toBe("new");
     expect(byId.get(guest.id)?.momentum).toBe("new");
   });
+
+  it("never shows current-form (Locker Room) badges for a past, concluded season", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const pastYear = new Date().getUTCFullYear() - 1;
+
+    // Player wins all 5 of that past season's gamedays - would earn
+    // veteran/undefeated under the current-form rules if it weren't gated
+    // to the current season.
+    for (let day = 1; day <= 5; day++) {
+      await createCompletedGameday(user.id, new Date(Date.UTC(pastYear, 0, day, 18)), { teamA: 5, teamB: 2 }, [
+        { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+        { playerId: guest.id, team: "B", points: 1, goalDiff: -3 },
+      ]);
+    }
+
+    const res = await request(app).get(`/api/seasons/${pastYear}/standings`).set("Authorization", `Bearer ${token}`);
+    const byId = new Map<number, any>(res.body.standings.map((s: any) => [s.playerId, s]));
+    expect(byId.get(player.id)?.currentForm).toEqual({ veteran: false, undefeated: false, unlucky: false, ghost: false });
+    expect(byId.get(guest.id)?.currentForm).toEqual({ veteran: false, undefeated: false, unlucky: false, ghost: false });
+  });
 });
