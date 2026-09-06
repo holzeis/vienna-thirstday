@@ -120,8 +120,11 @@ export function JoinGameday() {
   }, [token]);
 
   // Already signed in - just take them straight to the real page, where the
-  // normal "I'm in" flow already exists.
-  if (user && gameday) return <Navigate to={`/gamedays/${gameday.id}`} replace />;
+  // normal "I'm in" flow already exists. Guarded by `!submitting`: logging in
+  // sets `user` partway through handleLogin (before it's had a chance to
+  // register), and a stray re-render here would fire this redirect early,
+  // landing on the gameday page before the registration actually exists.
+  if (user && gameday && !submitting) return <Navigate to={`/gamedays/${gameday.id}`} replace />;
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
