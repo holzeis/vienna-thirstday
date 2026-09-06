@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { getPublicGameday, registerForGameday, registerGuestViaShareLink } from "../api/endpoints";
+import { getPublicGameday, getShareLinkGuestNames, registerForGameday, registerGuestViaShareLink } from "../api/endpoints";
 import type { GamedayPublicSummary } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { BrandMark } from "../components/Layout";
@@ -92,6 +92,7 @@ export function JoinGameday() {
 
   const [gameday, setGameday] = useState<GamedayPublicSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [guestNames, setGuestNames] = useState<string[]>([]);
 
   const [mode, setMode] = useState<"login" | "guest">("login");
   const [name, setName] = useState("");
@@ -109,6 +110,14 @@ export function JoinGameday() {
   }
 
   useEffect(load, [token]);
+  useEffect(() => {
+    if (!token) return;
+    getShareLinkGuestNames(token)
+      .then((res) => setGuestNames(res.names))
+      .catch(() => {
+        /* datalist is a nicety - a typed name still works fine without it */
+      });
+  }, [token]);
 
   // Already signed in - just take them straight to the real page, where the
   // normal "I'm in" flow already exists.
@@ -242,7 +251,19 @@ export function JoinGameday() {
                 <form onSubmit={handleGuestSubmit}>
                   <div className="field">
                     <label htmlFor="guest-name">Your name</label>
-                    <input id="guest-name" required value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+                    <input
+                      id="guest-name"
+                      required
+                      list="join-guest-options"
+                      placeholder="Type your name or pick an existing guest..."
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                    />
+                    <datalist id="join-guest-options">
+                      {guestNames.map((n) => (
+                        <option key={n} value={n} />
+                      ))}
+                    </datalist>
                   </div>
                   <button className="btn btn-primary" type="submit" disabled={submitting} style={{ width: "100%" }}>
                     {submitting ? "Signing up..." : "Sign up"}

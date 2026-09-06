@@ -111,6 +111,31 @@ describe("GET /gameday-share/:token", () => {
   });
 });
 
+describe("GET /gameday-share/:token/guests", () => {
+  it("lists existing guest names, excluding anyone already registered for this gameday", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const otherGameday = await createOpenGameday(user.id, new Date(TOMORROW.getTime() + 24 * 60 * 60 * 1000));
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+
+    // Robert exists system-wide (registered for a different gameday) - should still be suggested here.
+    const otherShareRes = await request(app).post(`/api/gamedays/${otherGameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+    await request(app).post(`/api/gameday-share/${otherShareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
+    // Alice is already registered for *this* gameday - should be excluded.
+    await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Alice" });
+
+    const res = await request(app).get(`/api/gameday-share/${shareRes.body.shareToken}/guests`);
+    expect(res.status).toBe(200);
+    expect(res.body.names).toEqual(["Robert"]);
+  });
+
+  it("404s for an unknown token", async () => {
+    const res = await request(app).get("/api/gameday-share/not-a-real-token/guests");
+    expect(res.status).toBe(404);
+  });
+});
+
 describe("POST /gameday-share/:token/register-guest", () => {
   it("registers a new guest by name, no auth required", async () => {
     const { user, password } = await createAdmin();

@@ -198,6 +198,11 @@ export function getPublicGameday(token: string, playerId?: number) {
   return apiRequest<{ gameday: GamedayPublicSummary }>(`/gameday-share/${token}${qs}`);
 }
 
+/** Existing guest names to suggest on the share-link sign-up form (same pool as `listGuests`, no auth required). */
+export function getShareLinkGuestNames(token: string) {
+  return apiRequest<{ names: string[] }>(`/gameday-share/${token}/guests`);
+}
+
 export function registerGuestViaShareLink(token: string, name: string) {
   return apiRequest<{ status: "CONFIRMED" | "WAITLISTED"; playerId: number }>(`/gameday-share/${token}/register-guest`, {
     method: "POST",

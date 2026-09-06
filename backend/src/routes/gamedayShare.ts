@@ -68,6 +68,30 @@ router.get(
   })
 );
 
+/**
+ * Existing guest names (system-wide, same pool the authenticated "bring a
+ * guest" picker uses) minus anyone already actively registered for this
+ * particular gameday - lets an unauthenticated guest pick themselves (or a
+ * friend) from a list instead of risking a near-duplicate name, same as the
+ * logged-in flow's datalist. Names only - no ids or other player data.
+ */
+router.get(
+  "/:token/guests",
+  asyncHandler(async (req, res) => {
+    const gameday = await loadGamedayByShareToken(req.params.token);
+    const allGuests = await db.query.players.findMany({
+      where: eq(players.isGuest, true),
+      orderBy: (p, { asc }) => asc(p.name),
+    });
+    const activeRegs = await db.query.registrations.findMany({
+      where: and(eq(registrations.gamedayId, gameday.id), ne(registrations.status, "CANCELLED")),
+    });
+    const registeredPlayerIds = new Set(activeRegs.map((r) => r.playerId));
+    const names = allGuests.filter((g) => !registeredPlayerIds.has(g.id)).map((g) => g.name);
+    res.json({ names });
+  })
+);
+
 const registerGuestSchema = z.object({
   name: z.string().min(1).max(255),
 });
