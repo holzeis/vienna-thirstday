@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { gamedays, players, registrations } from "../db/schema";
 import { ApiError } from "../utils/errors";
@@ -30,14 +30,27 @@ async function loadGamedayByShareToken(token: string) {
   return gameday;
 }
 
+/**
+ * `?playerId=` is how a guest who signed up earlier (remembered client-side,
+ * see JoinGameday.tsx) sees their own current status on revisiting the same
+ * link - not a secret, just a lookup key scoped to this one already-public
+ * gameday's roster, so a wrong/guessed id reveals nothing beyond "are they
+ * registered for this specific matchday".
+ */
 router.get(
   "/:token",
   asyncHandler(async (req, res) => {
     const gameday = await loadGamedayByShareToken(req.params.token);
-    const confirmedCount = await countConfirmed(gameday.id);
-    const waitlisted = await db.query.registrations.findMany({
-      where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.status, "WAITLISTED")),
+    const active = await db.query.registrations.findMany({
+      where: and(eq(registrations.gamedayId, gameday.id), ne(registrations.status, "CANCELLED")),
+      with: { player: true },
     });
+    const confirmed = active.filter((r) => r.status === "CONFIRMED");
+    const waitlisted = active.filter((r) => r.status === "WAITLISTED");
+
+    const playerId = req.query.playerId ? parseInt(req.query.playerId as string, 10) : null;
+    const mine = playerId ? active.find((r) => r.playerId === playerId) : undefined;
+
     res.json({
       gameday: {
         id: gameday.id,
@@ -45,8 +58,11 @@ router.get(
         status: gameday.status,
         minPlayers: gameday.minPlayers,
         maxPlayers: gameday.maxPlayers,
-        confirmedCount,
+        confirmedCount: confirmed.length,
         waitlistedCount: waitlisted.length,
+        confirmed: confirmed.map((r) => ({ name: r.player.name, isGuest: r.player.isGuest })),
+        waitlisted: waitlisted.map((r) => ({ name: r.player.name, isGuest: r.player.isGuest })),
+        myStatus: mine?.status ?? null,
       },
     });
   })
@@ -113,7 +129,7 @@ router.post(
       where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.playerId, guest.id)),
     });
 
-    res.status(201).json({ status: finalReg?.status ?? "CONFIRMED" });
+    res.status(201).json({ status: finalReg?.status ?? "CONFIRMED", playerId: guest.id });
   })
 );
 

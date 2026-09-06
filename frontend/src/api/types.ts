@@ -98,7 +98,7 @@ export interface GamedayDetail {
   result: ResultView | null;
 }
 
-/** What an anonymous visitor holding a matchday's share link sees - no registrant names, no admin controls. */
+/** What an anonymous visitor holding a matchday's share link sees - no emails/admin controls, just who's in. */
 export interface GamedayPublicSummary {
   id: number;
   date: string;
@@ -107,6 +107,10 @@ export interface GamedayPublicSummary {
   maxPlayers: number;
   confirmedCount: number;
   waitlistedCount: number;
+  confirmed: { name: string; isGuest: boolean }[];
+  waitlisted: { name: string; isGuest: boolean }[];
+  /** Status of the player id passed as ?playerId=, if any - lets a returning guest see their own signup. */
+  myStatus: "CONFIRMED" | "WAITLISTED" | null;
 }
 
 export interface StandingRow {

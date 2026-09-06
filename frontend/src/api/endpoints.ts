@@ -193,12 +193,13 @@ export function getGamedayShareLink(gamedayId: number) {
 
 // ---- gameday share links (public - no auth) ----
 
-export function getPublicGameday(token: string) {
-  return apiRequest<{ gameday: GamedayPublicSummary }>(`/gameday-share/${token}`);
+export function getPublicGameday(token: string, playerId?: number) {
+  const qs = playerId ? `?playerId=${playerId}` : "";
+  return apiRequest<{ gameday: GamedayPublicSummary }>(`/gameday-share/${token}${qs}`);
 }
 
 export function registerGuestViaShareLink(token: string, name: string) {
-  return apiRequest<{ status: "CONFIRMED" | "WAITLISTED" }>(`/gameday-share/${token}/register-guest`, {
+  return apiRequest<{ status: "CONFIRMED" | "WAITLISTED"; playerId: number }>(`/gameday-share/${token}/register-guest`, {
     method: "POST",
     body: { name },
   });

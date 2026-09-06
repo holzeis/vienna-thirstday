@@ -62,7 +62,37 @@ describe("GET /gameday-share/:token", () => {
       maxPlayers: 14,
       confirmedCount: 0,
       waitlistedCount: 0,
+      confirmed: [],
+      waitlisted: [],
+      myStatus: null,
     });
+  });
+
+  it("lists who's confirmed/waitlisted by name, and reports myStatus for a given playerId", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW, { minPlayers: 1, maxPlayers: 2 });
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+
+    const first = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
+    const second = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Alice" });
+    expect(first.body.status).toBe("CONFIRMED");
+    expect(second.body.status).toBe("WAITLISTED"); // past minPlayers, waits to pair up with a 3rd
+
+    const res = await request(app).get(`/api/gameday-share/${shareRes.body.shareToken}?playerId=${second.body.playerId}`);
+    expect(res.body.gameday.confirmed).toEqual([{ name: "Robert", isGuest: true }]);
+    expect(res.body.gameday.waitlisted).toEqual([{ name: "Alice", isGuest: true }]);
+    expect(res.body.gameday.myStatus).toBe("WAITLISTED");
+  });
+
+  it("reports myStatus null for a playerId with no registration here", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+
+    const res = await request(app).get(`/api/gameday-share/${shareRes.body.shareToken}?playerId=999999`);
+    expect(res.body.gameday.myStatus).toBeNull();
   });
 
   it("404s for an unknown token", async () => {
@@ -94,6 +124,7 @@ describe("POST /gameday-share/:token/register-guest", () => {
 
     const guest = await db.query.players.findFirst({ where: (p, { eq, and }) => and(eq(p.name, "Robert"), eq(p.isGuest, true)) });
     expect(guest).toBeDefined();
+    expect(res.body.playerId).toBe(guest!.id);
     const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, guest!.id) });
     expect(reg?.status).toBe("CONFIRMED");
   });

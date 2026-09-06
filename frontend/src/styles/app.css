@@ -691,6 +691,11 @@ td .select {
   background: var(--overlay-3);
 }
 
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .user-card-details {
   margin-top: 12px;
   padding-top: 12px;
