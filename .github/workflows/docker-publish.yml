@@ -1,15 +1,16 @@
 name: Build and publish images
 
-# Builds backend/ and frontend/ into Docker images and pushes them to GHCR.
-# On pull requests it only builds (catches a broken Dockerfile before merge)
-# - nothing is pushed until the change lands on main. Pushing to main
-# publishes `latest`; pushing a `vX.Y.Z` tag also publishes that version.
+# Builds backend/, frontend/, and image-watcher/ into Docker images and
+# pushes them to GHCR. On pull requests it only builds (catches a broken
+# Dockerfile before merge) - nothing is pushed until the change lands on
+# main. Pushing to main publishes `latest`; pushing a `vX.Y.Z` tag also
+# publishes that version.
 #
-# Images land at ghcr.io/<owner>/<repo>-backend and ghcr.io/<owner>/<repo>-frontend,
-# using the built-in GITHUB_TOKEN - no extra secrets to set up. GHCR packages
-# are private by default: if you keep it private, the cluster pulling these
-# images needs an imagePullSecret (see k8s/README notes); making the package
-# public in its GitHub settings avoids that.
+# Images land at ghcr.io/<owner>/<repo>-<component>, using the built-in
+# GITHUB_TOKEN - no extra secrets to set up. GHCR packages are private by
+# default: if you keep them private, the cluster pulling these images needs
+# an imagePullSecret (see k8s/README notes); making the packages public in
+# their GitHub settings avoids that.
 
 on:
   push:
@@ -33,7 +34,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        component: [backend, frontend]
+        component: [backend, frontend, image-watcher]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

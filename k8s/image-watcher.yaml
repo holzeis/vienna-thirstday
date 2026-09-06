@@ -1,0 +1,84 @@
+# Watches ghcr.io/holzeis/vienna-thirstday-{backend,frontend}:latest and
+# rolls out the matching Deployment when the published digest changes -
+# closes the loop after docker-publish.yml so a merge to main reaches the
+# cluster without a manual `kubectl rollout restart`. The image itself
+# (image-watcher/) is a tiny curl+jq+kubectl image built by the same
+# workflow, running as its own non-root user - see image-watcher/Dockerfile.
+#
+# Combined with backend-deployment.yaml's migrate initContainer (applies any
+# pending schema change before the app starts, safe no-op otherwise), this
+# is the whole deploy procedure end to end: push to main -> image published
+# -> this notices within 5 minutes -> rolls out -> migration (if any) runs
+# -> app starts on the new code.
+#
+# RBAC is deliberately narrow: get/patch on exactly the backend/frontend
+# Deployments by name, and on one ConfigMap that just remembers the last
+# digest seen per component (created on first run by image-watcher/check.sh
+# itself - nothing to pre-apply here).
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: image-watcher
+  namespace: vienna-thirstday
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: image-watcher
+  namespace: vienna-thirstday
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["backend", "frontend"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["image-watch-state"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"] # the object doesn't exist yet on the very first run, so no resourceName to scope this to
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: image-watcher
+  namespace: vienna-thirstday
+subjects:
+  - kind: ServiceAccount
+    name: image-watcher
+    namespace: vienna-thirstday
+roleRef:
+  kind: Role
+  name: image-watcher
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: image-watcher
+  namespace: vienna-thirstday
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          serviceAccountName: image-watcher
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+          containers:
+            - name: image-watcher
+              image: ghcr.io/holzeis/vienna-thirstday-image-watcher:latest
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]

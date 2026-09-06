@@ -304,10 +304,18 @@ Manifests live under `k8s/` as plain files, applied individually with
    kubectl apply -f k8s/ingress.yaml
    # kubectl apply -f k8s/cloudflared.yaml   # only if exposing via a Cloudflare Tunnel
 
-   kubectl apply -f k8s/backend-migration-job.yaml
-   kubectl wait --for=condition=complete job/backend-migrate -n vienna-thirstday --timeout=120s
+   # backend-deployment.yaml's initContainer applies any pending migration
+   # before the app starts - wait for it before seeding.
+   kubectl rollout status deployment/backend -n vienna-thirstday --timeout=120s
    kubectl apply -f k8s/backend-seed-job.yaml   # bootstraps the first admin; safe to re-run
    ```
+
+   Migrations no longer need a separate manual step day-to-day - every
+   backend pod start (a fresh deploy, `kubectl rollout restart`, a node
+   reschedule, ...) applies whatever's pending via that initContainer, and
+   is a fast no-op when nothing is. `k8s/backend-migration-job.yaml` still
+   exists as a standalone way to run one without touching the running pods
+   (e.g. to check it succeeds before rolling out a schema change).
 
 4. Edit `k8s/ingress.yaml`'s `host` (and `CORS_ORIGIN` in
    `k8s/backend-configmap.yaml`) to match your real domain, then re-apply.
@@ -317,6 +325,33 @@ Manifests live under `k8s/` as plain files, applied individually with
 cluster doesn't have Longhorn installed) - fine to get started, but for
 anything you care about long-term, point `DATABASE_URL` at a managed
 Postgres instance instead and skip applying `postgres.yaml`.
+
+### Deploying automatically after a push to main
+
+By default a new image published by CI just sits on GHCR until you manually
+`kubectl rollout restart`. `k8s/image-watcher.yaml` closes that loop without
+needing a self-hosted GitHub Actions runner or exposing the cluster's API
+server to the internet - a `CronJob` running inside the cluster itself,
+polling GHCR every 5 minutes for `backend`/`frontend`'s current `:latest`
+digest and rolling out the matching Deployment when it changes. Combined
+with `backend-deployment.yaml`'s `migrate` initContainer (applies any
+pending schema change before the app starts, a safe no-op otherwise), the
+two together are the whole deploy procedure end to end: push to main ->
+image published -> noticed within 5 minutes -> rolled out -> migration (if
+any) runs -> app starts on the new code. No action needed day to day.
+
+```bash
+kubectl apply -f k8s/image-watcher.yaml
+```
+
+It runs as its own non-root user (`image-watcher/Dockerfile`, built and
+published by the same CI workflow) with RBAC scoped to exactly two things:
+restarting the `backend`/`frontend` Deployments by name, and reading/writing
+one `ConfigMap` (`image-watch-state`) it uses to remember the last digest it
+saw - nothing cluster-wide, no access to Secrets or other namespaces. Like
+the other GHCR packages, `ghcr.io/holzeis/vienna-thirstday-image-watcher`
+needs to be made public in its GitHub package settings (or given an
+`imagePullSecret`) the first time it's published.
 
 ### Exposing it publicly without forwarding a router port
 
@@ -416,6 +451,8 @@ frontend/
     pages/            One file per route
     components/       Shared layout/nav
     styles/           App-wide CSS
+image-watcher/
+  Dockerfile, check.sh   Tiny non-root image for the image-watcher CronJob
 scripts/
   export_xlsx_to_json.py   Re-run this if the legacy spreadsheet changes
 k8s/                  Kubernetes manifests (applied individually with kubectl apply -f)

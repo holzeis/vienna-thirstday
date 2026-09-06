@@ -20,6 +20,22 @@ spec:
       #     --docker-password=<PAT with read:packages>
       # imagePullSecrets:
       #   - name: ghcr-pull
+      initContainers:
+        # Applies any pending Drizzle migration before the app starts, on
+        # every pod start - not just after a schema change. drizzle-orm's
+        # migrator takes a Postgres advisory lock internally, so the two
+        # replicas' initContainers racing during a rollout serialize safely;
+        # with nothing pending it's a fast no-op. This is what makes it safe
+        # for k8s/backend-migration-job.yaml to no longer be a required
+        # manual step before restarting - see the README.
+        - name: migrate
+          image: ghcr.io/holzeis/vienna-thirstday-backend:latest
+          command: ["node", "dist/db/migrate.js"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: vienna-thirstday-secrets
       containers:
         - name: backend
           image: ghcr.io/holzeis/vienna-thirstday-backend:latest
