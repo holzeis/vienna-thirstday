@@ -10,8 +10,8 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
-      registerType: "autoUpdate",
-      injectRegister: "auto",
+      registerType: "prompt",
+      injectRegister: false,
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         id: "/",

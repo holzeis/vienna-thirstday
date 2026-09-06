@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
+/** Short git SHA baked in at build time (see Dockerfile/docker-publish.yml) - "dev" outside Docker. */
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
+
 type ThemeName = "dark" | "light";
 
 function readInitialTheme(): ThemeName {
@@ -116,6 +119,7 @@ export function Layout() {
           <div className="brand-text">
             <h1>Vienna Thirstday</h1>
             <span>Donnerstags Kicken</span>
+            <span className="app-version">v{APP_VERSION}</span>
           </div>
         </div>
         <nav className="nav">

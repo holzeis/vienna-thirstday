@@ -78,6 +78,15 @@
   letter-spacing: 0.14em;
 }
 
+.brand-text .app-version {
+  display: block;
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 .nav {
   display: flex;
   gap: 4px;
@@ -851,6 +860,31 @@ tr.me td:first-child {
   color: var(--alert-success-text);
 }
 
+.pwa-update-toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+.pwa-update-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
 .auth-shell {
   min-height: 100%;
   display: flex;
@@ -1113,7 +1147,16 @@ tr.me td:first-child {
     padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
   }
 
-  .brand-text span {
+  /* Clear the fixed bottom tab bar instead of sitting behind it. */
+  .pwa-update-toast {
+    left: 12px;
+    right: 12px;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Keep the version visible on mobile - it's the whole point of showing it,
+     verifying a deploy actually landed on the device you're looking at. */
+  .brand-text span:not(.app-version) {
     display: none;
   }
 
