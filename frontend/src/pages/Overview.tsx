@@ -5,6 +5,7 @@ import type { GamedaySummary, StandingRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { formatDate } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
+import { CurrentFormBadges } from "../components/CurrentFormBadges";
 
 function loadUpcoming(setUpcoming: (gamedays: GamedaySummary[]) => void) {
   listGamedays()
@@ -88,8 +89,7 @@ export function Overview() {
                   >
                     <strong>{formatDate(g.date)}</strong>
                     <span className="badge badge-confirmed">
-                      {g.confirmedCount}/{g.maxPlayers}
-                      {g.waitlistedCount > 0 ? ` (+${g.waitlistedCount} waiting)` : ""}
+                      {g.confirmedCount + g.waitlistedCount}/{g.maxPlayers}
                     </span>
                   </Link>
                 </li>
@@ -121,7 +121,12 @@ export function Overview() {
                 {top.map((row) => (
                   <tr key={row.playerId} className={row.playerId === player?.id ? "me" : ""}>
                     <td className={row.rank <= 3 ? `rank-${row.rank}` : ""}>{row.rank}</td>
-                    <td>{row.name}</td>
+                    <td>
+                      <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        {row.name}
+                      </Link>
+                      <CurrentFormBadges currentForm={row.currentForm} />
+                    </td>
                     <td className="num">{row.points}</td>
                     <td className="num">{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
                   </tr>

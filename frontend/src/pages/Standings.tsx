@@ -4,6 +4,7 @@ import { getStandings, listSeasons } from "../api/endpoints";
 import type { StandingRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { usePolling } from "../hooks/usePolling";
+import { CurrentFormBadges } from "../components/CurrentFormBadges";
 
 export function Standings() {
   const { player } = useAuth();
@@ -36,7 +37,7 @@ export function Standings() {
       <div className="page-header">
         <div>
           <h2>Season leaderboard</h2>
-          <p>Ranked by points, then goal difference. Jan 1 – Dec 31 each year. 👤 marks a guest.</p>
+          <p>Ranked by points, then goal difference. Jan 1 – Dec 31 each year.</p>
         </div>
       </div>
 
@@ -83,26 +84,7 @@ export function Standings() {
                     <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
                       {row.name}
                     </Link>
-                    {row.isGuest && (
-                      <span className="mini-badge" title="Guest">
-                        👤
-                      </span>
-                    )}
-                    {row.currentForm.veteran && (
-                      <span className="mini-badge" title="Veteran - played all of the last 5">
-                        🎖️
-                      </span>
-                    )}
-                    {row.currentForm.undefeated && (
-                      <span className="mini-badge" title="Undefeated - unbeaten in the last 5">
-                        🛡️
-                      </span>
-                    )}
-                    {row.currentForm.unlucky && (
-                      <span className="mini-badge" title="Unlucky - lost the last 5">
-                        🌧️
-                      </span>
-                    )}
+                    <CurrentFormBadges currentForm={row.currentForm} />
                   </td>
                   <td className="num">{row.gamesPlayed}</td>
                   <td className="num">{row.points}</td>
