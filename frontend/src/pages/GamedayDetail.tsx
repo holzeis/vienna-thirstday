@@ -16,6 +16,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
+import { useToast } from "../toast/ToastContext";
 
 const statusClass: Record<string, string> = {
   OPEN: "badge-open",
@@ -43,6 +44,7 @@ export function GamedayDetail() {
   const { id } = useParams();
   const gamedayId = parseInt(id!, 10);
   const { user, player } = useAuth();
+  const { showToast } = useToast();
 
   const [gameday, setGameday] = useState<GamedayDetailType | null>(null);
   const [guests, setGuests] = useState<Player[] | null>(null);
@@ -108,6 +110,7 @@ export function GamedayDetail() {
       () => {
         setShareStatus("copied");
         setTimeout(() => setShareStatus("idle"), 1500);
+        showToast("Link copied to clipboard");
       },
       () => {
         window.prompt("Copy this link:", url);
