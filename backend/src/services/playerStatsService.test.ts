@@ -239,6 +239,18 @@ describe("computeCurrentForm", () => {
     expect(form.ghost).toBe(false);
     expect(form.veteran).toBe(false);
   });
+
+  it("never awards ghost and undefeated together, even for a player whose own last 5 played games are far in the past", () => {
+    // Player 1 won their last 5 *personal* games, but that was a while ago -
+    // the league's actual last 5 gamedays (6-10) were played without them.
+    const oldWins = [1, 2, 3, 4, 5].map((gamedayId) => row({ playerId: 1, gamedayId, date: new Date(2024, 0, gamedayId), points: 4 }));
+    const recentWithoutThem = [6, 7, 8, 9, 10].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 1, gamedayId) }));
+    const form = computeCurrentForm([...oldWins, ...recentWithoutThem], 1);
+    expect(form.ghost).toBe(true);
+    expect(form.undefeated).toBe(false);
+    expect(form.veteran).toBe(false);
+    expect(form.unlucky).toBe(false);
+  });
 });
 
 describe("computeMomentum", () => {

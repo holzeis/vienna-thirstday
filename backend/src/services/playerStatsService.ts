@@ -281,12 +281,18 @@ export interface CurrentForm {
  * every time rather than accumulated. `allRows` is unfiltered (all players,
  * all time) so the league's most recent gamedays can be found regardless of
  * whether this player was in all of them.
- *  - veteran: played in every one of the league's last 5 completed gamedays.
+ *
+ * All four badges judge the exact same window - the league's last 5
+ * completed gamedays - never a player's own last 5 played games, which
+ * could reach arbitrarily far back for someone who plays sporadically.
+ * That's deliberate: it keeps veteran/ghost/undefeated/unlucky mutually
+ * consistent (e.g. ghost and undefeated can never both be true - ghost
+ * needs 0 appearances in that window, undefeated needs all 5).
+ *  - veteran: played in every one of those 5 gamedays.
  *  - ghost: the exact opposite - played in none of them (including someone
  *    who's never played at all).
- *  - undefeated / unlucky: this player's own last 5 played games were all
- *    wins-or-draws / all losses. Needs at least 5 games of their own history
- *    to judge either way.
+ *  - undefeated / unlucky: played all 5 (i.e. veteran), and every one of
+ *    those 5 results was a win-or-draw / a loss.
  */
 export function computeCurrentForm(allRows: StatRow[], playerId: number): CurrentForm {
   const gamedayDates = new Map<number, number>();
@@ -298,14 +304,11 @@ export function computeCurrentForm(allRows: StatRow[], playerId: number): Curren
     .slice(0, 5)
     .map(([id]) => id);
 
-  const playedGamedayIds = new Set(allRows.filter((r) => r.playerId === playerId).map((r) => r.gamedayId));
-  const veteran = recentGamedayIds.length === 5 && recentGamedayIds.every((id) => playedGamedayIds.has(id));
-  const ghost = recentGamedayIds.length === 5 && recentGamedayIds.every((id) => !playedGamedayIds.has(id));
-
-  const myRowsByDate = allRows.filter((r) => r.playerId === playerId).sort((a, b) => a.date.getTime() - b.date.getTime());
-  const lastFive = myRowsByDate.slice(-5);
-  const undefeated = lastFive.length === 5 && lastFive.every((r) => r.points !== 1);
-  const unlucky = lastFive.length === 5 && lastFive.every((r) => r.points === 1);
+  const myRecentRows = allRows.filter((r) => r.playerId === playerId && recentGamedayIds.includes(r.gamedayId));
+  const veteran = recentGamedayIds.length === 5 && myRecentRows.length === 5;
+  const ghost = recentGamedayIds.length === 5 && myRecentRows.length === 0;
+  const undefeated = veteran && myRecentRows.every((r) => r.points !== 1);
+  const unlucky = veteran && myRecentRows.every((r) => r.points === 1);
 
   return { veteran, undefeated, unlucky, ghost };
 }
