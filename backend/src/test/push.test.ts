@@ -126,7 +126,8 @@ describe("POST /gamedays notifies subscribed devices", () => {
       .send({ date: "2026-09-10T19:00:00.000Z" });
 
     expect(res.status).toBe(201);
-    expect(webpush.sendNotification).toHaveBeenCalledTimes(2);
+    // Notification dispatch is fire-and-forget - the response doesn't wait for it.
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(2));
     const [subArg, payloadArg] = vi.mocked(webpush.sendNotification).mock.calls[0];
     expect(subArg.endpoint).toMatch(/^https:\/\/push\.example\//);
     const payload = JSON.parse(payloadArg as string);
@@ -142,6 +143,7 @@ describe("POST /gamedays notifies subscribed devices", () => {
     const res = await request(app).post("/api/gamedays").set("Authorization", `Bearer ${token}`).send({ date: "2026-09-10T19:00:00.000Z" });
 
     expect(res.status).toBe(201);
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
     const remaining = await db.query.pushSubscriptions.findFirst({ where: eq(pushSubscriptions.endpoint, "https://push.example/dead") });
     expect(remaining).toBeUndefined();
   });
@@ -160,7 +162,7 @@ describe("registration threshold notifications", () => {
 
     await registerCandidate(token, gameday.id, candidates[7].player.id);
 
-    expect(webpush.sendNotification).toHaveBeenCalledTimes(8);
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(8));
     expect(payloadsSent()[0]).toMatchObject({ title: "Matchday confirmed", url: `/gamedays/${gameday.id}` });
     expect(endpointsNotified().sort()).toEqual(candidates.map((c) => c.endpoint).sort());
   });
@@ -180,7 +182,7 @@ describe("registration threshold notifications", () => {
     const res = await request(app).delete(`/api/gamedays/${gameday.id}/register/${toCancel.id}`).set("Authorization", `Bearer ${token}`);
 
     expect(res.status).toBe(204);
-    expect(webpush.sendNotification).toHaveBeenCalledTimes(7);
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(7));
     expect(payloadsSent()[0]).toMatchObject({ title: "Matchday at risk" });
     expect(endpointsNotified().sort()).toEqual(candidates.slice(1).map((c) => c.endpoint).sort());
   });
@@ -205,7 +207,7 @@ describe("registration threshold notifications", () => {
     expect(res.status).toBe(204);
     // Confirmed count stays at 8 (the waitlisted player backfills the cancelled
     // spot) - only the promotion notification should fire, no status-change one.
-    expect(webpush.sendNotification).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
     expect(payloadsSent()[0]).toMatchObject({ title: "You're in!" });
     const promoted = candidates.find((c) => c.player.id === waitlisted.player.id)!;
     expect(endpointsNotified()).toEqual([promoted.endpoint]);

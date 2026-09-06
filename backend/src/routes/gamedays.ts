@@ -41,8 +41,10 @@ router.post(
         createdByUserId: req.user!.userId,
       })
       .returning();
-    await notifyNewGameday(db, gameday);
     res.status(201).json({ gameday });
+    // Fire-and-forget: push delivery is a real network round-trip per
+    // subscriber and must never add latency to the caller's response.
+    notifyNewGameday(db, gameday).catch((err) => console.error("notifyNewGameday failed:", err));
   })
 );
 
@@ -177,7 +179,11 @@ router.patch(
       await db.transaction(async (tx) => {
         waitlistResult = await recomputeGamedayWaitlist(tx, id);
       });
-      await notifyOnWaitlistChange(updated, confirmedCountBefore, waitlistResult);
+      res.json({ gameday: updated });
+      notifyOnWaitlistChange(updated, confirmedCountBefore, waitlistResult).catch((err) =>
+        console.error("notifyOnWaitlistChange failed:", err)
+      );
+      return;
     }
 
     res.json({ gameday: updated });
@@ -251,9 +257,10 @@ router.post(
       waitlistResult = await recomputeGamedayWaitlist(tx, gamedayId);
     });
 
-    await notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult);
-
     res.status(201).json({ message: "Registered" });
+    notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
+      console.error("notifyOnWaitlistChange failed:", err)
+    );
   })
 );
 
@@ -285,9 +292,12 @@ router.delete(
       waitlistResult = await recomputeGamedayWaitlist(tx, gamedayId);
     });
 
-    if (gameday) await notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult);
-
     res.status(204).send();
+    if (gameday) {
+      notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
+        console.error("notifyOnWaitlistChange failed:", err)
+      );
+    }
   })
 );
 

@@ -169,7 +169,8 @@ describe("POST /gameday-share/:token/register-guest", () => {
     const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
 
     expect(res.status).toBe(201);
-    expect(webpush.sendNotification).toHaveBeenCalledTimes(1);
+    // Notification dispatch is fire-and-forget - the response doesn't wait for it.
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
     const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
     expect(payload).toMatchObject({ title: "Matchday confirmed" });
   });

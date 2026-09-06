@@ -123,13 +123,14 @@ router.post(
       waitlistResult = await recomputeGamedayWaitlist(tx, gameday.id);
     });
 
-    await notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult);
-
     const finalReg = await db.query.registrations.findFirst({
       where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.playerId, guest.id)),
     });
 
     res.status(201).json({ status: finalReg?.status ?? "CONFIRMED", playerId: guest.id });
+    notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
+      console.error("notifyOnWaitlistChange failed:", err)
+    );
   })
 );
 
