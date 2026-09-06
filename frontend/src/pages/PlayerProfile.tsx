@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatMonthYear } from "../utils/format";
 import { disablePushNotifications, enablePushNotifications, getExistingPushSubscription, isPushSupported } from "../push";
+import { isIOS, isStandalonePwa } from "../platform";
 
 const AWARD_LABELS: Record<AwardCategory, string> = {
   gamesPlayed: "Games Played",
@@ -253,7 +254,11 @@ function PushNotificationsCard() {
             Push notifications
           </div>
           <p style={{ color: "var(--text-dim)", fontSize: 12, margin: 0 }}>
-            {supported ? "Get notified on this device when a new matchday is posted." : "Not supported on this browser/device."}
+            {supported
+              ? "Get notified on this device when a new matchday is posted."
+              : isIOS() && !isStandalonePwa()
+                ? "Install this app to your home screen first (Share → Add to Home Screen) - iPhone only supports notifications for the installed app."
+                : "Not supported on this browser/device."}
           </p>
         </div>
         {supported && (

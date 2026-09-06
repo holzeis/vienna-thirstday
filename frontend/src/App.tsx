@@ -3,6 +3,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAdmin, RequireAuth } from "./auth/RequireAuth";
 import { Layout } from "./components/Layout";
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
+import { InstallPwaPrompt } from "./components/InstallPwaPrompt";
 import { Login } from "./pages/Login";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Overview } from "./pages/Overview";
@@ -16,7 +17,10 @@ import { HallOfFame } from "./pages/HallOfFame";
 export default function App() {
   return (
     <AuthProvider>
-      <PwaUpdatePrompt />
+      <div className="pwa-toast-stack">
+        <PwaUpdatePrompt />
+        <InstallPwaPrompt />
+      </div>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />

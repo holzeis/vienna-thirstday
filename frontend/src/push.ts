@@ -1,7 +1,16 @@
 import { getVapidPublicKey, subscribeToPush, unsubscribeFromPush } from "./api/endpoints";
+import { isIOS, isStandalonePwa } from "./platform";
 
+/**
+ * iOS Safari exposes the Push API even in a regular browser tab, but
+ * subscribing there always rejects - WebKit only allows it once the site is
+ * installed to the home screen. Other platforms (Android/desktop) support
+ * push in a regular tab just fine.
+ */
 export function isPushSupported(): boolean {
-  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const hasApi = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  if (!hasApi) return false;
+  return isIOS() ? isStandalonePwa() : true;
 }
 
 /** VAPID applicationServerKey must be a Uint8Array, but the server hands it over as URL-safe base64. */

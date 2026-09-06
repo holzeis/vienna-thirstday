@@ -860,12 +860,21 @@ tr.me td:first-child {
   color: var(--alert-success-text);
 }
 
-.pwa-update-toast {
+/* Fixed host for stacked PWA toasts (update available, install prompt) - a
+   shrink-to-fit flex column, so multiple toasts stack with a gap instead of
+   overlapping when more than one is active at once. */
+.pwa-toast-stack {
   position: fixed;
   left: 16px;
   right: 16px;
   bottom: 16px;
   z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pwa-toast {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -878,7 +887,7 @@ tr.me td:first-child {
   font-size: 13px;
 }
 
-.pwa-update-actions {
+.pwa-toast-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1148,7 +1157,7 @@ tr.me td:first-child {
   }
 
   /* Clear the fixed bottom tab bar instead of sitting behind it. */
-  .pwa-update-toast {
+  .pwa-toast-stack {
     left: 12px;
     right: 12px;
     bottom: calc(84px + env(safe-area-inset-bottom, 0px));

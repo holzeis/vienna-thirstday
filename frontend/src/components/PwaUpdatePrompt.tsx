@@ -20,9 +20,9 @@ export function PwaUpdatePrompt() {
   if (!needRefresh) return null;
 
   return (
-    <div className="pwa-update-toast">
+    <div className="pwa-toast">
       <span>A new version is available.</span>
-      <div className="pwa-update-actions">
+      <div className="pwa-toast-actions">
         <button type="button" className="btn btn-sm btn-primary" onClick={() => updateServiceWorker(true)}>
           Update
         </button>
