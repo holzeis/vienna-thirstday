@@ -40,9 +40,20 @@ const ShareIcon = () => (
   </svg>
 );
 
+const TrashIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+  </svg>
+);
+
 export function GamedayDetail() {
   const { id } = useParams();
   const gamedayId = parseInt(id!, 10);
+  const navigate = useNavigate();
   const { user, player } = useAuth();
   const { showToast } = useToast();
 
@@ -118,6 +129,19 @@ export function GamedayDetail() {
     );
   }
 
+  async function handleDelete() {
+    if (!window.confirm("Delete this matchday? This cannot be undone.")) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await deleteGameday(gamedayId);
+      navigate("/gamedays");
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not delete matchday");
+      setBusy(false);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -128,6 +152,11 @@ export function GamedayDetail() {
           {gameday.status === "OPEN" && (
             <button className="icon-btn" aria-label="Copy sign-up link" title={shareStatus === "copied" ? "Copied!" : "Copy sign-up link"} onClick={shareLink}>
               <ShareIcon />
+            </button>
+          )}
+          {user?.isAdmin && (
+            <button className="icon-btn icon-btn-danger" aria-label="Delete matchday" title="Delete matchday" disabled={busy} onClick={handleDelete}>
+              <TrashIcon />
             </button>
           )}
           <span className={`badge ${statusClass[gameday.status] || ""}`}>{statusLabel[gameday.status] || gameday.status}</span>
@@ -353,7 +382,6 @@ function AdminSection({
   activeRegs: RegistrationView[];
   onChanged: () => void;
 }) {
-  const navigate = useNavigate();
   const [assignments, setAssignments] = useState<Record<number, Team | "">>({});
   // Kept as free-form text while typing (not a live-parsed number) so an
   // empty result starts blank instead of "0", and clearing the field to
@@ -362,6 +390,10 @@ function AdminSection({
   const [teamBScore, setTeamBScore] = useState(gameday.result ? String(gameday.result.teamBScore) : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // The result form only makes sense once the game has actually kicked off -
+  // entering it earlier would also flip the gameday to COMPLETED early.
+  const gameHasHappened = new Date(gameday.date).getTime() <= Date.now();
 
   useEffect(() => {
     const initial: Record<number, Team | ""> = {};
@@ -381,7 +413,7 @@ function AdminSection({
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
-  async function saveAll() {
+  async function saveTeams() {
     setError(null);
     setBusy(true);
     try {
@@ -389,105 +421,113 @@ function AdminSection({
         .filter(([, team]) => team === "A" || team === "B")
         .map(([playerId, team]) => ({ playerId: parseInt(playerId, 10), team: team as Team }));
       await setTeams(gamedayId, list);
-      await setResult(gamedayId, parseScore(teamAScore), parseScore(teamBScore));
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not save");
+      setError(err instanceof ApiClientError ? err.message : "Could not save teams");
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleDelete() {
-    if (!window.confirm("Delete this matchday? This cannot be undone.")) return;
+  async function saveResult() {
     setError(null);
     setBusy(true);
     try {
-      await deleteGameday(gamedayId);
-      navigate("/gamedays");
+      await setResult(gamedayId, parseScore(teamAScore), parseScore(teamBScore));
+      onChanged();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not delete matchday");
+      setError(err instanceof ApiClientError ? err.message : "Could not save result");
+    } finally {
       setBusy(false);
     }
   }
 
   return (
     <div className="card">
-      <div className="page-header" style={{ marginBottom: 14 }}>
-        <div className="card-title" style={{ marginBottom: 0 }}>
-          Admin: teams &amp; result
-        </div>
-        <button className="btn btn-sm btn-danger" disabled={busy} onClick={handleDelete}>
-          Delete matchday
-        </button>
-      </div>
+      <div className="card-title">Admin: teams &amp; result</div>
       {error && <div className="alert alert-error">{error}</div>}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th>Team</th>
-          </tr>
-        </thead>
-        <tbody>
-          {activeRegs.map((r) => (
-            <tr key={r.player.id}>
-              <td>
-                {r.player.name} {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
-              </td>
-              <td>
-                <select
-                  className="select select-sm"
-                  value={assignments[r.player.id] || ""}
-                  onChange={(e) =>
-                    setAssignments((prev) => ({ ...prev, [r.player.id]: e.target.value as Team | "" }))
-                  }
-                >
-                  <option value="">Unassigned</option>
-                  <option value="A">Team A</option>
-                  <option value="B">Team B</option>
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {activeRegs.length === 0 ? (
+        <div className="empty-state">Nobody yet.</div>
+      ) : (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Team</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeRegs.map((r) => (
+                <tr key={r.player.id}>
+                  <td>
+                    {r.player.name} {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
+                  </td>
+                  <td>
+                    <select
+                      className="select select-sm"
+                      value={assignments[r.player.id] || ""}
+                      onChange={(e) =>
+                        setAssignments((prev) => ({ ...prev, [r.player.id]: e.target.value as Team | "" }))
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      <option value="A">Team A</option>
+                      <option value="B">Team B</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      <div className="divider" />
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <button className="btn" disabled={busy} onClick={saveTeams}>
+              {busy ? "Saving..." : "Save teams"}
+            </button>
+          </div>
+        </>
+      )}
 
-      <div className="card-title">Result</div>
-      <div className="score-entry">
-        <div className="field">
-          <label>Team A</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            className="score-input"
-            value={teamAScore}
-            onChange={(e) => setTeamAScore(sanitizeScoreInput(e.target.value))}
-          />
-        </div>
-        <span className="dash">:</span>
-        <div className="field">
-          <label>Team B</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            className="score-input"
-            value={teamBScore}
-            onChange={(e) => setTeamBScore(sanitizeScoreInput(e.target.value))}
-          />
-        </div>
-      </div>
+      {gameHasHappened && (
+        <>
+          <div className="divider" />
 
-      <div style={{ marginTop: 16, textAlign: "center" }}>
-        <button className="btn btn-primary" disabled={busy} onClick={saveAll}>
-          {busy ? "Saving..." : "Save"}
-        </button>
-      </div>
+          <div className="card-title">Result</div>
+          <div className="score-entry">
+            <div className="field">
+              <label>Team A</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="score-input"
+                value={teamAScore}
+                onChange={(e) => setTeamAScore(sanitizeScoreInput(e.target.value))}
+              />
+            </div>
+            <span className="dash">:</span>
+            <div className="field">
+              <label>Team B</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="score-input"
+                value={teamBScore}
+                onChange={(e) => setTeamBScore(sanitizeScoreInput(e.target.value))}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <button className="btn btn-primary" disabled={busy} onClick={saveResult}>
+              {busy ? "Saving..." : "Save result"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

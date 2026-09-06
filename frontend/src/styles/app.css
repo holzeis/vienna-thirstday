@@ -698,6 +698,14 @@ td .select {
   background: var(--overlay-3);
 }
 
+.icon-btn-danger {
+  color: var(--loss);
+  border-color: rgba(226, 92, 92, 0.4);
+}
+.icon-btn-danger:hover {
+  background: rgba(226, 92, 92, 0.1);
+}
+
 .icon-btn svg {
   width: 16px;
   height: 16px;
