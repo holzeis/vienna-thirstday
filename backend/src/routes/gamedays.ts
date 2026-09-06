@@ -6,12 +6,47 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
-import { recomputeGamedayWaitlist } from "../services/registrationService";
-import { notifyNewGameday } from "../services/pushService";
+import { recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
+import { notifyGameStatusChange, notifyNewGameday, notifyPromotedFromWaitlist } from "../services/pushService";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
 
 const router = Router();
+
+/** Confirmed-count snapshot, taken before a caller mutates any registration - see notifyOnWaitlistChange. */
+async function countConfirmed(gamedayId: number): Promise<number> {
+  const rows = await db.query.registrations.findMany({
+    where: and(eq(registrations.gamedayId, gamedayId), eq(registrations.status, "CONFIRMED")),
+  });
+  return rows.length;
+}
+
+/**
+ * Fires the "game confirmed"/"game at risk" and "you're off the waitlist"
+ * pushes off a recompute's result, if the gameday is still open.
+ * `confirmedCountBefore` must be captured by the caller *before* it made
+ * its own change (registering/cancelling) - recomputeGamedayWaitlist can't
+ * report that itself since by the time it runs, that change has usually
+ * already happened in the same transaction.
+ */
+async function notifyOnWaitlistChange(
+  gameday: { id: number; date: Date; status: string },
+  confirmedCountBefore: number,
+  result: WaitlistRecomputeResult | null
+) {
+  if (!result || gameday.status !== "OPEN") return;
+  const { minPlayers, confirmedCountAfter, promotedPlayerIds } = result;
+
+  if (confirmedCountBefore < minPlayers && confirmedCountAfter >= minPlayers) {
+    await notifyGameStatusChange(db, gameday, true);
+  } else if (confirmedCountBefore >= minPlayers && confirmedCountAfter < minPlayers) {
+    await notifyGameStatusChange(db, gameday, false);
+  }
+
+  if (promotedPlayerIds.length > 0) {
+    await notifyPromotedFromWaitlist(db, promotedPlayerIds, gameday);
+  }
+}
 
 router.use(requireAuth);
 
@@ -147,9 +182,12 @@ router.patch(
 
     // If capacity changed, re-evaluate the waitlist.
     if (rest.maxPlayers !== undefined) {
+      const confirmedCountBefore = await countConfirmed(id);
+      let waitlistResult: WaitlistRecomputeResult | null = null;
       await db.transaction(async (tx) => {
-        await recomputeGamedayWaitlist(tx, id);
+        waitlistResult = await recomputeGamedayWaitlist(tx, id);
       });
+      await notifyOnWaitlistChange(updated, confirmedCountBefore, waitlistResult);
     }
 
     res.json({ gameday: updated });
@@ -204,6 +242,8 @@ router.post(
       throw ApiError.conflict("This player is already registered for this gameday");
     }
 
+    const confirmedCountBefore = await countConfirmed(gamedayId);
+    let waitlistResult: WaitlistRecomputeResult | null = null;
     await db.transaction(async (tx) => {
       if (existing) {
         await tx
@@ -218,8 +258,10 @@ router.post(
           status: "CONFIRMED",
         });
       }
-      await recomputeGamedayWaitlist(tx, gamedayId);
+      waitlistResult = await recomputeGamedayWaitlist(tx, gamedayId);
     });
+
+    await notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult);
 
     res.status(201).json({ message: "Registered" });
   })
@@ -241,13 +283,19 @@ router.delete(
       throw ApiError.forbidden("You can only cancel registrations you made");
     }
 
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gamedayId) });
+    const confirmedCountBefore = await countConfirmed(gamedayId);
+
+    let waitlistResult: WaitlistRecomputeResult | null = null;
     await db.transaction(async (tx) => {
       await tx
         .update(registrations)
         .set({ status: "CANCELLED", cancelledAt: new Date() })
         .where(eq(registrations.id, registrationId));
-      await recomputeGamedayWaitlist(tx, gamedayId);
+      waitlistResult = await recomputeGamedayWaitlist(tx, gamedayId);
     });
+
+    if (gameday) await notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult);
 
     res.status(204).send();
   })

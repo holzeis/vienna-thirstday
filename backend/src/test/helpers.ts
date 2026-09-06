@@ -29,6 +29,15 @@ export async function createGuestPlayer(name: string) {
   return player;
 }
 
+/** Creates an OPEN gameday for registration/waitlist tests. */
+export async function createOpenGameday(adminUserId: number, date: Date, opts: { minPlayers?: number; maxPlayers?: number } = {}) {
+  const [gameday] = await db
+    .insert(gamedays)
+    .values({ date, status: "OPEN", createdByUserId: adminUserId, minPlayers: opts.minPlayers ?? 8, maxPlayers: opts.maxPlayers ?? 14 })
+    .returning();
+  return gameday;
+}
+
 /** Creates a completed gameday with a result and per-player stat rows, for standings/Hall of Fame tests. */
 export async function createCompletedGameday(
   adminUserId: number,
