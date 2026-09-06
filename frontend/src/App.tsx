@@ -6,6 +6,7 @@ import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import { InstallPwaPrompt } from "./components/InstallPwaPrompt";
 import { Login } from "./pages/Login";
 import { AcceptInvite } from "./pages/AcceptInvite";
+import { JoinGameday } from "./pages/JoinGameday";
 import { Overview } from "./pages/Overview";
 import { GamedaysList } from "./pages/GamedaysList";
 import { GamedayDetail } from "./pages/GamedayDetail";
@@ -24,6 +25,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/join/:token" element={<JoinGameday />} />
 
         <Route
           element={

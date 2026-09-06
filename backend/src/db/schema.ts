@@ -65,6 +65,14 @@ export const gamedays = pgTable(
     maxPlayers: integer("max_players").notNull().default(14),
     status: gamedayStatusEnum("status").notNull().default("OPEN"),
     notes: text("notes"),
+    // Long, unguessable token for the public "share this matchday" link
+    // (routes/gamedayShare.ts) - lets someone without an account sign up as
+    // a guest, or a registered player log in and register themselves,
+    // without exposing the authenticated gameday detail view (registrant
+    // emails, admin team/result controls) to anyone holding the link.
+    // Nullable because it's generated lazily on first request, not at
+    // gameday creation - most gamedays are never shared.
+    shareToken: varchar("share_token", { length: 64 }).unique(),
     createdByUserId: integer("created_by_user_id")
       .notNull()
       .references(() => users.id),

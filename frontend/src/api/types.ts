@@ -92,9 +92,21 @@ export interface GamedayDetail {
   maxPlayers: number;
   notes: string | null;
   createdByUserId: number;
+  shareToken: string | null;
   registrations: RegistrationView[];
   teamAssignments: TeamAssignmentView[];
   result: ResultView | null;
+}
+
+/** What an anonymous visitor holding a matchday's share link sees - no registrant names, no admin controls. */
+export interface GamedayPublicSummary {
+  id: number;
+  date: string;
+  status: GamedayStatus;
+  minPlayers: number;
+  maxPlayers: number;
+  confirmedCount: number;
+  waitlistedCount: number;
 }
 
 export interface StandingRow {

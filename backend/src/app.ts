@@ -12,6 +12,7 @@ import invitesRouter from "./routes/invites";
 import guestsRouter from "./routes/guests";
 import playersRouter from "./routes/players";
 import gamedaysRouter from "./routes/gamedays";
+import gamedayShareRouter from "./routes/gamedayShare";
 import standingsRouter from "./routes/standings";
 import hallOfFameRouter from "./routes/hallOfFame";
 import pushRouter from "./routes/push";
@@ -33,6 +34,7 @@ export function createApp() {
   app.use("/api/guests", guestsRouter);
   app.use("/api/players", playersRouter);
   app.use("/api/gamedays", gamedaysRouter);
+  app.use("/api/gameday-share", gamedayShareRouter);
   app.use("/api/seasons", standingsRouter);
   app.use("/api/hall-of-fame", hallOfFameRouter);
   app.use("/api/push", pushRouter);

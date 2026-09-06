@@ -2,6 +2,8 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { computeWaitlistAssignments } from "../utils/waitlist";
+import { db } from "../db/client";
+import { notifyGameStatusChange, notifyPromotedFromWaitlist } from "./pushService";
 
 type DbOrTx = NodePgDatabase<typeof schema>;
 
@@ -51,4 +53,41 @@ export async function recomputeGamedayWaitlist(tx: DbOrTx, gamedayId: number): P
   const confirmedCountAfter = Array.from(decisions.values()).filter((d) => d === "CONFIRMED").length;
 
   return { promotedPlayerIds, confirmedCountAfter, minPlayers: gameday.minPlayers };
+}
+
+/** Confirmed-count snapshot, taken before a caller mutates any registration - see notifyOnWaitlistChange. */
+export async function countConfirmed(gamedayId: number): Promise<number> {
+  const rows = await db.query.registrations.findMany({
+    where: and(eq(schema.registrations.gamedayId, gamedayId), eq(schema.registrations.status, "CONFIRMED")),
+  });
+  return rows.length;
+}
+
+/**
+ * Fires the "game confirmed"/"game at risk" and "you're off the waitlist"
+ * pushes off a recompute's result, if the gameday is still open.
+ * `confirmedCountBefore` must be captured by the caller *before* it made
+ * its own change (registering/cancelling) - recomputeGamedayWaitlist can't
+ * report that itself since by the time it runs, that change has usually
+ * already happened in the same transaction. Shared by both the
+ * authenticated (routes/gamedays.ts) and public share-link
+ * (routes/gamedayShare.ts) registration paths.
+ */
+export async function notifyOnWaitlistChange(
+  gameday: { id: number; date: Date; status: string },
+  confirmedCountBefore: number,
+  result: WaitlistRecomputeResult | null
+) {
+  if (!result || gameday.status !== "OPEN") return;
+  const { minPlayers, confirmedCountAfter, promotedPlayerIds } = result;
+
+  if (confirmedCountBefore < minPlayers && confirmedCountAfter >= minPlayers) {
+    await notifyGameStatusChange(db, gameday, true);
+  } else if (confirmedCountBefore >= minPlayers && confirmedCountAfter < minPlayers) {
+    await notifyGameStatusChange(db, gameday, false);
+  }
+
+  if (result.promotedPlayerIds.length > 0) {
+    await notifyPromotedFromWaitlist(db, promotedPlayerIds, gameday);
+  }
 }

@@ -5,6 +5,7 @@ import {
   createGuest,
   deleteGameday,
   getGameday,
+  getGamedayShareLink,
   listGuests,
   registerForGameday,
   setResult,
@@ -37,6 +38,7 @@ export function GamedayDetail() {
   const [guests, setGuests] = useState<Player[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
 
   function load() {
     getGameday(gamedayId)
@@ -71,13 +73,38 @@ export function GamedayDetail() {
     }
   }
 
+  async function shareLink() {
+    setError(null);
+    try {
+      const res = await getGamedayShareLink(gamedayId);
+      const url = `${window.location.origin}/join/${res.shareToken}`;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        window.prompt("Copy this link:", url);
+        return;
+      }
+      setShareStatus("copied");
+      setTimeout(() => setShareStatus("idle"), 1500);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not create a share link");
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
         <div>
           <h2>{formatDateTime(gameday.date)}</h2>
         </div>
-        <span className={`badge ${statusClass[gameday.status] || ""}`}>{statusLabel[gameday.status] || gameday.status}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {gameday.status === "OPEN" && (
+            <button className="btn btn-sm" onClick={shareLink}>
+              {shareStatus === "copied" ? "Copied!" : "Share"}
+            </button>
+          )}
+          <span className={`badge ${statusClass[gameday.status] || ""}`}>{statusLabel[gameday.status] || gameday.status}</span>
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}

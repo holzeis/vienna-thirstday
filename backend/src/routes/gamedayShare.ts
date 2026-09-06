@@ -1,0 +1,120 @@
+import { Router } from "express";
+import { z } from "zod";
+import { and, eq, sql } from "drizzle-orm";
+import { db } from "../db/client";
+import { gamedays, players, registrations } from "../db/schema";
+import { ApiError } from "../utils/errors";
+import { asyncHandler } from "../utils/asyncHandler";
+import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
+import { isPastLocalDay } from "../utils/timezone";
+
+const router = Router();
+
+const LEAGUE_TIMEZONE = "Europe/Vienna";
+
+/**
+ * Public - anyone holding the link, no auth. Deliberately returns only what
+ * a stranger needs to decide whether to sign up (date, status, headcount) -
+ * never who's registered, and none of the authenticated detail view's admin
+ * controls. See gamedays.ts's POST /:id/share-link for how the token itself
+ * is issued.
+ *
+ * The link expires at the end of game day (Vienna time), not after some
+ * fixed duration from creation - it stays valid for however long the
+ * matchday is still upcoming, then stops working the day after.
+ */
+async function loadGamedayByShareToken(token: string) {
+  const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.shareToken, token) });
+  if (!gameday) throw ApiError.notFound("This link isn't valid");
+  if (isPastLocalDay(gameday.date, LEAGUE_TIMEZONE)) throw ApiError.gone("This link has expired - the matchday has already happened.");
+  return gameday;
+}
+
+router.get(
+  "/:token",
+  asyncHandler(async (req, res) => {
+    const gameday = await loadGamedayByShareToken(req.params.token);
+    const confirmedCount = await countConfirmed(gameday.id);
+    const waitlisted = await db.query.registrations.findMany({
+      where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.status, "WAITLISTED")),
+    });
+    res.json({
+      gameday: {
+        id: gameday.id,
+        date: gameday.date,
+        status: gameday.status,
+        minPlayers: gameday.minPlayers,
+        maxPlayers: gameday.maxPlayers,
+        confirmedCount,
+        waitlistedCount: waitlisted.length,
+      },
+    });
+  })
+);
+
+const registerGuestSchema = z.object({
+  name: z.string().min(1).max(255),
+});
+
+/**
+ * Registers a guest (by name, no account) for this gameday - the "I don't
+ * have an account" path on the share-link page. A registered player is
+ * expected to log in and use the normal authenticated register endpoint
+ * instead, so their signup is attributed to their real account/history.
+ */
+router.post(
+  "/:token/register-guest",
+  asyncHandler(async (req, res) => {
+    const gameday = await loadGamedayByShareToken(req.params.token);
+    if (gameday.status !== "OPEN") throw ApiError.badRequest("This matchday is no longer open for sign-ups");
+
+    const parsed = registerGuestSchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Enter your name");
+    const name = parsed.data.name.trim();
+
+    let guest = await db.query.players.findFirst({
+      where: and(eq(players.isGuest, true), sql`lower(${players.name}) = lower(${name})`),
+    });
+    if (!guest) {
+      [guest] = await db.insert(players).values({ name, isGuest: true }).returning();
+    }
+
+    const existing = await db.query.registrations.findFirst({
+      where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.playerId, guest.id)),
+    });
+    if (existing && existing.status !== "CANCELLED") {
+      throw ApiError.conflict("This name is already registered for this matchday");
+    }
+
+    const confirmedCountBefore = await countConfirmed(gameday.id);
+    let waitlistResult: WaitlistRecomputeResult | null = null;
+    await db.transaction(async (tx) => {
+      if (existing) {
+        await tx
+          .update(registrations)
+          .set({ status: "CONFIRMED", signupAt: new Date(), cancelledAt: null })
+          .where(eq(registrations.id, existing.id));
+      } else {
+        await tx.insert(registrations).values({
+          gamedayId: gameday.id,
+          playerId: guest!.id,
+          // No authenticated actor performed this - attribute it to whoever
+          // created the gameday, same as the historical importer does.
+          registeredByUserId: gameday.createdByUserId,
+          status: "CONFIRMED",
+        });
+      }
+      waitlistResult = await recomputeGamedayWaitlist(tx, gameday.id);
+    });
+
+    await notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult);
+
+    const finalReg = await db.query.registrations.findFirst({
+      where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.playerId, guest.id)),
+    });
+
+    res.status(201).json({ status: finalReg?.status ?? "CONFIRMED" });
+  })
+);
+
+export default router;

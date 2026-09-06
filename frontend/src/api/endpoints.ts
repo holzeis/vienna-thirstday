@@ -1,6 +1,7 @@
 import { apiRequest, API_BASE, getAuthToken, ApiClientError } from "./client";
 import type {
   GamedayDetail,
+  GamedayPublicSummary,
   GamedaySummary,
   HallOfFameResponse,
   Invite,
@@ -183,6 +184,24 @@ export function registerForGameday(gamedayId: number, playerId?: number) {
 
 export function cancelRegistration(gamedayId: number, registrationId: number) {
   return apiRequest<void>(`/gamedays/${gamedayId}/register/${registrationId}`, { method: "DELETE" });
+}
+
+/** Gets (generating on first call) this gameday's public share link token. */
+export function getGamedayShareLink(gamedayId: number) {
+  return apiRequest<{ shareToken: string }>(`/gamedays/${gamedayId}/share-link`, { method: "POST" });
+}
+
+// ---- gameday share links (public - no auth) ----
+
+export function getPublicGameday(token: string) {
+  return apiRequest<{ gameday: GamedayPublicSummary }>(`/gameday-share/${token}`);
+}
+
+export function registerGuestViaShareLink(token: string, name: string) {
+  return apiRequest<{ status: "CONFIRMED" | "WAITLISTED" }>(`/gameday-share/${token}/register-guest`, {
+    method: "POST",
+    body: { name },
+  });
 }
 
 export function setTeams(gamedayId: number, assignments: { playerId: number; team: Team }[]) {
