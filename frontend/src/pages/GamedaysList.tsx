@@ -14,6 +14,11 @@ const statusClass: Record<string, string> = {
   CLOSED: "badge-completed",
 };
 
+// "Completed" ran wide on the mobile table - same meaning, half the width.
+const statusLabel: Record<string, string> = {
+  COMPLETED: "Done",
+};
+
 export function GamedaysList() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -108,7 +113,7 @@ export function GamedaysList() {
                   </td>
                   <td>{g.result ? `${g.result.teamAScore}:${g.result.teamBScore}` : "—"}</td>
                   <td>
-                    <span className={`badge ${statusClass[g.status] || ""}`}>{g.status}</span>
+                    <span className={`badge ${statusClass[g.status] || ""}`}>{statusLabel[g.status] || g.status}</span>
                   </td>
                   <td className="num">
                     {g.confirmedCount}/{g.maxPlayers}

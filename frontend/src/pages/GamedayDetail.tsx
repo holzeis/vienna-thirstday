@@ -23,6 +23,11 @@ const statusClass: Record<string, string> = {
   CLOSED: "badge-completed",
 };
 
+// "Completed" ran wide on the mobile table - same meaning, half the width.
+const statusLabel: Record<string, string> = {
+  COMPLETED: "Done",
+};
+
 export function GamedayDetail() {
   const { id } = useParams();
   const gamedayId = parseInt(id!, 10);
@@ -72,7 +77,7 @@ export function GamedayDetail() {
         <div>
           <h2>{formatDateTime(gameday.date)}</h2>
         </div>
-        <span className={`badge ${statusClass[gameday.status] || ""}`}>{gameday.status}</span>
+        <span className={`badge ${statusClass[gameday.status] || ""}`}>{statusLabel[gameday.status] || gameday.status}</span>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
