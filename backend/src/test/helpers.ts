@@ -16,10 +16,10 @@ export async function closeDb() {
 }
 
 /** Creates an admin user (and its player) directly in the DB, bypassing the invite flow, for tests that just need to be logged in as an admin. */
-export async function createAdmin(name = "Admin", password = "password123") {
+export async function createAdmin(name = "Admin", password = "password123", email?: string) {
   const passwordHash = await bcrypt.hash(password, 10);
   const [player] = await db.insert(players).values({ name, isGuest: false }).returning();
-  const [user] = await db.insert(users).values({ passwordHash, isAdmin: true, playerId: player.id }).returning();
+  const [user] = await db.insert(users).values({ passwordHash, isAdmin: true, playerId: player.id, email: email ?? null }).returning();
   return { player, user, password };
 }
 

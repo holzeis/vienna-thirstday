@@ -27,6 +27,8 @@ export async function nameTakenByAnotherPlayer(name: string, excludePlayerId: nu
 }
 
 const loginSchema = z.object({
+  // Historically just the player name - now also accepts the account's
+  // email, since not everyone remembers which one they registered with.
   name: z.string().min(1),
   password: z.string().min(1),
 });
@@ -44,14 +46,14 @@ router.post(
       .select({ user: users })
       .from(users)
       .innerJoin(players, eq(users.playerId, players.id))
-      .where(sql`lower(${players.name}) = lower(${name})`)
+      .where(sql`lower(${players.name}) = lower(${name}) or lower(${users.email}) = lower(${name})`)
       .limit(1);
     if (!match) {
-      throw ApiError.unauthorized("Invalid name or password");
+      throw ApiError.unauthorized("Invalid name/email or password");
     }
     const valid = await bcrypt.compare(password, match.user.passwordHash);
     if (!valid) {
-      throw ApiError.unauthorized("Invalid name or password");
+      throw ApiError.unauthorized("Invalid name/email or password");
     }
 
     const token = signToken({ userId: match.user.id, isAdmin: match.user.isAdmin });

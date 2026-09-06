@@ -307,12 +307,24 @@ describe("login by name", () => {
     const { password } = await createAdmin();
     const res = await request(app).post("/api/auth/login").send({ name: "Admin", password: password + "x" });
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe("Invalid name or password");
+    expect(res.body.error).toBe("Invalid name/email or password");
   });
 
   it("matches names case-insensitively", async () => {
     const { password } = await createAdmin();
     const res = await request(app).post("/api/auth/login").send({ name: "aDMIN", password });
+    expect(res.status).toBe(200);
+  });
+
+  it("also accepts the account's email in place of the name", async () => {
+    const { password } = await createAdmin("Admin", "password123", "admin@example.com");
+    const res = await request(app).post("/api/auth/login").send({ name: "admin@example.com", password });
+    expect(res.status).toBe(200);
+  });
+
+  it("matches email case-insensitively too", async () => {
+    const { password } = await createAdmin("Admin", "password123", "admin@example.com");
+    const res = await request(app).post("/api/auth/login").send({ name: "ADMIN@EXAMPLE.COM", password });
     expect(res.status).toBe(200);
   });
 });
