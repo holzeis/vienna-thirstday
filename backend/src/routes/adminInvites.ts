@@ -12,6 +12,16 @@ const router = Router();
 
 router.use(requireAuth, requireAdmin);
 
+function computeInviteStatus(invite: { usedAt: Date | null; revokedAt: Date | null; expiresAt: Date }) {
+  return invite.revokedAt
+    ? ("revoked" as const)
+    : invite.usedAt
+      ? ("used" as const)
+      : invite.expiresAt.getTime() < Date.now()
+        ? ("expired" as const)
+        : ("pending" as const);
+}
+
 function serializeInvite(invite: {
   id: number;
   token: string;
@@ -37,13 +47,7 @@ function serializeInvite(invite: {
     usedBy: invite.usedBy ? { id: invite.usedBy.id, email: invite.usedBy.email } : null,
     revokedAt: invite.revokedAt,
     createdAt: invite.createdAt,
-    status: invite.revokedAt
-      ? ("revoked" as const)
-      : invite.usedAt
-        ? ("used" as const)
-        : invite.expiresAt.getTime() < Date.now()
-          ? ("expired" as const)
-          : ("pending" as const),
+    status: computeInviteStatus(invite),
   };
 }
 
@@ -134,6 +138,26 @@ router.post(
       with: { guestPlayer: true, createdBy: true, usedBy: true },
     });
     res.json({ invite: serializeInvite(withRelations!) });
+  })
+);
+
+/**
+ * Removes an invite that's no longer actionable (used/accepted, expired, or
+ * revoked) - just tidying up the list. A still-pending invite's link is
+ * live, so it must be revoked first rather than deleted out from under it.
+ */
+router.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const invite = await db.query.invites.findFirst({ where: eq(invites.id, id) });
+    if (!invite) throw ApiError.notFound("Invite not found");
+    if (computeInviteStatus(invite) === "pending") {
+      throw ApiError.badRequest("This invite is still pending - revoke it before removing it");
+    }
+
+    await db.delete(invites).where(eq(invites.id, id));
+    res.status(204).send();
   })
 );
 

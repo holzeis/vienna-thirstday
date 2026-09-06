@@ -77,6 +77,11 @@ export function adminRevokeInvite(id: number) {
   return apiRequest<{ invite: Invite }>(`/admin/invites/${id}/revoke`, { method: "POST" });
 }
 
+/** Only used/expired/revoked invites can be removed - a pending one must be revoked first. */
+export function adminDeleteInvite(id: number) {
+  return apiRequest<void>(`/admin/invites/${id}`, { method: "DELETE" });
+}
+
 // ---- invites (public - accepting one is how an account gets created) ----
 
 export function getInvite(token: string) {

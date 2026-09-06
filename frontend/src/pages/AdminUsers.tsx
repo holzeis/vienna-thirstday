@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   adminCreateInvite,
+  adminDeleteInvite,
   adminDeleteUser,
   adminListGuestPlayers,
   adminListInvites,
@@ -116,6 +117,20 @@ export function AdminUsers() {
       load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not revoke invite");
+    } finally {
+      setBusyInviteId(null);
+    }
+  }
+
+  async function deleteInvite(invite: Invite) {
+    if (!window.confirm(`Remove this ${INVITE_STATUS_LABEL[invite.status].toLowerCase()} invite? This can't be undone.`)) return;
+    setError(null);
+    setBusyInviteId(invite.id);
+    try {
+      await adminDeleteInvite(invite.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not remove invite");
     } finally {
       setBusyInviteId(null);
     }
@@ -268,7 +283,7 @@ export function AdminUsers() {
                   <td>{formatDateTime(inv.expiresAt)}</td>
                   <td>
                     <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      {inv.status === "pending" && (
+                      {inv.status === "pending" ? (
                         <>
                           <button className="btn btn-sm" onClick={() => copyLink(inv.token)}>
                             {copiedToken === inv.token ? "Copied" : "Copy link"}
@@ -277,6 +292,10 @@ export function AdminUsers() {
                             Revoke
                           </button>
                         </>
+                      ) : (
+                        <button className="btn btn-sm btn-danger" disabled={busyInviteId === inv.id} onClick={() => deleteInvite(inv)}>
+                          Remove
+                        </button>
                       )}
                     </span>
                   </td>
@@ -314,7 +333,7 @@ export function AdminUsers() {
               {expandedInviteId === inv.id && (
                 <div className="user-card-details">
                   <div style={{ color: "var(--text-dim)", fontSize: 12 }}>Expires {formatDateTime(inv.expiresAt)}</div>
-                  {inv.status === "pending" && (
+                  {inv.status === "pending" ? (
                     <>
                       <button className="btn btn-sm" onClick={() => copyLink(inv.token)}>
                         {copiedToken === inv.token ? "Copied" : "Copy link"}
@@ -323,6 +342,10 @@ export function AdminUsers() {
                         Revoke
                       </button>
                     </>
+                  ) : (
+                    <button className="btn btn-sm btn-danger" disabled={busyInviteId === inv.id} onClick={() => deleteInvite(inv)}>
+                      Remove
+                    </button>
                   )}
                 </div>
               )}

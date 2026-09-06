@@ -242,6 +242,61 @@ describe("onboarding: revoking an invite", () => {
   });
 });
 
+describe("onboarding: deleting an invite", () => {
+  it("removes a used (accepted) invite", async () => {
+    const { password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const createRes = await createInviteForGuest(adminToken, guest.id);
+    await request(app).post(`/api/invites/${createRes.body.invite.token}/accept`).field("name", "Robert Real").field("password", "password123");
+
+    const res = await request(app)
+      .delete(`/api/admin/invites/${createRes.body.invite.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(204);
+    expect(await db.query.invites.findFirst({ where: eq(invites.id, createRes.body.invite.id) })).toBeUndefined();
+  });
+
+  it("removes an expired invite", async () => {
+    const { password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const createRes = await createInviteForGuest(adminToken, guest.id);
+    await db.update(invites).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(invites.id, createRes.body.invite.id));
+
+    const res = await request(app)
+      .delete(`/api/admin/invites/${createRes.body.invite.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(204);
+  });
+
+  it("removes a revoked invite", async () => {
+    const { password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const createRes = await createInviteForGuest(adminToken, guest.id);
+    await request(app).post(`/api/admin/invites/${createRes.body.invite.id}/revoke`).set("Authorization", `Bearer ${adminToken}`);
+
+    const res = await request(app)
+      .delete(`/api/admin/invites/${createRes.body.invite.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(204);
+  });
+
+  it("refuses to delete a still-pending invite", async () => {
+    const { password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const createRes = await createInviteForGuest(adminToken, guest.id);
+
+    const res = await request(app)
+      .delete(`/api/admin/invites/${createRes.body.invite.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(400);
+    expect(await db.query.invites.findFirst({ where: eq(invites.id, createRes.body.invite.id) })).toBeDefined();
+  });
+});
+
 describe("login by name", () => {
   it("rejects an unknown name", async () => {
     const res = await request(app).post("/api/auth/login").send({ name: "Nobody", password: "whatever" });
