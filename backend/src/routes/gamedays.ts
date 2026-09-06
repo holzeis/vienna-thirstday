@@ -7,6 +7,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
 import { recomputeGamedayWaitlist } from "../services/registrationService";
+import { notifyNewGameday } from "../services/pushService";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
 
@@ -39,6 +40,7 @@ router.post(
         createdByUserId: req.user!.userId,
       })
       .returning();
+    await notifyNewGameday(db, gameday);
     res.status(201).json({ gameday });
   })
 );

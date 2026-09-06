@@ -279,6 +279,20 @@ Manifests live under `k8s/` as plain files, applied individually with
    one from the start. Add `CLOUDFLARE_TUNNEL_TOKEN` as well if you're doing
    the Cloudflare Tunnel setup below.
 
+   For push notifications (players get a browser/device notification when a
+   new matchday is posted), also generate and add a VAPID key pair:
+
+   ```bash
+   npx web-push generate-vapid-keys
+   # then add to the secret:
+   #   --from-literal=VAPID_PUBLIC_KEY='...' \
+   #   --from-literal=VAPID_PRIVATE_KEY='...' \
+   #   --from-literal=VAPID_SUBJECT='mailto:you@example.com'
+   ```
+
+   Leave these three unset and push notifications are simply disabled - no
+   other config needed either way.
+
 3. **Deploy:**
 
    ```bash

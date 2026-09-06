@@ -187,6 +187,28 @@ export const invites = pgTable(
 );
 
 /**
+ * A browser/device's Web Push subscription (one row per PushSubscription
+ * object the frontend registers via the service worker). A user can have
+ * several - one per device/browser they've enabled notifications on.
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("push_subscriptions_user_idx").on(t.userId),
+  })
+);
+
+/**
  * Audit log for guest-into-player merges (playerMergeService). The guest
  * player row is deleted once merged, so its name is captured here; the
  * moved-row id lists (JSON arrays of registration/team-assignment/gameday-
@@ -264,4 +286,8 @@ export const invitesRelations = relations(invites, ({ one }) => ({
   guestPlayer: one(players, { fields: [invites.guestPlayerId], references: [players.id] }),
   createdBy: one(users, { fields: [invites.createdByUserId], references: [users.id] }),
   usedBy: one(users, { fields: [invites.usedByUserId], references: [users.id] }),
+}));
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
 }));

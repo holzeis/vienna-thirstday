@@ -27,6 +27,11 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vienna-thirstday.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      # Dev-only default keypair - generate your own with `npx web-push generate-vapid-keys`
+      # for a real deployment (see README's Kubernetes section).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BP-fntKYVjb37_d9gS7J0Ge5LY-d9o1ESL8sP31YKCbJXMycI2iac8QicUoVx4x8QBsqVJeQzdF94wbDNmTKzYM}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-OqWihO3pMNLWoQ4VfUcCJonvsGz4YManL_1m_FiLS0w}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@vienna-thirstday.local}
     depends_on:
       postgres:
         condition: service_healthy

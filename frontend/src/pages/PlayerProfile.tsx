@@ -5,6 +5,7 @@ import type { AwardCategory, AwardTier, PlayerProfile as PlayerProfileType } fro
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatMonthYear } from "../utils/format";
+import { disablePushNotifications, enablePushNotifications, getExistingPushSubscription, isPushSupported } from "../push";
 
 const AWARD_LABELS: Record<AwardCategory, string> = {
   gamesPlayed: "Games Played",
@@ -200,6 +201,71 @@ export function PlayerProfile() {
             load();
           }}
         />
+      )}
+
+      {isOwnProfile && <PushNotificationsCard />}
+    </div>
+  );
+}
+
+function PushNotificationsCard() {
+  const [checked, setChecked] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const supported = isPushSupported();
+
+  useEffect(() => {
+    if (!supported) {
+      setChecked(true);
+      return;
+    }
+    getExistingPushSubscription()
+      .then((sub) => setEnabled(!!sub))
+      .finally(() => setChecked(true));
+  }, [supported]);
+
+  async function toggle() {
+    setError(null);
+    setBusy(true);
+    try {
+      if (enabled) {
+        await disablePushNotifications();
+        setEnabled(false);
+      } else {
+        await enablePushNotifications();
+        setEnabled(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!checked) return null;
+
+  return (
+    <div className="card">
+      <div className="page-header" style={{ marginBottom: 0 }}>
+        <div>
+          <div className="card-title" style={{ marginBottom: 4 }}>
+            Push notifications
+          </div>
+          <p style={{ color: "var(--text-dim)", fontSize: 12, margin: 0 }}>
+            {supported ? "Get notified on this device when a new matchday is posted." : "Not supported on this browser/device."}
+          </p>
+        </div>
+        {supported && (
+          <button type="button" className={`btn btn-sm ${enabled ? "btn-danger" : "btn-primary"}`} disabled={busy} onClick={toggle}>
+            {busy ? "..." : enabled ? "Disable" : "Enable"}
+          </button>
+        )}
+      </div>
+      {error && (
+        <div className="alert alert-error" style={{ marginTop: 12 }}>
+          {error}
+        </div>
       )}
     </div>
   );

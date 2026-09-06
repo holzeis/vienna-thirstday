@@ -207,3 +207,17 @@ export function getHallOfFame(year?: number) {
   const qs = year ? `?year=${year}` : "";
   return apiRequest<HallOfFameResponse>(`/hall-of-fame${qs}`);
 }
+
+// ---- push notifications ----
+
+export function getVapidPublicKey() {
+  return apiRequest<{ publicKey: string }>("/push/vapid-public-key");
+}
+
+export function subscribeToPush(subscription: PushSubscriptionJSON) {
+  return apiRequest<{ ok: true }>("/push/subscribe", { method: "POST", body: subscription });
+}
+
+export function unsubscribeFromPush(endpoint: string) {
+  return apiRequest<{ ok: true }>("/push/unsubscribe", { method: "POST", body: { endpoint } });
+}
