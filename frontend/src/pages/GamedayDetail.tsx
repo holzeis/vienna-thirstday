@@ -14,6 +14,7 @@ import type { GamedayDetail as GamedayDetailType, Player, RegistrationView, Team
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
+import { usePolling } from "../hooks/usePolling";
 
 const statusClass: Record<string, string> = {
   OPEN: "badge-open",
@@ -39,6 +40,7 @@ export function GamedayDetail() {
   }
 
   useEffect(load, [gamedayId]);
+  usePolling(load, 15000);
   useEffect(() => {
     listGuests().then((res) => setGuests(res.guests));
   }, []);

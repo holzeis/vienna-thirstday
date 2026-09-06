@@ -4,6 +4,19 @@ import { getStandings, listGamedays, listSeasons } from "../api/endpoints";
 import type { GamedaySummary, StandingRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { formatDate } from "../utils/format";
+import { usePolling } from "../hooks/usePolling";
+
+function loadUpcoming(setUpcoming: (gamedays: GamedaySummary[]) => void) {
+  listGamedays()
+    .then((res) => {
+      const now = Date.now();
+      const future = res.gamedays
+        .filter((g) => new Date(g.date).getTime() >= now - 1000 * 60 * 60 * 12 && g.status !== "CANCELLED")
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      setUpcoming(future.slice(0, 3));
+    })
+    .catch(() => setUpcoming([]));
+}
 
 export function Overview() {
   const { user, player } = useAuth();
@@ -12,15 +25,7 @@ export function Overview() {
   const [year, setYear] = useState<number | null>(null);
 
   useEffect(() => {
-    listGamedays()
-      .then((res) => {
-        const now = Date.now();
-        const future = res.gamedays
-          .filter((g) => new Date(g.date).getTime() >= now - 1000 * 60 * 60 * 12 && g.status !== "CANCELLED")
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        setUpcoming(future.slice(0, 3));
-      })
-      .catch(() => setUpcoming([]));
+    loadUpcoming(setUpcoming);
 
     listSeasons().then((res) => {
       const currentYear = new Date().getUTCFullYear();
@@ -33,6 +38,11 @@ export function Overview() {
       getStandings(y).then((r) => setTop(r.standings.slice(0, 5)));
     });
   }, []);
+
+  usePolling(() => {
+    loadUpcoming(setUpcoming);
+    if (year !== null) getStandings(year).then((r) => setTop(r.standings.slice(0, 5)));
+  }, 30000);
 
   return (
     <div>

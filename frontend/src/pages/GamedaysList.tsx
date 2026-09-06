@@ -5,6 +5,7 @@ import type { GamedaySummary } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatMatchdayDate, toDatetimeLocalValue } from "../utils/format";
+import { usePolling } from "../hooks/usePolling";
 
 const statusClass: Record<string, string> = {
   OPEN: "badge-open",
@@ -29,6 +30,7 @@ export function GamedaysList() {
   }
 
   useEffect(load, []);
+  usePolling(load, 30000);
 
   // Derived client-side (not from /seasons, which only lists years with a
   // completed result) so a brand-new season with only upcoming gamedays

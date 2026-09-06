@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getStandings, listSeasons } from "../api/endpoints";
 import type { StandingRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { usePolling } from "../hooks/usePolling";
 
 export function Standings() {
   const { player } = useAuth();
@@ -23,6 +24,12 @@ export function Standings() {
     setRows(null);
     getStandings(year).then((res) => setRows(res.standings));
   }, [year]);
+
+  // Refreshes the same year's rows in place (no setRows(null) - avoids
+  // flashing back to the loading state on every poll tick).
+  usePolling(() => {
+    if (year !== null) getStandings(year).then((res) => setRows(res.standings));
+  }, 30000);
 
   return (
     <div>
