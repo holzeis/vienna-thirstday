@@ -294,8 +294,11 @@ function AdminSection({
 }) {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<Record<number, Team | "">>({});
-  const [teamAScore, setTeamAScore] = useState(gameday.result?.teamAScore ?? 0);
-  const [teamBScore, setTeamBScore] = useState(gameday.result?.teamBScore ?? 0);
+  // Kept as free-form text while typing (not a live-parsed number) so an
+  // empty result starts blank instead of "0", and clearing the field to
+  // enter a new score doesn't immediately snap back to "0" mid-edit.
+  const [teamAScore, setTeamAScore] = useState(gameday.result ? String(gameday.result.teamAScore) : "");
+  const [teamBScore, setTeamBScore] = useState(gameday.result ? String(gameday.result.teamBScore) : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -307,7 +310,12 @@ function AdminSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameday.id, gameday.teamAssignments.length]);
 
-  function clampScore(raw: string): number {
+  /** Digits only while typing; blank/invalid resolves to 0 only once, at save time. */
+  function sanitizeScoreInput(raw: string): string {
+    return raw.replace(/[^0-9]/g, "");
+  }
+
+  function parseScore(raw: string): number {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
@@ -320,7 +328,7 @@ function AdminSection({
         .filter(([, team]) => team === "A" || team === "B")
         .map(([playerId, team]) => ({ playerId: parseInt(playerId, 10), team: team as Team }));
       await setTeams(gamedayId, list);
-      await setResult(gamedayId, teamAScore, teamBScore);
+      await setResult(gamedayId, parseScore(teamAScore), parseScore(teamBScore));
       onChanged();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not save");
@@ -392,26 +400,24 @@ function AdminSection({
         <div className="field">
           <label>Team A</label>
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={0}
-            step={1}
+            pattern="[0-9]*"
             className="score-input"
             value={teamAScore}
-            onChange={(e) => setTeamAScore(clampScore(e.target.value))}
+            onChange={(e) => setTeamAScore(sanitizeScoreInput(e.target.value))}
           />
         </div>
         <span className="dash">:</span>
         <div className="field">
           <label>Team B</label>
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={0}
-            step={1}
+            pattern="[0-9]*"
             className="score-input"
             value={teamBScore}
-            onChange={(e) => setTeamBScore(clampScore(e.target.value))}
+            onChange={(e) => setTeamBScore(sanitizeScoreInput(e.target.value))}
           />
         </div>
       </div>
