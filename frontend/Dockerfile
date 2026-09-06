@@ -10,9 +10,9 @@ COPY . .
 # works for local dev, docker-compose, and Kubernetes alike without a rebuild.
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
-# Short git SHA, shown subtly in the UI so you can tell at a glance whether a
-# deploy actually picked up the latest build - see docker-publish.yml, which
-# passes the same value used to tag the published image.
+# A small incrementing build number (git commit count on main - see
+# docker-publish.yml), shown subtly in the UI so you can tell at a glance
+# whether a deploy actually picked up the latest build.
 ARG VITE_APP_VERSION=dev
 ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build

@@ -37,10 +37,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history, so the build number below is meaningful
 
-      - name: Compute short SHA
-        id: sha
-        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Compute build number
+        id: build_number
+        run: echo "value=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -71,7 +73,7 @@ jobs:
         with:
           context: ./${{ matrix.component }}
           platforms: linux/amd64,linux/arm64
-          build-args: ${{ matrix.component == 'frontend' && format('VITE_APP_VERSION={0}', steps.sha.outputs.short) || '' }}
+          build-args: ${{ matrix.component == 'frontend' && format('VITE_APP_VERSION={0}', steps.build_number.outputs.value) || '' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
