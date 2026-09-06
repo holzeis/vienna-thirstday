@@ -59,19 +59,24 @@ router.get(
     // Momentum: rank movement caused specifically by the most recent
     // gameday - compare against the standings as they stood immediately
     // before it. A player absent from that "before" snapshot (their season
-    // debut) has nothing to compare against.
-    const [mostRecent] = await db
-      .select({ date: gamedays.date })
-      .from(gamedays)
-      .innerJoin(results, eq(gamedays.id, results.gamedayId))
-      .where(and(gte(gamedays.date, seasonStart), lt(gamedays.date, seasonEnd)))
-      .orderBy(sql`${gamedays.date} desc`)
-      .limit(1);
-
+    // debut) has nothing to compare against. Only meaningful for the season
+    // that's still ongoing - a past, concluded season has no "since the last
+    // matchday" to speak of, so it's left as "new" (no arrow) for every row.
+    const isCurrentSeason = year === new Date().getUTCFullYear();
     let beforeRankByPlayer = new Map<number, number>();
-    if (mostRecent) {
-      const before = await fetchRanked(seasonStart, mostRecent.date);
-      beforeRankByPlayer = new Map(before.map((r) => [r.playerId, r.rank]));
+    if (isCurrentSeason) {
+      const [mostRecent] = await db
+        .select({ date: gamedays.date })
+        .from(gamedays)
+        .innerJoin(results, eq(gamedays.id, results.gamedayId))
+        .where(and(gte(gamedays.date, seasonStart), lt(gamedays.date, seasonEnd)))
+        .orderBy(sql`${gamedays.date} desc`)
+        .limit(1);
+
+      if (mostRecent) {
+        const before = await fetchRanked(seasonStart, mostRecent.date);
+        beforeRankByPlayer = new Map(before.map((r) => [r.playerId, r.rank]));
+      }
     }
 
     // Current form (Locker Room) badges reflect the live league state, not

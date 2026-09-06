@@ -27,7 +27,7 @@ describe("GET /:year/standings", () => {
 
     const res = await request(app).get("/api/seasons/2025/standings").set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(200);
-    const byId = new Map(res.body.standings.map((s: any) => [s.playerId, s]));
+    const byId = new Map<number, any>(res.body.standings.map((s: any) => [s.playerId, s]));
     expect(byId.get(player.id)).toMatchObject({ isGuest: false, points: 4 });
     expect(byId.get(guest.id)).toMatchObject({ isGuest: true, points: 1 });
   });
@@ -45,5 +45,50 @@ describe("GET /:year/standings", () => {
     const res = await request(app).get("/api/seasons/2025/standings").set("Authorization", `Bearer ${token}`);
     expect(res.body.standings[0]).toMatchObject({ playerId: guest.id, rank: 1 });
     expect(res.body.standings[1]).toMatchObject({ playerId: player.id, rank: 2 });
+  });
+});
+
+describe("GET /:year/standings momentum", () => {
+  it("computes movement since the last matchday for the current, ongoing season", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const year = new Date().getUTCFullYear();
+
+    await createCompletedGameday(user.id, new Date(Date.UTC(year, 0, 5, 18)), { teamA: 2, teamB: 5 }, [
+      { playerId: player.id, team: "A", points: 1, goalDiff: -3 },
+      { playerId: guest.id, team: "B", points: 4, goalDiff: 3 },
+    ]);
+    // Second gameday flips the lead - player overtakes guest.
+    await createCompletedGameday(user.id, new Date(Date.UTC(year, 0, 12, 18)), { teamA: 5, teamB: 2 }, [
+      { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+      { playerId: guest.id, team: "B", points: 1, goalDiff: -3 },
+    ]);
+
+    const res = await request(app).get(`/api/seasons/${year}/standings`).set("Authorization", `Bearer ${token}`);
+    const byId = new Map<number, any>(res.body.standings.map((s: any) => [s.playerId, s]));
+    expect(byId.get(player.id)?.momentum).toBe(1);
+    expect(byId.get(guest.id)?.momentum).toBe(-1);
+  });
+
+  it("never shows momentum for a past, concluded season", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const pastYear = new Date().getUTCFullYear() - 1;
+
+    await createCompletedGameday(user.id, new Date(Date.UTC(pastYear, 0, 5, 18)), { teamA: 2, teamB: 5 }, [
+      { playerId: player.id, team: "A", points: 1, goalDiff: -3 },
+      { playerId: guest.id, team: "B", points: 4, goalDiff: 3 },
+    ]);
+    await createCompletedGameday(user.id, new Date(Date.UTC(pastYear, 0, 12, 18)), { teamA: 5, teamB: 2 }, [
+      { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+      { playerId: guest.id, team: "B", points: 1, goalDiff: -3 },
+    ]);
+
+    const res = await request(app).get(`/api/seasons/${pastYear}/standings`).set("Authorization", `Bearer ${token}`);
+    const byId = new Map<number, any>(res.body.standings.map((s: any) => [s.playerId, s]));
+    expect(byId.get(player.id)?.momentum).toBe("new");
+    expect(byId.get(guest.id)?.momentum).toBe("new");
   });
 });
