@@ -739,8 +739,11 @@ td .select {
   margin-bottom: 4px;
 }
 
-.hof-list-card .medal-chip {
-  justify-content: space-between;
+/* Medal and name stay adjacent on the left; only the value is pushed to
+   the far right - not space-between across all three, which left the name
+   stranded in the middle of the row instead of next to its medal. */
+.hof-list-card .medal-chip .v {
+  margin-left: auto;
 }
 
 .achievement-tile .label {
