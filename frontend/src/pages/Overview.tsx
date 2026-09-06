@@ -72,14 +72,26 @@ export function Overview() {
           {upcoming && upcoming.length > 0 && (
             <ul className="subtle-list">
               {upcoming.map((g) => (
-                <li key={g.id}>
-                  <Link to={`/gamedays/${g.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                <li key={g.id} style={{ padding: 0 }}>
+                  <Link
+                    to={`/gamedays/${g.id}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      width: "100%",
+                      padding: "8px 10px",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
                     <strong>{formatDate(g.date)}</strong>
+                    <span className="badge badge-confirmed">
+                      {g.confirmedCount}/{g.maxPlayers}
+                      {g.waitlistedCount > 0 ? ` (+${g.waitlistedCount} waiting)` : ""}
+                    </span>
                   </Link>
-                  <span className="badge badge-confirmed">
-                    {g.confirmedCount}/{g.maxPlayers}
-                    {g.waitlistedCount > 0 ? ` (+${g.waitlistedCount} waiting)` : ""}
-                  </span>
                 </li>
               ))}
             </ul>

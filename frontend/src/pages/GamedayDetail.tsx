@@ -49,6 +49,7 @@ export function GamedayDetail() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
+  const [shareToken, setShareToken] = useState<string | null>(null);
 
   function load() {
     getGameday(gamedayId)
@@ -61,6 +62,17 @@ export function GamedayDetail() {
   useEffect(() => {
     listGuests().then((res) => setGuests(res.guests));
   }, []);
+
+  // Fetched ahead of time (idempotent - always the same token) so the actual
+  // "Share" click can copy synchronously: Safari/iOS only allows
+  // navigator.clipboard access as the direct, synchronous result of a user
+  // gesture, and an intervening `await` for a network call breaks that,
+  // silently failing and falling back to a prompt() popup.
+  useEffect(() => {
+    if (gameday?.status === "OPEN") {
+      getGamedayShareLink(gamedayId).then((res) => setShareToken(res.shareToken));
+    }
+  }, [gamedayId, gameday?.status]);
 
   if (gameday === null) return <div className="loading">Loading...</div>;
 
@@ -83,22 +95,24 @@ export function GamedayDetail() {
     }
   }
 
-  async function shareLink() {
+  function shareLink() {
     setError(null);
-    try {
-      const res = await getGamedayShareLink(gamedayId);
-      const url = `${window.location.origin}/join/${res.shareToken}`;
-      try {
-        await navigator.clipboard.writeText(url);
-      } catch {
-        window.prompt("Copy this link:", url);
-        return;
-      }
-      setShareStatus("copied");
-      setTimeout(() => setShareStatus("idle"), 1500);
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not create a share link");
+    if (!shareToken) {
+      setError("Still preparing the share link - try again in a moment.");
+      return;
     }
+    const url = `${window.location.origin}/join/${shareToken}`;
+    // No `await` before this call - clipboard access must be the direct,
+    // synchronous result of the click for Safari/iOS to allow it.
+    navigator.clipboard.writeText(url).then(
+      () => {
+        setShareStatus("copied");
+        setTimeout(() => setShareStatus("idle"), 1500);
+      },
+      () => {
+        window.prompt("Copy this link:", url);
+      }
+    );
   }
 
   return (
