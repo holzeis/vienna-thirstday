@@ -79,21 +79,32 @@ describe("computeStreaks", () => {
 describe("computeTeammateTally", () => {
   it("finds the favorite (most shared wins), unfavorite (most shared losses), and most-played-with teammate", () => {
     const allRows: StatRow[] = [
-      // Gameday 1: me + Alice win together
-      row({ playerId: 1, gamedayId: 1, team: "A", points: 4 }),
-      row({ playerId: 2, playerName: "Alice", gamedayId: 1, team: "A", points: 4 }),
-      // Gameday 2: me + Alice win together again
-      row({ playerId: 1, gamedayId: 2, team: "A", points: 4 }),
-      row({ playerId: 2, playerName: "Alice", gamedayId: 2, team: "A", points: 4 }),
-      // Gameday 3: me + Bob lose together
-      row({ playerId: 1, gamedayId: 3, team: "B", points: 1 }),
-      row({ playerId: 3, playerName: "Bob", gamedayId: 3, team: "B", points: 1 }),
+      // Gamedays 1-3: me + Alice win together 3 times
+      ...[1, 2, 3].flatMap((gamedayId) => [
+        row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+        row({ playerId: 2, playerName: "Alice", gamedayId, team: "A", points: 4 }),
+      ]),
+      // Gamedays 4-6: me + Bob lose together 3 times
+      ...[4, 5, 6].flatMap((gamedayId) => [
+        row({ playerId: 1, gamedayId, team: "B", points: 1 }),
+        row({ playerId: 3, playerName: "Bob", gamedayId, team: "B", points: 1 }),
+      ]),
     ];
 
     const { favorite, unfavorite, mostPlayedWith } = computeTeammateTally(allRows, 1);
-    expect(favorite).toMatchObject({ playerId: 2, name: "Alice", sharedWins: 2, sharedGames: 2 });
-    expect(unfavorite).toMatchObject({ playerId: 3, name: "Bob", sharedLosses: 1, sharedGames: 1 });
-    expect(mostPlayedWith).toMatchObject({ playerId: 2, name: "Alice", sharedGames: 2 });
+    expect(favorite).toMatchObject({ playerId: 2, name: "Alice", sharedWins: 3, sharedGames: 3 });
+    expect(unfavorite).toMatchObject({ playerId: 3, name: "Bob", sharedLosses: 3, sharedGames: 3 });
+    expect(mostPlayedWith).toMatchObject({ sharedGames: 3 });
+  });
+
+  it("doesn't name a favorite/unfavorite until shared wins/losses reach the threshold, unlike most-played-with", () => {
+    const allRows: StatRow[] = [1, 2].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "Alice", gamedayId, team: "A", points: 4 }),
+    ]);
+    const { favorite, mostPlayedWith } = computeTeammateTally(allRows, 1);
+    expect(favorite).toBeNull();
+    expect(mostPlayedWith).toMatchObject({ playerId: 2, sharedGames: 2 });
   });
 
   it("only tallies players who shared the same team, not opponents", () => {

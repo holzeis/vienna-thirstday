@@ -160,7 +160,15 @@ export function computeStreaks(rows: StatRow[]): { longestWinStreak: number; lon
   return { longestWinStreak, longestLossStreak };
 }
 
-/** Tallies shared wins/losses between `playerId` and every other player they've shared a team with. */
+const TEAMMATE_TALLY_THRESHOLD = 3;
+
+/**
+ * Tallies shared wins/losses between `playerId` and every other player
+ * they've shared a team with. `favorite` (Lucky Charm) and `unfavorite`
+ * (Jinx) only surface once a teammate has hit `TEAMMATE_TALLY_THRESHOLD`
+ * shared wins/losses (same "at least 3 of the last 5" bar as `computeNemesis`)
+ * - `mostPlayedWith` has no such threshold, any shared game counts.
+ */
 export function computeTeammateTally(
   allRows: StatRow[],
   playerId: number
@@ -199,10 +207,10 @@ export function computeTeammateTally(
 
   const all = Array.from(tally.values());
   const favorite = all
-    .filter((r) => r.sharedWins > 0)
+    .filter((r) => r.sharedWins >= TEAMMATE_TALLY_THRESHOLD)
     .sort((a, b) => b.sharedWins - a.sharedWins || b.sharedGames - a.sharedGames)[0];
   const unfavorite = all
-    .filter((r) => r.sharedLosses > 0)
+    .filter((r) => r.sharedLosses >= TEAMMATE_TALLY_THRESHOLD)
     .sort((a, b) => b.sharedLosses - a.sharedLosses || b.sharedGames - a.sharedGames)[0];
   const mostPlayedWith = all
     .filter((r) => r.sharedGames > 0)
