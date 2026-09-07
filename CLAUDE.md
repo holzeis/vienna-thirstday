@@ -17,19 +17,30 @@ conventions for this repo — follow them without being asked each time.
    `npm run db:migrate` against the dev DB.
 6. Deploy to the local stack: `docker compose build backend frontend && docker
    compose up -d backend frontend` (only the services that changed).
-7. As a final sanity check, verify against the live deployment — curl the API
-   with the admin JWT (`admin@vienna-thirstday.local` / the default password)
-   and/or exercise the affected page. This is a check that the built/deployed
-   artifact actually works, not a substitute for the regression tests from
-   step 4 — a manual curl session proves the code worked once, not that it
-   keeps working.
-8. Commit once verified (see Git below).
+7. As a final sanity check, verify against the live deployment (the local
+   docker-compose stack, unless the change is cluster-specific) — curl the
+   API with the admin JWT (`admin@vienna-thirstday.local` / the default
+   password) and/or exercise the affected page. This is a check that the
+   built/deployed artifact actually works, not a substitute for the
+   regression tests from step 4 — a manual curl session proves the code
+   worked once, not that it keeps working. For UI changes, also take
+   screenshots (e.g. via Playwright, or the Claude in Chrome extension if
+   connected) and confirm the visual change is actually present, not just
+   that the build succeeded.
+8. Commit once verified (see Git below) — as separate, logically coherent
+   commits rather than one bundle when the change touches more than one
+   concern.
+9. Once the feature (and all its commits) is complete, push to origin — no
+   need to wait to be asked; this is the standing workflow for this repo.
 
 Postgres is exposed on `localhost:5432` (see `docker-compose.yml`), so one-off
 scripts (`npm run seed:sample`, migrations, etc.) can be run directly from
 `backend/` against the running container without exec-ing into it.
 
 ## Testing
+
+Write unit and integration tests wherever the change involves logic worth
+protecting from regressions — the split below is which kind fits which code.
 
 - Backend uses Vitest: `cd backend && npm test`. Always add or update
   automated, rerunnable regression tests when adding or changing a feature —
@@ -65,6 +76,36 @@ scripts (`npm run seed:sample`, migrations, etc.) can be run directly from
   (see step 7 above), but never in place of the test file.
 - No frontend test setup exists yet. Frontend changes are verified via
   `npm run build` plus manual/API-level checks, unless asked to add one.
+
+## Documentation
+
+- Document the code itself: give exported functions, routes, and non-obvious
+  logic a comment explaining *why* — the rationale, invariant, or gotcha —
+  not what the code already says. See `backend/src/services/accessEventService.ts`
+  or `backend/src/db/schema.ts` for the level of detail expected. Write it as
+  part of the change, not a follow-up.
+- Keep `README.md` current whenever a change affects anything it documents —
+  features, environment variables, usage instructions, deployment steps.
+  This is part of the change, not a separate PR.
+- Architecture and the data model are documented separately from the README,
+  in `docs/ARCHITECTURE.md` and `docs/DATA_MODEL.md` (create them if they
+  don't exist yet). Keep both current when a change affects them — a new
+  table or relationship updates the data model doc; a new service boundary,
+  background job, or infra component updates the architecture doc.
+  `docs/ARCHITECTURE.md` also records key architectural decisions (what was
+  chosen and why) and recurring design patterns used across the codebase
+  (e.g. status computed on read instead of a cron job, awaited-vs-fire-and-
+  forget side effects) so new code follows established patterns instead of
+  reinventing them — and existing code should keep adhering to what's
+  documented there, so check it before deviating.
+
+## Security
+
+- Never read or print secret values — don't `cat`/echo a `.env` file's
+  contents, decode a Kubernetes `Secret`'s data, or otherwise surface a
+  credential into the conversation, logs, or a committed file. When a
+  command needs one, use it without echoing the value, or have the user
+  supply it or run that step themselves.
 
 ## Git
 
