@@ -11,6 +11,7 @@ import { notifyGamedayCancelled, notifyNewGameday } from "../services/pushServic
 import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
+import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 
 const router = Router();
 
@@ -76,7 +77,7 @@ router.get(
         return {
           id: g.id,
           date: g.date,
-          status: g.status,
+          status: effectiveGamedayStatus(g),
           minPlayers: g.minPlayers,
           maxPlayers: g.maxPlayers,
           matchday: matchdayById.get(g.id)!,
@@ -111,6 +112,7 @@ router.get(
     res.json({
       gameday: {
         ...gameday,
+        status: effectiveGamedayStatus(gameday),
         registrations: regs
           .filter((r) => r.status !== "CANCELLED")
           .map((r) => ({
@@ -251,7 +253,7 @@ router.post(
 
     const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gamedayId) });
     if (!gameday) throw ApiError.notFound("Gameday not found");
-    if (gameday.status !== "OPEN") throw ApiError.badRequest("This gameday is not open for registration");
+    if (effectiveGamedayStatus(gameday) !== "OPEN") throw ApiError.badRequest("This gameday is not open for registration");
 
     let playerId = parsed.data.playerId;
     if (playerId === undefined) {

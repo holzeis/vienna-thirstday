@@ -4,7 +4,7 @@ import request from "supertest";
 import { createApp } from "../app";
 import { db } from "../db/client";
 import { gamedays, registrations } from "../db/schema";
-import { resetDb, closeDb, createAdmin, createGuestPlayer } from "./helpers";
+import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday } from "./helpers";
 
 const app = createApp();
 
@@ -57,5 +57,37 @@ describe("GET /gamedays", () => {
     const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
     const match = res.body.gamedays.find((g: any) => g.id === gameday.id);
     expect(match.confirmedCount).toBe(1);
+  });
+
+  it("shows CLOSED (not OPEN) once an open gameday's kickoff has passed with no result entered", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const past = await createOpenGameday(user.id, new Date(Date.now() - 1000 * 60 * 60));
+
+    const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
+    const match = res.body.gamedays.find((g: any) => g.id === past.id);
+    expect(match.status).toBe("CLOSED");
+  });
+});
+
+describe("GET /gamedays/:id", () => {
+  it("shows CLOSED once an open gameday's kickoff has passed with no result entered", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const past = await createOpenGameday(user.id, new Date(Date.now() - 1000 * 60 * 60));
+
+    const res = await request(app).get(`/api/gamedays/${past.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.body.gameday.status).toBe("CLOSED");
+  });
+});
+
+describe("POST /gamedays/:id/register", () => {
+  it("refuses registration once an open gameday's kickoff has passed", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const past = await createOpenGameday(user.id, new Date(Date.now() - 1000 * 60 * 60));
+
+    const res = await request(app).post(`/api/gamedays/${past.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+    expect(res.status).toBe(400);
   });
 });

@@ -30,6 +30,9 @@ async function loginAs(name: string, password: string) {
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 const THREE_DAYS_AGO = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+// Earlier the same calendar day - kickoff has passed (so effectively CLOSED)
+// but not a past *local day* yet, so the link itself hasn't expired (410).
+const EARLIER_TODAY = new Date(Date.now() - 60 * 60 * 1000);
 
 describe("POST /gamedays/:id/share-link", () => {
   it("generates a token, and returns the same one on a second call", async () => {
@@ -109,6 +112,17 @@ describe("GET /gameday-share/:token", () => {
     const res = await request(app).get(`/api/gameday-share/${shareRes.body.shareToken}`);
     expect(res.status).toBe(410);
   });
+
+  it("shows CLOSED (not OPEN) once kickoff has passed today, even though the link itself hasn't expired", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, EARLIER_TODAY);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+
+    const res = await request(app).get(`/api/gameday-share/${shareRes.body.shareToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.gameday.status).toBe("CLOSED");
+  });
 });
 
 describe("GET /gameday-share/:token/guests", () => {
@@ -171,6 +185,16 @@ describe("POST /gameday-share/:token/register-guest", () => {
     const gameday = await createOpenGameday(user.id, TOMORROW);
     const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
     await db.update(gamedays).set({ status: "CANCELLED" }).where(eq(gamedays.id, gameday.id));
+
+    const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses sign-up once kickoff has passed today, even though the raw status is still OPEN", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, EARLIER_TODAY);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
 
     const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
     expect(res.status).toBe(400);

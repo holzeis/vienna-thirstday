@@ -7,6 +7,7 @@ import { ApiError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
 import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
 import { isPastLocalDay } from "../utils/timezone";
+import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 
 const router = Router();
 
@@ -55,7 +56,7 @@ router.get(
       gameday: {
         id: gameday.id,
         date: gameday.date,
-        status: gameday.status,
+        status: effectiveGamedayStatus(gameday),
         minPlayers: gameday.minPlayers,
         maxPlayers: gameday.maxPlayers,
         confirmedCount: confirmed.length,
@@ -106,7 +107,7 @@ router.post(
   "/:token/register-guest",
   asyncHandler(async (req, res) => {
     const gameday = await loadGamedayByShareToken(req.params.token);
-    if (gameday.status !== "OPEN") throw ApiError.badRequest("This matchday is no longer open for sign-ups");
+    if (effectiveGamedayStatus(gameday) !== "OPEN") throw ApiError.badRequest("This matchday is no longer open for sign-ups");
 
     const parsed = registerGuestSchema.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest("Enter your name");
