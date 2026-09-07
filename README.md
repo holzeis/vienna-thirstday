@@ -425,16 +425,9 @@ header at all, distinct from a real "opened in a browser" `false`), and the
 raw `user_agent` string in case anything needs re-classifying later.
 
 For Metabase (or any external tool), connect it with a **read-only**
-Postgres role rather than the app's own credentials:
-
-```sql
-CREATE ROLE metabase LOGIN PASSWORD 'choose-a-real-password';
-GRANT CONNECT ON DATABASE vienna_thirstday TO metabase;
-GRANT USAGE ON SCHEMA public TO metabase;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase;
--- Also cover tables created by future migrations, without re-granting each time:
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase;
-```
+Postgres role rather than the app's own credentials - run
+`backend/scripts/setup-metabase-role.sql` (see the usage comment at the top
+of that file) against whichever database you're connecting to.
 
 Example queries once connected:
 
@@ -467,6 +460,29 @@ SELECT
 FROM access_events
 GROUP BY access_mode;
 ```
+
+### Running Metabase
+
+`docker compose up -d metabase` starts it on <http://localhost:3000>, with
+its own dashboards/settings persisted in the `metabase-data` volume
+(separate from the app's data). It's local-only by design - not deployed to
+the cluster - so nothing new is exposed to the internet; run it on demand.
+
+On first run, walk through Metabase's setup, then add a database connection
+using the `metabase` role above. To point that connection at the **local
+dev** database, use host `postgres`, port `5432`, database
+`vienna_thirstday` (Metabase resolves `postgres` via the compose network).
+
+To visualize the **live cluster's** data instead, port-forward it first,
+since Postgres isn't exposed outside the cluster:
+
+```sh
+kubectl port-forward -n vienna-thirstday svc/postgres 5433:5432
+```
+
+Then add a second connection in Metabase using host `host.docker.internal`,
+port `5433` - that connection only has data while the port-forward is
+running.
 
 ## Environment variables
 

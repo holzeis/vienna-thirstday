@@ -71,5 +71,26 @@ services:
     ports:
       - "8080:8080"
 
+  metabase:
+    image: metabase/metabase:v0.63.16.6
+    # Not hardened with cap_drop/no-new-privileges: same story as postgres
+    # above - the official image's entrypoint creates its own "metabase" user
+    # and drops to it via adduser/su on every start (confirmed - cap_drop:ALL
+    # breaks that with "Operation not permitted"), so it needs those
+    # capabilities for the few seconds before it drops root itself. Local-only
+    # convenience tool, not internet-facing, so that's an acceptable tradeoff.
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+    ports:
+      - "3000:3000"
+    # Metabase's own dashboards/settings live in the embedded H2 file above -
+    # separate from the app's data. Add the actual vienna_thirstday database
+    # as a data source from the Metabase UI after first run, using the
+    # read-only role from backend/scripts/setup-metabase-role.sql (see
+    # README's "Usage metrics" section) rather than the app's own credentials.
+
 volumes:
   pgdata:
+  metabase-data:
