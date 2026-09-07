@@ -521,6 +521,10 @@ running.
 
 ## Project layout
 
+See `docs/ARCHITECTURE.md` for system structure, deployment topology, and
+key architectural decisions, and `docs/DATA_MODEL.md` for the full schema
+reference.
+
 ```
 backend/
   src/
