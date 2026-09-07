@@ -20,6 +20,12 @@ spec:
       #     --docker-password=<PAT with read:packages>
       # imagePullSecrets:
       #   - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         # Applies any pending Drizzle migration before the app starts, on
         # every pod start - not just after a schema change. drizzle-orm's
@@ -36,6 +42,14 @@ spec:
                 name: backend-config
             - secretRef:
                 name: vienna-thirstday-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: backend
           image: ghcr.io/holzeis/vienna-thirstday-backend:latest
@@ -46,6 +60,14 @@ spec:
                 name: backend-config
             - secretRef:
                 name: vienna-thirstday-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet:
               path: /api/health
@@ -65,6 +87,9 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

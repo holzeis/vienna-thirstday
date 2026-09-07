@@ -17,19 +17,47 @@ spec:
       # ghcr.io/holzeis/vienna-thirstday-frontend is private.
       # imagePullSecrets:
       #   - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        # emptyDir volumes are root-owned by default - fsGroup makes k8s
+        # mount them group-owned by 101 instead, so nginx (running as that
+        # group) can actually write its pid file, temp dirs, and templated
+        # config (confirmed locally: without this, envsubst fails with
+        # "conf.d is not writable" and nginx never starts).
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
           image: ghcr.io/holzeis/vienna-thirstday-frontend:latest
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           env:
             # DNS name of the backend Service defined in backend-deployment.yaml
             - name: BACKEND_HOST
               value: "backend:4000"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # nginx-unprivileged needs to write its pid file, its
+            # client-body/proxy temp dirs, and the config this image's
+            # entrypoint templates into conf.d at startup - all read-only
+            # otherwise (see frontend/Dockerfile).
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: conf
+              mountPath: /etc/nginx/conf.d
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
             initialDelaySeconds: 3
             periodSeconds: 10
           resources:
@@ -39,6 +67,13 @@ spec:
             limits:
               cpu: 250m
               memory: 128Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: conf
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -50,4 +85,4 @@ spec:
     app: frontend
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: 8080

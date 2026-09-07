@@ -1,4 +1,18 @@
+# pod-security labels enforce the Kubernetes "restricted" Pod Security
+# Standard at admission time - the API server rejects any pod in this
+# namespace that doesn't run as non-root, drop all capabilities, disable
+# privilege escalation, and use a seccomp profile, regardless of what any
+# individual manifest says. Every workload here (backend, frontend,
+# postgres, cloudflared, image-watcher, and the migration/seed Jobs) is
+# already configured to satisfy this - it's a backstop against a future
+# manifest change accidentally reintroducing a root/privileged container,
+# not something that should ever actually block a normal deploy.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: vienna-thirstday
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

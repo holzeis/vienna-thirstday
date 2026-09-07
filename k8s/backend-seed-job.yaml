@@ -12,6 +12,12 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: seed
           image: ghcr.io/holzeis/vienna-thirstday-backend:latest
@@ -21,6 +27,17 @@ spec:
                 name: backend-config
             - secretRef:
                 name: vienna-thirstday-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 # Imports every *-import.json file under backend/src/db/seed-data/ (one per
 # season) in a single run - not just a single spreadsheet.
@@ -34,6 +51,12 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: import-xlsx
           image: ghcr.io/holzeis/vienna-thirstday-backend:latest
@@ -43,3 +66,14 @@ spec:
                 name: backend-config
             - secretRef:
                 name: vienna-thirstday-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

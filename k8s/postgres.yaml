@@ -29,11 +29,32 @@ spec:
       labels:
         app: postgres
     spec:
+      # postgres:16-alpine's own entrypoint normally starts as root and
+      # drops to its "postgres" user (uid/gid 70 in the alpine image - 999
+      # on the Debian-based image, don't mix those up) itself before ever
+      # touching the data directory, so the files on the PVC are already
+      # owned by uid 70 regardless. Setting runAsUser/runAsGroup here skips
+      # that root step entirely (confirmed locally: initdb and normal
+      # startup both work running directly as 70:70, no root needed at any
+      # point) - fsGroup makes kubelet fix up the PVC's *group* ownership to
+      # match on mount, which is what makes this safe to roll out onto the
+      # existing volume rather than only a fresh one.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16-alpine
           ports:
             - containerPort: 5432
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: POSTGRES_USER
               value: vienna

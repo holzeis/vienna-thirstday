@@ -49,6 +49,16 @@ spec:
       labels:
         app: cloudflared
     spec:
+      # The image already runs as a non-root user (uid/gid 65532) by
+      # default; this makes that explicit and adds the rest of the
+      # hardening on top - confirmed locally that the token-based tunnel
+      # command needs nothing beyond /tmp writable.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:latest
@@ -62,6 +72,14 @@ spec:
                 secretKeyRef:
                   name: vienna-thirstday-secrets
                   key: CLOUDFLARE_TUNNEL_TOKEN
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -69,3 +87,6 @@ spec:
             limits:
               cpu: 250m
               memory: 128Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}

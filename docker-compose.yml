@@ -1,6 +1,14 @@
 services:
   postgres:
     image: postgres:16-alpine
+    # Not hardened with cap_drop/no-new-privileges here: the official
+    # image's entrypoint needs to chown/chmod the data dir on first start
+    # (confirmed - dropping all capabilities breaks that with "Operation not
+    # permitted"), which it does as root before dropping to the postgres
+    # user itself. This is local-only dev/test infra, not internet-facing -
+    # see k8s/postgres.yaml for how the real cluster deployment avoids
+    # running this image as root at all (runAsUser/fsGroup) instead of
+    # fighting its entrypoint's own privilege-drop dance.
     environment:
       POSTGRES_USER: vienna
       POSTGRES_PASSWORD: vienna
@@ -18,6 +26,10 @@ services:
   backend:
     build:
       context: ./backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       DATABASE_URL: postgresql://vienna:vienna@postgres:5432/vienna_thirstday
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
@@ -48,12 +60,16 @@ services:
       args:
         VITE_API_URL: /api
         VITE_APP_VERSION: ${VITE_APP_VERSION:-dev}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       BACKEND_HOST: backend:4000
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      - "8080:8080"
 
 volumes:
   pgdata:
