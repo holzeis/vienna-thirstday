@@ -7,7 +7,7 @@ import { gamedays, players, playerGamedayStats, results, users } from "../db/sch
 /** Wipes every table between tests so route tests don't see each other's data. */
 export async function resetDb() {
   await db.execute(
-    sql`TRUNCATE users, players, gamedays, registrations, team_assignments, results, player_gameday_stats, player_merges, invites, push_subscriptions RESTART IDENTITY CASCADE`
+    sql`TRUNCATE users, players, gamedays, registrations, team_assignments, results, player_gameday_stats, player_merges, invites, push_subscriptions, access_events RESTART IDENTITY CASCADE`
   );
 }
 

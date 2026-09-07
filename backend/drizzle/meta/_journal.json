@@ -43,6 +43,13 @@
       "when": 1788704739108,
       "tag": "0005_special_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788782255252,
+      "tag": "0006_silly_alex_power",
+      "breakpoints": true
     }
   ]
 }

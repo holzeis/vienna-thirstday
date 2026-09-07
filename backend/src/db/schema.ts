@@ -26,6 +26,7 @@ import { relations } from "drizzle-orm";
 export const gamedayStatusEnum = pgEnum("gameday_status", ["OPEN", "CLOSED", "CANCELLED", "COMPLETED"]);
 export const registrationStatusEnum = pgEnum("registration_status", ["CONFIRMED", "WAITLISTED", "CANCELLED"]);
 export const teamEnum = pgEnum("team", ["A", "B"]);
+export const accessEventTypeEnum = pgEnum("access_event_type", ["LOGIN", "GUEST_REGISTER"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -239,6 +240,41 @@ export const playerMerges = pgTable("player_merges", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Usage metrics, meant to be queried directly (e.g. from Metabase) rather
+ * than through the app - so this deliberately denormalizes playerName/isGuest
+ * onto the row instead of requiring a join, and keeps the raw userAgent
+ * string alongside the parsed os/browser/deviceType so a misclassification
+ * can be re-examined later. One row per LOGIN (routes/auth.ts) or
+ * GUEST_REGISTER (routes/gamedayShare.ts) event - not a full page-view log.
+ */
+export const accessEvents = pgTable(
+  "access_events",
+  {
+    id: serial("id").primaryKey(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    eventType: accessEventTypeEnum("event_type").notNull(),
+    isGuest: boolean("is_guest").notNull(),
+    // Nullable + onDelete:set null so removing a player later never deletes
+    // the historical metrics row it's referenced from, only the live link.
+    playerId: integer("player_id").references(() => players.id, { onDelete: "set null" }),
+    playerName: varchar("player_name", { length: 255 }).notNull(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    os: varchar("os", { length: 32 }).notNull(),
+    browser: varchar("browser", { length: 32 }).notNull(),
+    deviceType: varchar("device_type", { length: 16 }).notNull(),
+    // Null (not false) when the client didn't send the standalone-mode
+    // header at all, e.g. an older cached frontend build - distinct from a
+    // real "opened in a browser tab" false.
+    isPwa: boolean("is_pwa"),
+    userAgent: text("user_agent"),
+  },
+  (t) => ({
+    occurredAtIdx: index("access_events_occurred_at_idx").on(t.occurredAt),
+    playerIdx: index("access_events_player_idx").on(t.playerId),
+  })
+);
+
 // ---- relations (for query API ergonomics) ----
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -298,4 +334,9 @@ export const invitesRelations = relations(invites, ({ one }) => ({
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
+}));
+
+export const accessEventsRelations = relations(accessEvents, ({ one }) => ({
+  player: one(players, { fields: [accessEvents.playerId], references: [players.id] }),
+  user: one(users, { fields: [accessEvents.userId], references: [users.id] }),
 }));

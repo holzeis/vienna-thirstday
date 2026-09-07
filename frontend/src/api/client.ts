@@ -1,3 +1,5 @@
+import { isStandalonePwa } from "../platform";
+
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export class ApiClientError extends Error {
@@ -54,7 +56,11 @@ interface RequestOptions {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // Only the client can know this (display-mode isn't visible in the User-
+  // Agent) - the backend reads it for the access-metrics table (see
+  // services/accessEventService.ts). Harmless on requests that don't record
+  // anything; costs nothing to always send.
+  const headers: Record<string, string> = { "Content-Type": "application/json", "X-Standalone": isStandalonePwa() ? "1" : "0" };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
   let res: Response;

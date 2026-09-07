@@ -8,6 +8,7 @@ import { signToken } from "../utils/jwt";
 import { ApiError } from "../utils/errors";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
+import { recordAccessEvent } from "../services/accessEventService";
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.post(
     const { name, password } = parsed.data;
 
     const [match] = await db
-      .select({ user: users })
+      .select({ user: users, playerName: players.name })
       .from(users)
       .innerJoin(players, eq(users.playerId, players.id))
       .where(sql`lower(${players.name}) = lower(${name}) or lower(${users.email}) = lower(${name})`)
@@ -57,6 +58,14 @@ router.post(
     }
 
     const token = signToken({ userId: match.user.id, isAdmin: match.user.isAdmin });
+    await recordAccessEvent({
+      req,
+      eventType: "LOGIN",
+      isGuest: false,
+      playerId: match.user.playerId,
+      playerName: match.playerName,
+      userId: match.user.id,
+    });
     res.json({ token, user: sanitizeUser(match.user) });
   })
 );

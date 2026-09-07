@@ -14,6 +14,7 @@ Jan 1 – Dec 31 season standings table.
 - [Local development with Docker Compose](#local-development-with-docker-compose)
 - [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet)
 - [Deploying to Kubernetes](#deploying-to-kubernetes)
+- [Usage metrics](#usage-metrics)
 - [Environment variables](#environment-variables)
 - [Project layout](#project-layout)
 - [Known limitations](#known-limitations)
@@ -400,6 +401,72 @@ Cloudflare's edge and leave the last hop in plaintext."
 > available to complete a real deploy). Review resource requests/limits and
 > the ingress class/annotations against your actual cluster before relying on
 > this in production.
+
+## Usage metrics
+
+Every login (`POST /auth/login`) and guest sign-up via a share link
+(`POST /gameday-share/:token/register-guest`) writes one row to the
+`access_events` table: who (player id/name, or a guest with no linked
+account), when, and their OS/browser/device type (parsed server-side from
+the `User-Agent` header - see `backend/src/utils/userAgent.ts`) and whether
+they're using the installed PWA or a regular browser tab (`X-Standalone`
+header, sent by the frontend on every request since only the client can
+know its own display mode - see `frontend/src/api/client.ts`). This is a
+plain table meant to be queried directly with SQL, not surfaced anywhere in
+the app itself - point a BI tool like [Metabase](https://www.metabase.com/)
+at the same Postgres database and build dashboards from it.
+
+Columns: `occurred_at`, `event_type` (`LOGIN` | `GUEST_REGISTER`),
+`is_guest`, `player_id` (nullable - stays if the player is later deleted),
+`player_name` (a snapshot, so a later rename doesn't rewrite history),
+`user_id` (null for guests), `os`, `browser`, `device_type`
+(`mobile`/`tablet`/`desktop`), `is_pwa` (null if the client didn't send the
+header at all, distinct from a real "opened in a browser" `false`), and the
+raw `user_agent` string in case anything needs re-classifying later.
+
+For Metabase (or any external tool), connect it with a **read-only**
+Postgres role rather than the app's own credentials:
+
+```sql
+CREATE ROLE metabase LOGIN PASSWORD 'choose-a-real-password';
+GRANT CONNECT ON DATABASE vienna_thirstday TO metabase;
+GRANT USAGE ON SCHEMA public TO metabase;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase;
+-- Also cover tables created by future migrations, without re-granting each time:
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase;
+```
+
+Example queries once connected:
+
+```sql
+-- Logins per player, per day
+SELECT player_name, date_trunc('day', occurred_at) AS day, count(*)
+FROM access_events
+WHERE event_type = 'LOGIN'
+GROUP BY player_name, day
+ORDER BY day DESC;
+
+-- Logins per week, across everyone
+SELECT date_trunc('week', occurred_at) AS week, count(*)
+FROM access_events
+WHERE event_type = 'LOGIN'
+GROUP BY week
+ORDER BY week DESC;
+
+-- Guest sign-ups by OS
+SELECT os, count(*)
+FROM access_events
+WHERE is_guest
+GROUP BY os
+ORDER BY count(*) DESC;
+
+-- PWA vs. browser split
+SELECT
+  CASE is_pwa WHEN true THEN 'PWA' WHEN false THEN 'Browser' ELSE 'Unknown' END AS access_mode,
+  count(*)
+FROM access_events
+GROUP BY access_mode;
+```
 
 ## Environment variables
 

@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
 import { isPastLocalDay } from "../utils/timezone";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
+import { recordAccessEvent } from "../services/accessEventService";
 
 const router = Router();
 
@@ -152,6 +153,14 @@ router.post(
       where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.playerId, guest.id)),
     });
 
+    await recordAccessEvent({
+      req,
+      eventType: "GUEST_REGISTER",
+      isGuest: true,
+      playerId: guest.id,
+      playerName: guest.name,
+      userId: null,
+    });
     res.status(201).json({ status: finalReg?.status ?? "CONFIRMED", playerId: guest.id });
     notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
       console.error("notifyOnWaitlistChange failed:", err)
