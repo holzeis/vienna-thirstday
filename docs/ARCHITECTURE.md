@@ -109,11 +109,18 @@ New code should follow these; if you're about to do something that
 conflicts with one, treat that as a signal to either follow the pattern or
 update this document to reflect a deliberate change.
 
-1. **No self-service registration; onboarding is admin-issued invites, and
-   every invite starts from an existing guest.** A guest player is promoted
-   in place (`is_guest → false`) rather than merged into a separately
-   created account. Why: keeps exactly one player row per person from day
-   one, with no later merge/reconciliation step needed.
+1. **No self-service registration; onboarding is admin-issued invites, of
+   two kinds.** A guest-linked invite promotes that guest in place
+   (`is_guest → false`) rather than merging into a separately created
+   account, and is single-use. Why: keeps exactly one player row per person
+   from day one, with no later merge/reconciliation step needed for someone
+   who already has history under a guest profile. An open invite (no guest)
+   is the escape hatch for someone with no prior history - reusable until
+   expiry/revocation, each acceptance a brand-new player - and can have a
+   guest's history attached afterward through the ordinary merge tool
+   (`playerMergeService.ts`) if one turns up later. Every acceptance of
+   either kind is logged to `invite_redemptions` (see `docs/DATA_MODEL.md`),
+   which is what lets the admin page show who joined via a given link.
 2. **Guests are first-class players, not a separate table.**
    `players.is_guest` is just a flag. Why: guests need to appear in
    registrations/team assignments/stats identically to real players — the

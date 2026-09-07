@@ -84,6 +84,106 @@ describe("onboarding: admin creates an invite from a guest", () => {
   });
 });
 
+describe("onboarding: open invites (no guest, reusable)", () => {
+  async function createOpenInvite(adminToken: string, opts: { expiresInDays?: number } = {}) {
+    return request(app)
+      .post("/api/admin/invites")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ expiresInDays: opts.expiresInDays ?? 7 });
+  }
+
+  it("creates an invite with no guestPlayer, without touching any guest", async () => {
+    const { password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+
+    const res = await createOpenInvite(token);
+    expect(res.status).toBe(201);
+    expect(res.body.invite.guestPlayer).toBeNull();
+    expect(res.body.invite.status).toBe("pending");
+    expect(res.body.invite.redemptions).toEqual([]);
+  });
+
+  it("GET /invites/:token returns guest: null", async () => {
+    const { password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const createRes = await createOpenInvite(token);
+
+    const res = await request(app).get(`/api/invites/${createRes.body.invite.token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.guest).toBeNull();
+  });
+
+  it("accepting it creates a brand-new player, not linked to any existing guest", async () => {
+    const { password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const createRes = await createOpenInvite(token);
+
+    const before = await db.query.players.findMany();
+    const acceptRes = await request(app)
+      .post(`/api/invites/${createRes.body.invite.token}/accept`)
+      .field("name", "Brand New Person")
+      .field("password", "password123");
+
+    expect(acceptRes.status).toBe(201);
+    const after = await db.query.players.findMany();
+    expect(after.length).toBe(before.length + 1);
+
+    const newPlayer = await db.query.players.findFirst({ where: eq(players.id, acceptRes.body.user.playerId) });
+    expect(newPlayer?.name).toBe("Brand New Person");
+    expect(newPlayer?.isGuest).toBe(false);
+  });
+
+  it("can be accepted again by a second person - stays pending, not used", async () => {
+    const { password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const createRes = await createOpenInvite(token);
+    const inviteToken = createRes.body.invite.token as string;
+
+    const first = await request(app).post(`/api/invites/${inviteToken}/accept`).field("name", "First Person").field("password", "password123");
+    expect(first.status).toBe(201);
+
+    const second = await request(app).post(`/api/invites/${inviteToken}/accept`).field("name", "Second Person").field("password", "password123");
+    expect(second.status).toBe(201);
+    expect(second.body.user.playerId).not.toBe(first.body.user.playerId);
+
+    const listRes = await request(app).get("/api/admin/invites").set("Authorization", `Bearer ${token}`);
+    const invite = listRes.body.invites.find((i: any) => i.id === createRes.body.invite.id);
+    expect(invite.status).toBe("pending");
+    expect(invite.redemptions.map((r: any) => r.playerName).sort()).toEqual(["First Person", "Second Person"]);
+  });
+
+  it("can be revoked even after being used, unlike a guest-linked invite", async () => {
+    const { password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const createRes = await createOpenInvite(token);
+    await request(app).post(`/api/invites/${createRes.body.invite.token}/accept`).field("name", "Someone").field("password", "password123");
+
+    const revokeRes = await request(app)
+      .post(`/api/admin/invites/${createRes.body.invite.id}/revoke`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(revokeRes.status).toBe(200);
+    expect(revokeRes.body.invite.status).toBe("revoked");
+
+    const res = await request(app)
+      .post(`/api/invites/${createRes.body.invite.token}/accept`)
+      .field("name", "Too Late")
+      .field("password", "password123");
+    expect(res.status).toBe(410);
+  });
+
+  it("still enforces name uniqueness against existing account-linked players", async () => {
+    const { password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const createRes = await createOpenInvite(token);
+
+    const res = await request(app)
+      .post(`/api/invites/${createRes.body.invite.token}/accept`)
+      .field("name", "Admin")
+      .field("password", "password123");
+    expect(res.status).toBe(409);
+  });
+});
+
 describe("onboarding: accepting an invite", () => {
   async function setupInvite(guestName = "Robert") {
     const { password } = await createAdmin();

@@ -28,11 +28,19 @@ export interface PlayerMerge {
 
 export type InviteStatus = "pending" | "used" | "expired" | "revoked";
 
+export interface InviteRedemption {
+  id: number;
+  playerId: number | null;
+  playerName: string;
+  createdAt: string;
+}
+
 export interface Invite {
   id: number;
   token: string;
   note: string | null;
-  guestPlayer: { id: number; name: string };
+  /** Null for an "open" invite - reusable, no guest, each acceptance creates a brand-new player. */
+  guestPlayer: { id: number; name: string } | null;
   createdBy: { id: number; email: string | null };
   expiresAt: string;
   usedAt: string | null;
@@ -40,6 +48,8 @@ export interface Invite {
   revokedAt: string | null;
   createdAt: string;
   status: InviteStatus;
+  /** Everyone who has joined via this link - for a guest-linked invite, at most one. */
+  redemptions: InviteRedemption[];
 }
 
 export interface GamedaySummary {

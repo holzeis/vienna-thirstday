@@ -57,6 +57,13 @@
       "when": 1788788638367,
       "tag": "0007_lively_freak",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788800178640,
+      "tag": "0008_free_wolfpack",
+      "breakpoints": true
     }
   ]
 }

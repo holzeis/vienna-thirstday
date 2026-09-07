@@ -75,7 +75,8 @@ export function adminListInvites() {
   return apiRequest<{ invites: Invite[] }>("/admin/invites");
 }
 
-export function adminCreateInvite(data: { guestPlayerId: number; note?: string; expiresInDays?: number }) {
+/** Omit guestPlayerId for an "open" invite - reusable, no guest, no history. */
+export function adminCreateInvite(data: { guestPlayerId?: number; note?: string; expiresInDays?: number }) {
   return apiRequest<{ invite: Invite }>("/admin/invites", { method: "POST", body: data });
 }
 
@@ -91,7 +92,7 @@ export function adminDeleteInvite(id: number) {
 // ---- invites (public - accepting one is how an account gets created) ----
 
 export function getInvite(token: string) {
-  return apiRequest<{ guest: { id: number; name: string } }>(`/invites/${token}`);
+  return apiRequest<{ guest: { id: number; name: string } | null }>(`/invites/${token}`);
 }
 
 export async function acceptInvite(

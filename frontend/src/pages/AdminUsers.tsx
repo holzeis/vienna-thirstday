@@ -11,7 +11,6 @@ import {
   adminRevokeInvite,
   adminSetRoles,
   adminUndoMerge,
-  createGuest,
 } from "../api/endpoints";
 import type { Invite, Player, PlayerMerge, User } from "../api/types";
 import { ApiClientError } from "../api/client";
@@ -46,7 +45,7 @@ export function AdminUsers() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [busyMergeId, setBusyMergeId] = useState<number | null>(null);
 
-  const [inviteGuestName, setInviteGuestName] = useState("");
+  const [inviteGuestId, setInviteGuestId] = useState<number | "">("");
   const [inviteExpiresInDays, setInviteExpiresInDays] = useState(7);
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [busyInviteId, setBusyInviteId] = useState<number | null>(null);
@@ -91,16 +90,15 @@ export function AdminUsers() {
   }
 
   async function createInvite() {
-    const name = inviteGuestName.trim();
-    if (!name) return;
     setError(null);
     setJustCreatedLink(null);
     setCreatingInvite(true);
     try {
-      const { guest } = await createGuest(name);
-      const res = await adminCreateInvite({ guestPlayerId: guest.id, expiresInDays: inviteExpiresInDays });
+      // Leaving the player unselected makes this an open invite: reusable,
+      // no guest, each acceptance a brand-new player with no history.
+      const res = await adminCreateInvite({ guestPlayerId: inviteGuestId || undefined, expiresInDays: inviteExpiresInDays });
       setJustCreatedLink(inviteLink(res.invite.token));
-      setInviteGuestName("");
+      setInviteGuestId("");
       load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create invite");
@@ -210,26 +208,27 @@ export function AdminUsers() {
       <div className="card">
         <div className="card-title">Invite a player</div>
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: -4, marginBottom: 12 }}>
-          Every invite starts from a guest - pick an existing one to onboard them with their history attached, or
-          type a new name to create one first. There's no self-service sign-up; send the resulting link however
-          you'd reach this person.
+          Pick an existing guest to onboard them with their history attached (single-use), or leave it unselected
+          for an open invite - reusable by multiple people, each onboarding as a brand-new player with no history.
+          Attach a guest's history to any resulting account afterward from "Merge guest history into an account"
+          below. There's no self-service sign-up; send the resulting link however you'd reach whoever should use it.
         </p>
         <div className="form-row">
           <div className="field">
             <label htmlFor="invite-guest">Player</label>
-            <input
+            <select
               id="invite-guest"
-              list="admin-guest-options"
-              placeholder="Type or pick an existing guest..."
-              value={inviteGuestName}
+              value={inviteGuestId}
               disabled={creatingInvite}
-              onChange={(e) => setInviteGuestName(e.target.value)}
-            />
-            <datalist id="admin-guest-options">
+              onChange={(e) => setInviteGuestId(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">No guest - open invite</option>
               {guests?.map((g) => (
-                <option key={g.id} value={g.name} />
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div className="field">
             <label htmlFor="invite-expires">Expires in (days)</label>
@@ -245,7 +244,7 @@ export function AdminUsers() {
             />
           </div>
         </div>
-        <button className="btn btn-primary btn-sm" disabled={creatingInvite || !inviteGuestName.trim()} onClick={createInvite}>
+        <button className="btn btn-primary btn-sm" disabled={creatingInvite} onClick={createInvite}>
           {creatingInvite ? "Creating..." : "Create invite link"}
         </button>
 
@@ -275,8 +274,12 @@ export function AdminUsers() {
               {invites.map((inv) => (
                 <tr key={inv.id}>
                   <td>
-                    {inv.guestPlayer.name}
-                    {inv.usedBy?.email && <div style={{ color: "var(--text-faint)", fontSize: 12 }}>accepted, {inv.usedBy.email}</div>}
+                    {inv.guestPlayer ? inv.guestPlayer.name : "Open invite (no guest)"}
+                    {inv.redemptions.length > 0 && (
+                      <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
+                        Joined: {inv.redemptions.map((r) => r.playerName).join(", ")}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span className={`badge ${INVITE_STATUS_BADGE[inv.status]}`}>{INVITE_STATUS_LABEL[inv.status]}</span>
@@ -316,8 +319,10 @@ export function AdminUsers() {
             <div className="card user-card" key={inv.id}>
               <div className="user-card-row">
                 <div>
-                  <div className="user-card-name">{inv.guestPlayer.name}</div>
-                  {inv.usedBy?.email && <div style={{ color: "var(--text-faint)", fontSize: 12 }}>accepted, {inv.usedBy.email}</div>}
+                  <div className="user-card-name">{inv.guestPlayer ? inv.guestPlayer.name : "Open invite (no guest)"}</div>
+                  {inv.redemptions.length > 0 && (
+                    <div style={{ color: "var(--text-faint)", fontSize: 12 }}>Joined: {inv.redemptions.map((r) => r.playerName).join(", ")}</div>
+                  )}
                 </div>
                 <div className="user-card-actions">
                   <span className={`badge ${INVITE_STATUS_BADGE[inv.status]}`}>{INVITE_STATUS_LABEL[inv.status]}</span>
@@ -459,14 +464,14 @@ export function AdminUsers() {
               </datalist>
             </div>
             <div className="field">
-              <label htmlFor="merge-target">Into account</label>
+              <label htmlFor="merge-target">Player</label>
               <select
                 id="merge-target"
                 value={mergeTargetPlayerId}
                 disabled={merging}
                 onChange={(e) => setMergeTargetPlayerId(e.target.value ? Number(e.target.value) : "")}
               >
-                <option value="">Select an account...</option>
+                <option value="">Select a player...</option>
                 {users
                   .filter((u) => u.player)
                   .map((u) => (

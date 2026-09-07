@@ -21,16 +21,25 @@ Jan 1 – Dec 31 season standings table.
 
 ## Features
 
-- **Accounts & roles.** No self-service registration - every account starts
-  from a guest/placeholder player. An admin picks (or first creates) that
-  guest on the Admin → Users → "Invite a player" page, which immediately
-  promotes it to a real player and generates a link, shared however they'd
-  normally reach the group. Opening the link lets that person confirm or
-  change their name (this is also their login - no email required), set a
-  password, and optionally add a photo and an email address. The account is
-  active immediately, no separate approval step. Links expire on a
-  configurable timer (default 7 days, up to 90) and can be revoked before
-  they're used, which reverts the guest promotion. Any account can also be
+- **Accounts & roles.** No self-service registration - accounts only come
+  from an admin-issued invite link (Admin → Users → "Invite a player"), two
+  kinds:
+  - **Guest-linked** (pick a guest in the "Player" field): promotes that
+    guest to a real player immediately and single-use - the resulting
+    account keeps that guest's full history with nothing to merge.
+  - **Open** (leave "Player" unselected): no guest, reusable by as many
+    people as accept it before it expires or is revoked. Each acceptance
+    onboards as a brand-new player with no history; an admin can attach a
+    guest's history to any of those accounts afterward from "Merge guest
+    history into an account". The admin page lists everyone who's joined
+    via a given link.
+
+  Either way, opening the link lets that person set their name (this is
+  also their login - no email required), a password, and optionally a
+  photo and an email address. The account is active immediately, no
+  separate approval step. Links expire on a configurable timer (default 7
+  days, up to 90); revoking a guest-linked invite reverts the guest
+  promotion (an open invite has none to revert). Any account can also be
   granted the `Admin` role.
 - **Guests.** Any logged-in user can create reusable guest profiles and bring
   them to gamedays. Guests count toward a gameday's capacity/waitlist but are

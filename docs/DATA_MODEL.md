@@ -1,7 +1,7 @@
 # Data model
 
 Postgres via Drizzle ORM. Source of truth: `backend/src/db/schema.ts`; migrations
-live in `backend/drizzle/` (current head: `0007_lively_freak.sql`). This document
+live in `backend/drizzle/` (current head: `0008_free_wolfpack.sql`). This document
 should be updated whenever a table, column, or relationship changes — see
 `docs/ARCHITECTURE.md` and `CLAUDE.md`'s Documentation section.
 
@@ -58,9 +58,16 @@ erDiagram
   invites {
     serial id PK
     varchar token UK
-    integer guest_player_id FK
+    integer guest_player_id FK "nullable - null means open/reusable"
     integer created_by_user_id FK
     integer used_by_user_id FK
+  }
+  invite_redemptions {
+    serial id PK
+    integer invite_id FK
+    integer user_id FK
+    integer player_id FK
+    varchar player_name
   }
   push_subscriptions {
     serial id PK
@@ -95,6 +102,9 @@ erDiagram
   players ||--o{ invites : "onboards via"
   users ||--o{ invites : "issues"
   users ||--o{ invites : "accepted by"
+  invites ||--o{ invite_redemptions : "redeemed via"
+  users ||--o{ invite_redemptions : "redeems"
+  players ||--o{ invite_redemptions : "created as"
   users ||--o{ push_subscriptions : "subscribes"
   players ||--o{ player_merges : "merge target"
   users ||--o{ player_merges : "performs"
@@ -215,19 +225,35 @@ a scoring-rule change needs a backfill (see `backend/src/utils/scoring.ts`).
 
 ### Onboarding & roster upkeep
 
-**`invites`** — admin-issued onboarding links. Every invite starts from an
-existing guest player, promoted (`is_guest → false`) the moment the invite
-is created, not at accept-time.
+**`invites`** — admin-issued onboarding links, two kinds told apart by
+`guest_player_id`: set → starts from an existing guest player, promoted
+(`is_guest → false`) the moment the invite is created, single-use
+(`used_at`/`used_by_user_id` set on accept, blocking a second attempt); null
+→ "open" invite, reusable by multiple people until it expires or is
+revoked, each acceptance creating a genuinely new player. See
+`invite_redemptions` below for who's actually joined via a given link.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | serial | PK |
 | `token` | varchar(64) | unique — stored in plaintext so an admin can re-copy an unused link |
 | `note` | varchar(255) | |
-| `guest_player_id` | integer | FK → `players.id`, cascade delete, not null |
+| `guest_player_id` | integer | FK → `players.id`, cascade delete, **nullable** |
 | `created_by_user_id` | integer | FK → `users.id` |
-| `used_by_user_id` | integer | FK → `users.id`, nullable |
+| `used_by_user_id` | integer | FK → `users.id`, nullable — only ever set for a guest-linked invite |
 | `expires_at`, `used_at`, `revoked_at` | timestamptz | |
+| `created_at` | timestamptz | |
+
+**`invite_redemptions`** — one row per successful acceptance of an invite.
+A guest-linked invite has at most one; an open invite can have many.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | serial | PK |
+| `invite_id` | integer | FK → `invites.id`, cascade delete |
+| `user_id` | integer | FK → `users.id`, `ON DELETE SET NULL` |
+| `player_id` | integer | FK → `players.id`, `ON DELETE SET NULL` |
+| `player_name` | varchar(255) | denormalized snapshot, survives player deletion/rename |
 | `created_at` | timestamptz | |
 
 **`player_merges`** — an audit log for guest-into-player merges, not a live

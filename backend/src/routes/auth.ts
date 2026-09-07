@@ -16,13 +16,23 @@ const router = Router();
 // accepting an admin-issued invite (see routes/invites.ts) - that's what
 // replaces both a register endpoint and any pending-approval step.
 
-/** True if some OTHER account-linked player already has this name (case-insensitive). Unclaimed guests never collide - only login disambiguation matters here. */
-export async function nameTakenByAnotherPlayer(name: string, excludePlayerId: number): Promise<boolean> {
+/**
+ * True if some OTHER account-linked player already has this name
+ * (case-insensitive). Unclaimed guests never collide - only login
+ * disambiguation matters here. `excludePlayerId` is null when there's no
+ * player to exclude yet - e.g. onboarding via an open invite, which creates
+ * a brand-new player rather than renaming an existing one.
+ */
+export async function nameTakenByAnotherPlayer(name: string, excludePlayerId: number | null): Promise<boolean> {
   const row = await db
     .select({ id: players.id })
     .from(players)
     .innerJoin(users, eq(users.playerId, players.id))
-    .where(sql`lower(${players.name}) = lower(${name}) and ${players.id} != ${excludePlayerId}`)
+    .where(
+      excludePlayerId === null
+        ? sql`lower(${players.name}) = lower(${name})`
+        : sql`lower(${players.name}) = lower(${name}) and ${players.id} != ${excludePlayerId}`
+    )
     .limit(1);
   return row.length > 0;
 }

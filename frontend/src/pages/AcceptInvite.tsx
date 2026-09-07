@@ -10,7 +10,7 @@ import { Spinner } from "../components/LoadingScreen";
 type LoadState =
   | { status: "loading" }
   | { status: "invalid"; message: string }
-  | { status: "ready"; guest: { id: number; name: string } };
+  | { status: "ready"; guest: { id: number; name: string } | null };
 
 /**
  * There's no self-service registration - this page is the only way to
@@ -41,7 +41,7 @@ export function AcceptInvite() {
     getInvite(token)
       .then((res) => {
         setState({ status: "ready", guest: res.guest });
-        setName(res.guest.name);
+        if (res.guest) setName(res.guest.name);
       })
       .catch((err) => {
         const message = err instanceof ApiClientError ? err.message : "This invite link isn't valid.";
@@ -91,7 +91,11 @@ export function AcceptInvite() {
         {state.status === "ready" && (
           <>
             <h1>You're invited</h1>
-            <p className="sub">Confirm or change your name, then set a password to finish setting up your account.</p>
+            <p className="sub">
+              {state.guest
+                ? "Confirm or change your name, then set a password to finish setting up your account."
+                : "Pick a name, then set a password to finish setting up your account."}
+            </p>
 
             {error && <div className="alert alert-error">{error}</div>}
 
@@ -100,7 +104,7 @@ export function AcceptInvite() {
                 {avatar ? (
                   <img className="player-avatar" src={URL.createObjectURL(avatar)} alt="" />
                 ) : (
-                  <div className="player-avatar-placeholder">{(name || state.guest.name).charAt(0).toUpperCase()}</div>
+                  <div className="player-avatar-placeholder">{(name || "?").charAt(0).toUpperCase()}</div>
                 )}
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
@@ -118,7 +122,13 @@ export function AcceptInvite() {
 
               <div className="field">
                 <label htmlFor="name">Name</label>
-                <input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
+                <input
+                  id="name"
+                  required
+                  placeholder={state.guest ? undefined : "Your name"}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </div>
               <div className="field">
                 <label htmlFor="email">Email (optional)</label>

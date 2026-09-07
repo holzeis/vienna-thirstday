@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { invites, players, users } from "../db/schema";
+import { inviteRedemptions, invites, players, users } from "../db/schema";
 import { signToken } from "../utils/jwt";
 import { ApiError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -36,7 +36,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const invite = await loadValidInvite(req.params.token);
     res.json({
-      guest: { id: invite.guestPlayer.id, name: invite.guestPlayer.name },
+      guest: invite.guestPlayer ? { id: invite.guestPlayer.id, name: invite.guestPlayer.name } : null,
     });
   })
 );
@@ -93,17 +93,22 @@ router.post(
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const avatarFields = resizedAvatar ? { avatarData: resizedAvatar.toString("base64"), avatarMimeType: "image/jpeg" } : {};
 
     const user = await db.transaction(async (tx) => {
-      // The guest player IS the account - no new player, no merge. It was
-      // already promoted (isGuest -> false) when the invite was created.
-      await tx
-        .update(players)
-        .set({
-          name,
-          ...(resizedAvatar ? { avatarData: resizedAvatar.toString("base64"), avatarMimeType: "image/jpeg" } : {}),
-        })
-        .where(eq(players.id, invite.guestPlayerId));
+      let playerId: number;
+      if (invite.guestPlayerId) {
+        // The guest player IS the account - no new player, no merge. It was
+        // already promoted (isGuest -> false) when the invite was created.
+        await tx.update(players).set({ name, ...avatarFields }).where(eq(players.id, invite.guestPlayerId));
+        playerId = invite.guestPlayerId;
+      } else {
+        // Open invite - no guest to promote, so this is a genuinely new
+        // player with no history. An admin can attach a guest's history to
+        // it afterward via the ordinary merge tool.
+        const [newPlayer] = await tx.insert(players).values({ name, isGuest: false, ...avatarFields }).returning();
+        playerId = newPlayer.id;
+      }
 
       const [createdUser] = await tx
         .insert(users)
@@ -111,11 +116,22 @@ router.post(
           email: normalizedEmail || null,
           passwordHash,
           isAdmin: false,
-          playerId: invite.guestPlayerId,
+          playerId,
         })
         .returning();
 
-      await tx.update(invites).set({ usedAt: new Date(), usedByUserId: createdUser.id }).where(eq(invites.id, invite.id));
+      // Only guest-linked invites are single-use - an open invite's usedAt
+      // stays null forever so it keeps working for the next person.
+      if (invite.guestPlayerId) {
+        await tx.update(invites).set({ usedAt: new Date(), usedByUserId: createdUser.id }).where(eq(invites.id, invite.id));
+      }
+
+      await tx.insert(inviteRedemptions).values({
+        inviteId: invite.id,
+        userId: createdUser.id,
+        playerId,
+        playerName: name,
+      });
 
       return createdUser;
     });

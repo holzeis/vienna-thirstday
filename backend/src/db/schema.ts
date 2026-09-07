@@ -161,16 +161,25 @@ export const playerGamedayStats = pgTable(
 );
 
 /**
- * Admin-issued onboarding links. There is no self-service registration and
- * no "brand new player" option - every invite starts from an existing guest
- * player, which is promoted (isGuest -> false) the moment the invite is
- * created. Whoever opens the link confirms/changes that player's name
- * (must be unique among account-linked players), sets a password, and
- * optionally a photo and an email. The token is the only credential needed
- * to onboard, so it's a long random string (see utils/inviteToken.ts)
- * rather than anything guessable. Kept in plaintext (not hashed) so an
- * admin can re-open the "Invites" list and copy a still-pending link again
- * without having to regenerate it.
+ * Admin-issued onboarding links. There is no self-service registration -
+ * this is the only way to create an account. Two kinds, told apart by
+ * whether guestPlayerId is set:
+ *  - Guest-linked: starts from an existing guest player, promoted
+ *    (isGuest -> false) the moment the invite is created. Single-use -
+ *    usedAt/usedByUserId are set on accept and gate a second attempt. Whoever
+ *    opens the link confirms/changes that player's name, so the resulting
+ *    account keeps the guest's full history with nothing to merge.
+ *  - Open (guestPlayerId null): no guest, no history - accepting one creates
+ *    a brand-new player from scratch. Reusable - usedAt is never set, so the
+ *    link keeps working (until expiry/revocation) for as many people as
+ *    accept it. An admin can attach a guest's history to the resulting
+ *    account afterward via the ordinary merge tool (playerMergeService.ts).
+ * Every acceptance of either kind is logged to inviteRedemptions, which is
+ * what lets the admin page show who joined via a given link. The token is
+ * the only credential needed to onboard, so it's a long random string (see
+ * utils/inviteToken.ts) rather than anything guessable. Kept in plaintext
+ * (not hashed) so an admin can re-open the "Invites" list and copy a
+ * still-pending link again without having to regenerate it.
  */
 export const invites = pgTable(
   "invites",
@@ -178,9 +187,7 @@ export const invites = pgTable(
     id: serial("id").primaryKey(),
     token: varchar("token", { length: 64 }).notNull().unique(),
     note: varchar("note", { length: 255 }),
-    guestPlayerId: integer("guest_player_id")
-      .notNull()
-      .references(() => players.id, { onDelete: "cascade" }),
+    guestPlayerId: integer("guest_player_id").references(() => players.id, { onDelete: "cascade" }),
     createdByUserId: integer("created_by_user_id")
       .notNull()
       .references(() => users.id),
@@ -192,6 +199,30 @@ export const invites = pgTable(
   },
   (t) => ({
     createdByIdx: index("invites_created_by_idx").on(t.createdByUserId),
+  })
+);
+
+/**
+ * One row per successful invite acceptance - for a guest-linked (single-use)
+ * invite there will only ever be one, but an open invite can rack up many.
+ * userId/playerId are nullable with ON DELETE SET NULL (same convention as
+ * accessEvents) so deleting the account later never deletes this history,
+ * only the live link; playerName is a snapshot for the same reason.
+ */
+export const inviteRedemptions = pgTable(
+  "invite_redemptions",
+  {
+    id: serial("id").primaryKey(),
+    inviteId: integer("invite_id")
+      .notNull()
+      .references(() => invites.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    playerId: integer("player_id").references(() => players.id, { onDelete: "set null" }),
+    playerName: varchar("player_name", { length: 255 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    inviteIdx: index("invite_redemptions_invite_idx").on(t.inviteId),
   })
 );
 
@@ -330,10 +361,17 @@ export const playerMergesRelations = relations(playerMerges, ({ one }) => ({
   mergedBy: one(users, { fields: [playerMerges.mergedByUserId], references: [users.id] }),
 }));
 
-export const invitesRelations = relations(invites, ({ one }) => ({
+export const invitesRelations = relations(invites, ({ one, many }) => ({
   guestPlayer: one(players, { fields: [invites.guestPlayerId], references: [players.id] }),
   createdBy: one(users, { fields: [invites.createdByUserId], references: [users.id] }),
   usedBy: one(users, { fields: [invites.usedByUserId], references: [users.id] }),
+  redemptions: many(inviteRedemptions),
+}));
+
+export const inviteRedemptionsRelations = relations(inviteRedemptions, ({ one }) => ({
+  invite: one(invites, { fields: [inviteRedemptions.inviteId], references: [invites.id] }),
+  user: one(users, { fields: [inviteRedemptions.userId], references: [users.id] }),
+  player: one(players, { fields: [inviteRedemptions.playerId], references: [players.id] }),
 }));
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
