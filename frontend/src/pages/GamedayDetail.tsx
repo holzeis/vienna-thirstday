@@ -177,6 +177,10 @@ export function GamedayDetail() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
+        <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
+      )}
+
       {gameday.status !== "COMPLETED" && (
         <div className="grid grid-2">
           <div className="card">
@@ -241,10 +245,6 @@ export function GamedayDetail() {
       )}
 
       {user?.isAdmin && <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />}
-
-      {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
-        <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
-      )}
     </div>
   );
 }
