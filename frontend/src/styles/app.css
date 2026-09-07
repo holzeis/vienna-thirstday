@@ -906,12 +906,18 @@ tr.me td:first-child {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--card);
+  /* Not --card: that's translucent in dark mode (a 6% white overlay meant
+     for cards sitting flush on the page background), and this toast is
+     fixed with no backdrop-filter - it floats over whatever's scrolled
+     underneath it, so a translucent background reads as broken/transparent
+     rather than glassy. Same reasoning as --tabbar-bg above. */
+  background: var(--tabbar-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 12px 14px;
   font-size: 13px;
+  color: var(--text);
 }
 
 .pwa-toast-actions {
