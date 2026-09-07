@@ -25,6 +25,29 @@ export function getAuthToken() {
   return authToken;
 }
 
+// Tracks whether the backend actually responded to the last request - not
+// navigator.onLine, which only reflects the device's network interface and
+// says nothing about whether our server is reachable. Every apiRequest call
+// updates this; subscribe via subscribeReachability to react to changes.
+type ReachabilityListener = (reachable: boolean) => void;
+let reachable = true;
+const reachabilityListeners = new Set<ReachabilityListener>();
+
+function setReachable(next: boolean) {
+  if (reachable === next) return;
+  reachable = next;
+  reachabilityListeners.forEach((listener) => listener(reachable));
+}
+
+export function getReachable(): boolean {
+  return reachable;
+}
+
+export function subscribeReachability(listener: ReachabilityListener): () => void {
+  reachabilityListeners.add(listener);
+  return () => reachabilityListeners.delete(listener);
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
@@ -34,11 +57,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: options.method || "GET",
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: options.method || "GET",
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+  } catch {
+    // A thrown fetch means the request never got a response at all (offline,
+    // DNS failure, connection refused, timeout) - as opposed to the server
+    // responding with an error status, which still means it's reachable.
+    setReachable(false);
+    throw new ApiClientError(0, "Could not reach the server");
+  }
+  setReachable(true);
 
   if (res.status === 204) {
     return undefined as T;

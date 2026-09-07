@@ -13,6 +13,11 @@ import type {
   User,
 } from "./types";
 
+/** Cheap, unauthenticated liveness check - used to detect/clear the "server unreachable" banner even on pages that otherwise make no requests. */
+export function getHealth() {
+  return apiRequest<{ status: string }>("/health");
+}
+
 // ---- auth ----
 
 export function login(name: string, password: string) {

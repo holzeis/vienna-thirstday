@@ -921,6 +921,14 @@ tr.me td:first-child {
   flex: none;
 }
 
+.pwa-toast-error {
+  background: var(--alert-error-bg);
+  border-color: var(--alert-error-border);
+  color: var(--alert-error-text);
+  justify-content: center;
+  font-weight: 600;
+}
+
 .auth-shell {
   min-height: 100%;
   display: flex;
