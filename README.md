@@ -42,9 +42,12 @@ Jan 1 – Dec 31 season standings table.
   automatically re-evaluates the list and can promote someone off the
   waitlist. See [How the rules work](#how-the-rules-work) for the exact logic.
 - **Teams & results.** Admins assign confirmed players to Team A / Team B
-  (any time before or after the gameday) and enter the final score. Points
-  and goal difference per player are computed automatically: win = 4 pts,
-  draw = 2 pts, loss = 1 pt, plus/minus the goal difference.
+  (any time before or after the gameday) - either by hand, or with
+  "Auto-assign by rank" (splits the registered roster in alternating order
+  by current season rank, unranked players last; still just fills in the
+  form, so the admin can tweak any pick before saving) - and enter the final
+  score. Points and goal difference per player are computed automatically:
+  win = 4 pts, draw = 2 pts, loss = 1 pt, plus/minus the goal difference.
 - **Season standings.** A season runs Jan 1 – Dec 31. Players are ranked by
   total points, then goal difference. Multiple seasons are kept and browsable.
 - **Onboarding imported/guest players into real accounts.** Historical players

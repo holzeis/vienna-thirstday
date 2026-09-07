@@ -7,12 +7,13 @@ import {
   deleteGameday,
   getGameday,
   getGamedayShareLink,
+  getStandings,
   listGuests,
   registerForGameday,
   setResult,
   setTeams,
 } from "../api/endpoints";
-import type { GamedayDetail as GamedayDetailType, Player, RegistrationView, Team } from "../api/types";
+import type { GamedayDetail as GamedayDetailType, Player, RegistrationView, StandingRow, Team } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
@@ -92,6 +93,9 @@ export function GamedayDetail() {
   const waitlisted = activeRegs.filter((r) => r.status === "WAITLISTED");
   const myRegistration = activeRegs.find((r) => r.player.id === player?.id);
   const registeredPlayerIds = activeRegs.map((r) => r.player.id);
+  // The result form only makes sense once the game has actually kicked off -
+  // entering it earlier would also flip the gameday to COMPLETED early.
+  const gameHasHappened = new Date(gameday.date).getTime() <= Date.now();
 
   async function doAction(fn: () => Promise<unknown>) {
     setError(null);
@@ -236,54 +240,10 @@ export function GamedayDetail() {
         </div>
       )}
 
-      {user?.isAdmin && <AdminSection gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />}
+      {user?.isAdmin && <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />}
 
-      {gameday.result && (
-        <div className="card">
-          <div className="card-title">Result</div>
-          <div className="score-box">
-            <span>{gameday.result.teamAScore}</span>
-            <span className="dash">:</span>
-            <span>{gameday.result.teamBScore}</span>
-          </div>
-          <div className="team-columns">
-            <div className="team-col">
-              <h4>Team A</h4>
-              <ul className="subtle-list">
-                {gameday.result.playerStats
-                  .filter((s) => s.team === "A")
-                  .map((s) => (
-                    <li key={s.id}>
-                      <Link to={`/players/${s.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                        {s.player.name}
-                      </Link>
-                      <span>
-                        {s.points} pts / {s.goalDiff > 0 ? `+${s.goalDiff}` : s.goalDiff} GD
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-            <div className="vs">VS</div>
-            <div className="team-col">
-              <h4>Team B</h4>
-              <ul className="subtle-list">
-                {gameday.result.playerStats
-                  .filter((s) => s.team === "B")
-                  .map((s) => (
-                    <li key={s.id}>
-                      <Link to={`/players/${s.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                        {s.player.name}
-                      </Link>
-                      <span>
-                        {s.points} pts / {s.goalDiff > 0 ? `+${s.goalDiff}` : s.goalDiff} GD
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          </div>
-        </div>
+      {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
+        <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
       )}
     </div>
   );
@@ -379,7 +339,7 @@ function GuestSignup({
   );
 }
 
-function AdminSection({
+function TeamsCard({
   gamedayId,
   gameday,
   activeRegs,
@@ -391,17 +351,9 @@ function AdminSection({
   onChanged: () => void;
 }) {
   const [assignments, setAssignments] = useState<Record<number, Team | "">>({});
-  // Kept as free-form text while typing (not a live-parsed number) so an
-  // empty result starts blank instead of "0", and clearing the field to
-  // enter a new score doesn't immediately snap back to "0" mid-edit.
-  const [teamAScore, setTeamAScore] = useState(gameday.result ? String(gameday.result.teamAScore) : "");
-  const [teamBScore, setTeamBScore] = useState(gameday.result ? String(gameday.result.teamBScore) : "");
+  const [standings, setStandings] = useState<StandingRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  // The result form only makes sense once the game has actually kicked off -
-  // entering it earlier would also flip the gameday to COMPLETED early.
-  const gameHasHappened = new Date(gameday.date).getTime() <= Date.now();
 
   useEffect(() => {
     const initial: Record<number, Team | ""> = {};
@@ -411,15 +363,15 @@ function AdminSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameday.id, gameday.teamAssignments.length]);
 
-  /** Digits only while typing; blank/invalid resolves to 0 only once, at save time. */
-  function sanitizeScoreInput(raw: string): string {
-    return raw.replace(/[^0-9]/g, "");
-  }
-
-  function parseScore(raw: string): number {
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  }
+  // Ranked against the season the gameday falls in - "auto-assign" is a
+  // one-off suggestion based on the standings as they stand right now, not
+  // something that needs to stay in sync afterward.
+  useEffect(() => {
+    const year = new Date(gameday.date).getUTCFullYear();
+    getStandings(year)
+      .then((res) => setStandings(res.standings))
+      .catch(() => setStandings([]));
+  }, [gameday.date]);
 
   async function saveTeams() {
     setError(null);
@@ -437,22 +389,33 @@ function AdminSection({
     }
   }
 
-  async function saveResult() {
-    setError(null);
-    setBusy(true);
-    try {
-      await setResult(gamedayId, parseScore(teamAScore), parseScore(teamBScore));
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Could not save result");
-    } finally {
-      setBusy(false);
-    }
+  /**
+   * Fills in a suggested split by season rank - alternating pick order
+   * (best-ranked -> A, next -> B, next -> A, ...), not a true snake draft,
+   * so an odd-sized group always leaves Team A with the extra player.
+   * Anyone with no standings entry yet (a guest, or no games played this
+   * season) sorts after every ranked player, in their existing registration
+   * order, rather than being skipped. Just fills the table below - nothing
+   * is saved until "Save teams" is clicked, so the admin can still tweak
+   * individual picks first.
+   */
+  function autoAssignByRank() {
+    const rankByPlayer = new Map((standings ?? []).map((s) => [s.playerId, s.rank]));
+    const sorted = [...activeRegs].sort((a, b) => {
+      const rankA = rankByPlayer.get(a.player.id) ?? Infinity;
+      const rankB = rankByPlayer.get(b.player.id) ?? Infinity;
+      return rankA - rankB;
+    });
+    const next: Record<number, Team | ""> = {};
+    sorted.forEach((r, index) => {
+      next[r.player.id] = index % 2 === 0 ? "A" : "B";
+    });
+    setAssignments(next);
   }
 
   return (
     <div className="card">
-      <div className="card-title">Admin: teams &amp; result</div>
+      <div className="card-title">Teams</div>
       {error && <div className="alert alert-error">{error}</div>}
 
       {activeRegs.length === 0 ? (
@@ -490,19 +453,69 @@ function AdminSection({
             </tbody>
           </table>
 
-          <div style={{ marginTop: 16, textAlign: "center" }}>
-            <button className="btn" disabled={busy} onClick={saveTeams}>
+          <div style={{ marginTop: 16, textAlign: "center", display: "flex", gap: 8, justifyContent: "center" }}>
+            <button className="btn" disabled={busy || standings === null} onClick={autoAssignByRank}>
+              Auto-assign by rank
+            </button>
+            <button className="btn btn-primary" disabled={busy} onClick={saveTeams}>
               {busy ? "Saving..." : "Save teams"}
             </button>
           </div>
         </>
       )}
+    </div>
+  );
+}
 
-      {gameHasHappened && (
+function ResultCard({
+  gamedayId,
+  gameday,
+  isAdmin,
+  onChanged,
+}: {
+  gamedayId: number;
+  gameday: GamedayDetailType;
+  isAdmin: boolean;
+  onChanged: () => void;
+}) {
+  // Kept as free-form text while typing (not a live-parsed number) so an
+  // empty result starts blank instead of "0", and clearing the field to
+  // enter a new score doesn't immediately snap back to "0" mid-edit.
+  const [teamAScore, setTeamAScore] = useState(gameday.result ? String(gameday.result.teamAScore) : "");
+  const [teamBScore, setTeamBScore] = useState(gameday.result ? String(gameday.result.teamBScore) : "");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /** Digits only while typing; blank/invalid resolves to 0 only once, at save time. */
+  function sanitizeScoreInput(raw: string): string {
+    return raw.replace(/[^0-9]/g, "");
+  }
+
+  function parseScore(raw: string): number {
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  async function saveResult() {
+    setError(null);
+    setBusy(true);
+    try {
+      await setResult(gamedayId, parseScore(teamAScore), parseScore(teamBScore));
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not save result");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <div className="card-title">Result</div>
+      {error && <div className="alert alert-error">{error}</div>}
+
+      {isAdmin ? (
         <>
-          <div className="divider" />
-
-          <div className="card-title">Result</div>
           <div className="score-entry">
             <div className="field">
               <label>Team A</label>
@@ -528,11 +541,57 @@ function AdminSection({
               />
             </div>
           </div>
-
           <div style={{ marginTop: 16, textAlign: "center" }}>
             <button className="btn btn-primary" disabled={busy} onClick={saveResult}>
               {busy ? "Saving..." : "Save result"}
             </button>
+          </div>
+        </>
+      ) : (
+        gameday.result && (
+          <div className="score-box">
+            <span>{gameday.result.teamAScore}</span>
+            <span className="dash">:</span>
+            <span>{gameday.result.teamBScore}</span>
+          </div>
+        )
+      )}
+
+      {gameday.result && (
+        <>
+          {isAdmin && <div className="divider" />}
+          <div className="team-columns">
+            <div className="team-col">
+              <h4>Team A</h4>
+              <ul className="subtle-list">
+                {gameday.result.playerStats
+                  .filter((s) => s.team === "A")
+                  .map((s) => (
+                    <li key={s.id}>
+                      <Link to={`/players/${s.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        {s.player.name}
+                      </Link>
+                      <span>{s.points} pts</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+            <div className="vs">VS</div>
+            <div className="team-col">
+              <h4>Team B</h4>
+              <ul className="subtle-list">
+                {gameday.result.playerStats
+                  .filter((s) => s.team === "B")
+                  .map((s) => (
+                    <li key={s.id}>
+                      <Link to={`/players/${s.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        {s.player.name}
+                      </Link>
+                      <span>{s.points} pts</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
           </div>
         </>
       )}
