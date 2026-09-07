@@ -5,7 +5,7 @@ import { parseUserAgent } from "../utils/userAgent";
 
 interface RecordAccessEventInput {
   req: Request;
-  eventType: "LOGIN" | "GUEST_REGISTER";
+  eventType: "LOGIN" | "GUEST_REGISTER" | "APP_OPEN";
   isGuest: boolean;
   playerId: number | null;
   playerName: string;

@@ -66,6 +66,39 @@ describe("POST /auth/login records an access event", () => {
   });
 });
 
+describe("GET /auth/me records an access event", () => {
+  it("records an APP_OPEN event on every call, not just after a fresh login", async () => {
+    const { player, user, password } = await createAdmin();
+    const token = (await request(app).post("/api/auth/login").send({ name: "Admin", password })).body.token as string;
+
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("User-Agent", IOS_SAFARI_UA)
+      .set("X-Standalone", "1")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+
+    const row = await findLatestAccessEvent();
+    expect(row).toMatchObject({
+      eventType: "APP_OPEN",
+      isGuest: false,
+      playerId: player.id,
+      playerName: player.name,
+      userId: user.id,
+      os: "iOS",
+      isPwa: true,
+    });
+  });
+
+  it("does not record an event for an unauthenticated request", async () => {
+    await request(app).get("/api/auth/me");
+
+    await new Promise((r) => setTimeout(r, 50));
+    const row = await db.query.accessEvents.findFirst();
+    expect(row).toBeUndefined();
+  });
+});
+
 describe("POST /gameday-share/:token/register-guest records an access event", () => {
   it("records a GUEST_REGISTER event with no linked user", async () => {
     const { user, password } = await createAdmin();

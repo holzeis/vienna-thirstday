@@ -79,7 +79,24 @@ router.get(
       with: { player: true },
     });
     if (!user) throw ApiError.notFound("User not found");
-    res.json({ user: sanitizeUser(user), player: (user as any).player ?? null });
+    const player = (user as any).player ?? null;
+
+    // Called once per app load/PWA launch (see auth/AuthContext.tsx) whether
+    // or not the JWT needed refreshing - unlike LOGIN, this fires every time
+    // regardless of token age, so it's the actual "how often is the app
+    // used" signal rather than "how often did someone re-authenticate".
+    if (player) {
+      await recordAccessEvent({
+        req,
+        eventType: "APP_OPEN",
+        isGuest: false,
+        playerId: user.playerId,
+        playerName: player.name,
+        userId: user.id,
+      });
+    }
+
+    res.json({ user: sanitizeUser(user), player });
   })
 );
 

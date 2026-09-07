@@ -26,7 +26,7 @@ import { relations } from "drizzle-orm";
 export const gamedayStatusEnum = pgEnum("gameday_status", ["OPEN", "CLOSED", "CANCELLED", "COMPLETED"]);
 export const registrationStatusEnum = pgEnum("registration_status", ["CONFIRMED", "WAITLISTED", "CANCELLED"]);
 export const teamEnum = pgEnum("team", ["A", "B"]);
-export const accessEventTypeEnum = pgEnum("access_event_type", ["LOGIN", "GUEST_REGISTER"]);
+export const accessEventTypeEnum = pgEnum("access_event_type", ["LOGIN", "GUEST_REGISTER", "APP_OPEN"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -245,8 +245,12 @@ export const playerMerges = pgTable("player_merges", {
  * than through the app - so this deliberately denormalizes playerName/isGuest
  * onto the row instead of requiring a join, and keeps the raw userAgent
  * string alongside the parsed os/browser/deviceType so a misclassification
- * can be re-examined later. One row per LOGIN (routes/auth.ts) or
- * GUEST_REGISTER (routes/gamedayShare.ts) event - not a full page-view log.
+ * can be re-examined later. One row per LOGIN (routes/auth.ts, only fires on
+ * an actual credentials submit - not while a cached JWT is still valid),
+ * GUEST_REGISTER (routes/gamedayShare.ts), or APP_OPEN (routes/auth.ts's
+ * GET /me, called once per app load/PWA launch regardless of whether the
+ * token needed refreshing - this is the "how often is the app actually
+ * used" signal, distinct from LOGIN) event - not a full page-view log.
  */
 export const accessEvents = pgTable(
   "access_events",

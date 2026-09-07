@@ -404,7 +404,8 @@ Cloudflare's edge and leave the last hop in plaintext."
 
 ## Usage metrics
 
-Every login (`POST /auth/login`) and guest sign-up via a share link
+Every login (`POST /auth/login`), authenticated app load
+(`GET /auth/me`), and guest sign-up via a share link
 (`POST /gameday-share/:token/register-guest`) writes one row to the
 `access_events` table: who (player id/name, or a guest with no linked
 account), when, and their OS/browser/device type (parsed server-side from
@@ -416,8 +417,15 @@ plain table meant to be queried directly with SQL, not surfaced anywhere in
 the app itself - point a BI tool like [Metabase](https://www.metabase.com/)
 at the same Postgres database and build dashboards from it.
 
-Columns: `occurred_at`, `event_type` (`LOGIN` | `GUEST_REGISTER`),
-`is_guest`, `player_id` (nullable - stays if the player is later deleted),
+`LOGIN` only fires on an actual credentials submit, so it undercounts real
+usage once someone's JWT is cached (it lasts 7 days by default -
+`JWT_EXPIRES_IN`). `APP_OPEN` fires on every `GET /auth/me` instead - called
+once per app load/PWA launch regardless of token age (see
+`frontend/src/auth/AuthContext.tsx`) - so it's the metric to use for "how
+often is the app actually used", not `LOGIN`.
+
+Columns: `occurred_at`, `event_type` (`LOGIN` | `GUEST_REGISTER` |
+`APP_OPEN`), `is_guest`, `player_id` (nullable - stays if the player is later deleted),
 `player_name` (a snapshot, so a later rename doesn't rewrite history),
 `user_id` (null for guests), `os`, `browser`, `device_type`
 (`mobile`/`tablet`/`desktop`), `is_pwa` (null if the client didn't send the
@@ -432,17 +440,17 @@ of that file) against whichever database you're connecting to.
 Example queries once connected:
 
 ```sql
--- Logins per player, per day
+-- App opens per player, per day - actual usage, not just re-logins
 SELECT player_name, date_trunc('day', occurred_at) AS day, count(*)
 FROM access_events
-WHERE event_type = 'LOGIN'
+WHERE event_type = 'APP_OPEN'
 GROUP BY player_name, day
 ORDER BY day DESC;
 
--- Logins per week, across everyone
+-- App opens per week, across everyone
 SELECT date_trunc('week', occurred_at) AS week, count(*)
 FROM access_events
-WHERE event_type = 'LOGIN'
+WHERE event_type = 'APP_OPEN'
 GROUP BY week
 ORDER BY week DESC;
 
