@@ -1,8 +1,12 @@
 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient gradientUnits="userSpaceOnUse" id="g1cd" x1="0" y1="163" x2="200" y2="47"><stop offset="0" stop-color="#ff7a45"/><stop offset="1" stop-color="#ff5da2"/></linearGradient></defs>
-  <line x1="58" y1="60" x2="46" y2="44" stroke="#3a2418" stroke-width="6" stroke-linecap="round"/>
-  <line x1="142" y1="60" x2="154" y2="44" stroke="#3a2418" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="100" cy="105" r="58" fill="url(#g1cd)"/>
-  <polygon points="100,74 123,92 114,121 87,121 77,92" fill="#3a2418" opacity=".8"/>
-  <line x1="30" y1="163" x2="170" y2="163" stroke="#3a2418" stroke-width="6" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="15" y1="185" x2="185" y2="15">
+      <stop offset="0" stop-color="#ff7a45"/>
+      <stop offset="1" stop-color="#ff5da2"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="88" fill="none" stroke="url(#ring)" stroke-width="14"/>
+  <circle cx="100" cy="100" r="54" fill="none" stroke="#3a2418" stroke-width="5"/>
+  <polygon points="100.00,73.00 125.68,91.66 115.87,121.84 84.13,121.84 74.32,91.66" fill="#3a2418"/>
+  <line x1="100.00" y1="71.00" x2="100.00" y2="57.00" stroke="#3a2418" stroke-width="4" stroke-linecap="round"/><line x1="127.58" y1="91.04" x2="140.90" y2="86.71" stroke="#3a2418" stroke-width="4" stroke-linecap="round"/><line x1="117.05" y1="123.46" x2="125.27" y2="134.79" stroke="#3a2418" stroke-width="4" stroke-linecap="round"/><line x1="82.95" y1="123.46" x2="74.73" y2="134.79" stroke="#3a2418" stroke-width="4" stroke-linecap="round"/><line x1="72.42" y1="91.04" x2="59.10" y2="86.71" stroke="#3a2418" stroke-width="4" stroke-linecap="round"/>
 </svg>
