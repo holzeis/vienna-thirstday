@@ -1112,6 +1112,35 @@ tr.me td:first-child {
   margin: 18px 0;
 }
 
+.pull-refresh {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 50%;
+  z-index: 25;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.pull-refresh-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.pull-refresh-mark .brand-mark,
+.pull-refresh-mark .brand-mark img {
+  width: 100%;
+  height: 100%;
+}
+
+.pull-refresh-mark-spinning {
+  animation: app-loading-spin 1.4s linear infinite;
+}
+
 .subtle-list {
   list-style: none;
   padding: 0;

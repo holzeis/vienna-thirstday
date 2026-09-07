@@ -5,6 +5,7 @@ import { Layout } from "./components/Layout";
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import { InstallPwaPrompt } from "./components/InstallPwaPrompt";
 import { ServerOfflineBanner } from "./components/ServerOfflineBanner";
+import { PullToRefresh } from "./components/PullToRefresh";
 import { ToastHost, ToastProvider } from "./toast/ToastContext";
 import { Login } from "./pages/Login";
 import { AcceptInvite } from "./pages/AcceptInvite";
@@ -21,6 +22,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
+        <PullToRefresh />
         <div className="pwa-toast-stack">
           <ServerOfflineBanner />
           <PwaUpdatePrompt />
