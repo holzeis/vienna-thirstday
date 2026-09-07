@@ -180,6 +180,11 @@ export function deleteGameday(id: number) {
   return apiRequest<void>(`/gamedays/${id}`, { method: "DELETE" });
 }
 
+/** Cancels a gameday (e.g. too few players) - keeps it and its registrations around as a record, unlike delete. */
+export function cancelGameday(id: number) {
+  return apiRequest<{ gameday: GamedayDetail }>(`/gamedays/${id}/cancel`, { method: "POST" });
+}
+
 export function registerForGameday(gamedayId: number, playerId?: number) {
   return apiRequest<{ message: string }>(`/gamedays/${gamedayId}/register`, {
     method: "POST",

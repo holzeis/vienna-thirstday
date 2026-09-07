@@ -86,6 +86,16 @@ export async function notifyNewGameday(db: DbOrTx, gameday: { id: number; date: 
   });
 }
 
+/** Notifies every player (confirmed or waitlisted) that the gameday they signed up for has been cancelled. */
+export async function notifyGamedayCancelled(db: DbOrTx, playerIds: number[], gameday: { id: number; date: Date }): Promise<void> {
+  const userIds = await userIdsForPlayers(db, playerIds);
+  await sendPushToUsers(db, userIds, {
+    title: "Matchday cancelled",
+    body: `${dateLabel(gameday.date)} has been cancelled.`,
+    url: `/gamedays/${gameday.id}`,
+  });
+}
+
 /** Notifies specific players (by player id) that they've been moved off the waitlist onto the confirmed list. */
 export async function notifyPromotedFromWaitlist(db: DbOrTx, playerIds: number[], gameday: { id: number; date: Date }): Promise<void> {
   const userIds = await userIdsForPlayers(db, playerIds);

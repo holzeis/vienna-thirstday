@@ -6,18 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../api/client";
 import { formatMatchdayDate, toDatetimeLocalValue } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
-
-const statusClass: Record<string, string> = {
-  OPEN: "badge-open",
-  COMPLETED: "badge-completed",
-  CANCELLED: "badge-cancelled",
-  CLOSED: "badge-completed",
-};
-
-// "Completed" ran wide on the mobile table - same meaning, half the width.
-const statusLabel: Record<string, string> = {
-  COMPLETED: "Done",
-};
+import { statusClass, statusLabel } from "../utils/gamedayStatus";
 
 export function GamedaysList() {
   const { user } = useAuth();

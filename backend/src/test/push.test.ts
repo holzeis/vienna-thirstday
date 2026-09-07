@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
-import { pushSubscriptions } from "../db/schema";
+import { gamedays, pushSubscriptions } from "../db/schema";
 import { resetDb, closeDb, createAdmin, createOpenGameday } from "./helpers";
 
 vi.mock("web-push", () => ({
@@ -211,5 +211,47 @@ describe("registration threshold notifications", () => {
     expect(payloadsSent()[0]).toMatchObject({ title: "You're in!" });
     const promoted = candidates.find((c) => c.player.id === waitlisted.player.id)!;
     expect(endpointsNotified()).toEqual([promoted.endpoint]);
+  });
+});
+
+describe("POST /gamedays/:id/cancel", () => {
+  it("cancels an open gameday and notifies everyone registered, confirmed or waitlisted", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    // minPlayers/maxPlayers set high enough that none of these 3 registrations
+    // cross a confirm/waitlist threshold - keeps this test's notification
+    // count isolated to the cancellation itself, not registration side effects.
+    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 10, maxPlayers: 10 });
+    const candidates = [await createSubscribedCandidate(1), await createSubscribedCandidate(2), await createSubscribedCandidate(3)];
+    for (const c of candidates) await registerCandidate(token, gameday.id, c.player.id);
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.gameday.status).toBe("CANCELLED");
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(3));
+    expect(payloadsSent().every((p) => p.title === "Matchday cancelled")).toBe(true);
+    expect(endpointsNotified().sort()).toEqual(candidates.map((c) => c.endpoint).sort());
+  });
+
+  it("rejects cancelling an already-cancelled gameday", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects cancelling a gameday that's already been played", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    await db.update(gamedays).set({ status: "COMPLETED" }).where(eq(gamedays.id, gameday.id));
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(400);
   });
 });

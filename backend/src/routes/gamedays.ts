@@ -7,7 +7,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
 import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
-import { notifyNewGameday } from "../services/pushService";
+import { notifyGamedayCancelled, notifyNewGameday } from "../services/pushService";
 import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
@@ -187,6 +187,41 @@ router.patch(
     }
 
     res.json({ gameday: updated });
+  })
+);
+
+/**
+ * Admin cancels a gameday (e.g. too few players signed up) - unlike delete,
+ * this keeps the gameday and its registrations around as a historical
+ * record, just flagged CANCELLED. Notifies everyone currently registered
+ * (confirmed or waitlisted).
+ */
+router.post(
+  "/:id/cancel",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, id) });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+    if (gameday.status === "CANCELLED") throw ApiError.conflict("This matchday is already cancelled");
+    if (gameday.status === "COMPLETED") throw ApiError.badRequest("This matchday has already been played");
+
+    const activeRegs = await db.query.registrations.findMany({
+      where: and(eq(registrations.gamedayId, id), ne(registrations.status, "CANCELLED")),
+    });
+
+    const [updated] = await db
+      .update(gamedays)
+      .set({ status: "CANCELLED", updatedAt: new Date() })
+      .where(eq(gamedays.id, id))
+      .returning();
+
+    res.json({ gameday: updated });
+    notifyGamedayCancelled(
+      db,
+      activeRegs.map((r) => r.playerId),
+      updated
+    ).catch((err) => console.error("notifyGamedayCancelled failed:", err));
   })
 );
 

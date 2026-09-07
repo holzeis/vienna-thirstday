@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  cancelGameday,
   cancelRegistration,
   createGuest,
   deleteGameday,
@@ -17,18 +18,7 @@ import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { useToast } from "../toast/ToastContext";
-
-const statusClass: Record<string, string> = {
-  OPEN: "badge-open",
-  COMPLETED: "badge-completed",
-  CANCELLED: "badge-cancelled",
-  CLOSED: "badge-completed",
-};
-
-// "Completed" ran wide on the mobile table - same meaning, half the width.
-const statusLabel: Record<string, string> = {
-  COMPLETED: "Done",
-};
+import { statusClass, statusLabel } from "../utils/gamedayStatus";
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -47,6 +37,13 @@ const TrashIcon = () => (
     <path d="M10 11v6" />
     <path d="M14 11v6" />
     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+  </svg>
+);
+
+const CancelIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <line x1="8" y1="8" x2="16" y2="16" />
   </svg>
 );
 
@@ -142,6 +139,11 @@ export function GamedayDetail() {
     }
   }
 
+  async function handleCancel() {
+    if (!window.confirm("Cancel this matchday? Everyone currently signed up will be notified.")) return;
+    doAction(() => cancelGameday(gamedayId));
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -152,6 +154,11 @@ export function GamedayDetail() {
           {gameday.status === "OPEN" && (
             <button className="icon-btn" aria-label="Copy sign-up link" title={shareStatus === "copied" ? "Copied!" : "Copy sign-up link"} onClick={shareLink}>
               <ShareIcon />
+            </button>
+          )}
+          {user?.isAdmin && (gameday.status === "OPEN" || gameday.status === "CLOSED") && (
+            <button className="icon-btn icon-btn-danger" aria-label="Cancel matchday" title="Cancel matchday" disabled={busy} onClick={handleCancel}>
+              <CancelIcon />
             </button>
           )}
           {user?.isAdmin && (
