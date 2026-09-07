@@ -74,9 +74,10 @@ export const gamedays = pgTable(
     // Nullable because it's generated lazily on first request, not at
     // gameday creation - most gamedays are never shared.
     shareToken: varchar("share_token", { length: 64 }).unique(),
-    createdByUserId: integer("created_by_user_id")
-      .notNull()
-      .references(() => users.id),
+    // Nullable, ON DELETE SET NULL: deleting the admin who created this
+    // gameday must never be blocked by, or destroy, real game history - see
+    // routes/adminUsers.ts's DELETE /:id.
+    createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -97,9 +98,10 @@ export const registrations = pgTable(
       .references(() => players.id),
     status: registrationStatusEnum("status").notNull().default("CONFIRMED"),
     signupAt: timestamp("signup_at", { withTimezone: true }).notNull().defaultNow(),
-    registeredByUserId: integer("registered_by_user_id")
-      .notNull()
-      .references(() => users.id),
+    // Nullable, ON DELETE SET NULL: who performed the sign-up is separate
+    // from who it's for (playerId) - deleting that user's account must
+    // never delete or block deleting someone else's registration.
+    registeredByUserId: integer("registered_by_user_id").references(() => users.id, { onDelete: "set null" }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   },
   (t) => ({
@@ -133,9 +135,8 @@ export const results = pgTable("results", {
     .references(() => gamedays.id, { onDelete: "cascade" }),
   teamAScore: integer("team_a_score").notNull(),
   teamBScore: integer("team_b_score").notNull(),
-  enteredByUserId: integer("entered_by_user_id")
-    .notNull()
-    .references(() => users.id),
+  // Nullable, ON DELETE SET NULL - same reasoning as gamedays.createdByUserId.
+  enteredByUserId: integer("entered_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -188,12 +189,12 @@ export const invites = pgTable(
     token: varchar("token", { length: 64 }).notNull().unique(),
     note: varchar("note", { length: 255 }),
     guestPlayerId: integer("guest_player_id").references(() => players.id, { onDelete: "cascade" }),
-    createdByUserId: integer("created_by_user_id")
-      .notNull()
-      .references(() => users.id),
+    // Nullable, ON DELETE SET NULL - deleting the admin who issued or
+    // accepted an invite must never be blocked by, or destroy, that invite.
+    createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
-    usedByUserId: integer("used_by_user_id").references(() => users.id),
+    usedByUserId: integer("used_by_user_id").references(() => users.id, { onDelete: "set null" }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -261,9 +262,9 @@ export const playerMerges = pgTable("player_merges", {
   targetPlayerId: integer("target_player_id")
     .notNull()
     .references(() => players.id, { onDelete: "cascade" }),
-  mergedByUserId: integer("merged_by_user_id")
-    .notNull()
-    .references(() => users.id),
+  // Nullable, ON DELETE SET NULL - deleting the admin who performed a merge
+  // must never be blocked by, or destroy, that audit log entry.
+  mergedByUserId: integer("merged_by_user_id").references(() => users.id, { onDelete: "set null" }),
   movedRegistrationIds: text("moved_registration_ids").notNull(),
   movedTeamAssignmentIds: text("moved_team_assignment_ids").notNull(),
   movedStatIds: text("moved_stat_ids").notNull(),

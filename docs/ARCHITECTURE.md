@@ -155,3 +155,21 @@ update this document to reflect a deliberate change.
    backend's `migrate` initContainer applies any pending schema migration
    first. Manual `kubectl apply` is only needed for the k8s manifests
    themselves (a new/changed resource, not an app code change).
+8. **Deleting a user's login never deletes, or is blocked by, anything that
+   references them.** If they have a linked player, it reverts to a guest
+   (`is_guest → true`, same as revoking an unused invite) rather than being
+   touched — every registration, team assignment, and gameday stat stays
+   exactly as it was, so no other player's stats are ever affected either.
+   Every "who did this" attribution column that points at `users`
+   (`gamedays.created_by_user_id`, `results.entered_by_user_id`,
+   `registrations.registered_by_user_id`, `invites.created_by_user_id`,
+   `invites.used_by_user_id`, `player_merges.merged_by_user_id`) is nullable
+   with `ON DELETE SET NULL` for the same reason — see
+   `routes/adminUsers.ts` and `docs/DATA_MODEL.md`. Why: an account should
+   always be removable without an admin having to first hunt down and
+   detach every row it's ever touched, and without silently erasing real
+   league history to do it. This is deliberately *not* a GDPR erasure
+   feature — the player's name, photo, and full activity history (including
+   `access_events`) survive untouched; it only removes login credentials.
+   A genuine "erase my data" action, if ever needed, would be a separate,
+   explicit feature that anonymizes those fields instead.

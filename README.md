@@ -40,7 +40,12 @@ Jan 1 – Dec 31 season standings table.
   separate approval step. Links expire on a configurable timer (default 7
   days, up to 90); revoking a guest-linked invite reverts the guest
   promotion (an open invite has none to revert). Any account can also be
-  granted the `Admin` role.
+  granted the `Admin` role. Deleting an account (Admin → Users) only ever
+  removes the login - email, password, push subscriptions - never that
+  person's history: their player reverts to a guest (same as an unused
+  invite being revoked), so every registration, team assignment, and
+  gameday stat stays exactly as it was, unaffected, and can later be
+  re-invited or merged into another account like any other guest.
 - **Guests.** Any logged-in user can create reusable guest profiles and bring
   them to gamedays. Guests count toward a gameday's capacity/waitlist but are
   excluded from the season standings table.

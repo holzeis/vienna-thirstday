@@ -27,7 +27,7 @@ function serializeInvite(invite: {
   token: string;
   note: string | null;
   guestPlayer: { id: number; name: string } | null;
-  createdBy: { id: number; email: string | null };
+  createdBy: { id: number; email: string | null } | null;
   expiresAt: Date;
   usedAt: Date | null;
   usedBy: { id: number; email: string | null } | null;
@@ -42,7 +42,8 @@ function serializeInvite(invite: {
     guestPlayer: invite.guestPlayer ? { id: invite.guestPlayer.id, name: invite.guestPlayer.name } : null,
     // Pick only the safe fields - the `with` relation include below hands us
     // the full raw user row (passwordHash included), so never spread it.
-    createdBy: { id: invite.createdBy.id, email: invite.createdBy.email },
+    // Null once the admin who issued this invite is later deleted.
+    createdBy: invite.createdBy ? { id: invite.createdBy.id, email: invite.createdBy.email } : null,
     expiresAt: invite.expiresAt,
     usedAt: invite.usedAt,
     usedBy: invite.usedBy ? { id: invite.usedBy.id, email: invite.usedBy.email } : null,

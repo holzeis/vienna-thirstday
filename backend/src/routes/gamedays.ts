@@ -120,7 +120,9 @@ router.get(
             status: r.status,
             signupAt: r.signupAt,
             player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest },
-            registeredBy: { id: r.registeredBy.id, email: r.registeredBy.email },
+            // Null once the registering user's own account is later deleted
+            // - the registration itself (and who it's for) is unaffected.
+            registeredBy: r.registeredBy ? { id: r.registeredBy.id, email: r.registeredBy.email } : null,
           })),
       },
     });

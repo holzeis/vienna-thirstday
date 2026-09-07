@@ -5,8 +5,8 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { createApp } from "../app";
 import { db } from "../db/client";
-import { gamedays, invites, players, users } from "../db/schema";
-import { resetDb, closeDb, createAdmin, createGuestPlayer } from "./helpers";
+import { gamedays, invites, playerGamedayStats, playerMerges, players, registrations, results, users } from "../db/schema";
+import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday, createCompletedGameday } from "./helpers";
 
 const app = createApp();
 
@@ -475,16 +475,133 @@ describe("DELETE /admin/users/:id", () => {
     expect(res2.status).toBe(404);
   });
 
-  it("refuses to delete a user with real activity (e.g. a registration)", async () => {
+  it("reverts the deleted user's own player to a guest, keeping their stats intact", async () => {
     const { password } = await createAdmin("Admin");
     const token = await loginAs("Admin", password);
     const otherHash = await bcrypt.hash("password123", 10);
     const [otherPlayer] = await db.insert(players).values({ name: "Active Player", isGuest: false }).returning();
     const [otherUser] = await db.insert(users).values({ passwordHash: otherHash, isAdmin: false, playerId: otherPlayer.id }).returning();
-    await db.insert(gamedays).values({ date: new Date(), status: "OPEN", createdByUserId: otherUser.id });
+    await createCompletedGameday(otherUser.id, new Date("2025-06-05T18:00:00Z"), { teamA: 4, teamB: 1 }, [
+      { playerId: otherPlayer.id, team: "A", points: 4, goalDiff: 3 },
+    ]);
 
     const res = await request(app).delete(`/api/admin/users/${otherUser.id}`).set("Authorization", `Bearer ${token}`);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(204);
+
+    const player = await db.query.players.findFirst({ where: eq(players.id, otherPlayer.id) });
+    expect(player?.isGuest).toBe(true);
+    expect(player?.name).toBe("Active Player");
+
+    const stats = await db.query.playerGamedayStats.findMany({ where: eq(playerGamedayStats.playerId, otherPlayer.id) });
+    expect(stats).toHaveLength(1);
+    expect(stats[0].points).toBe(4);
+  });
+
+  it("does not affect another player's stats when reverting one to a guest", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const otherHash = await bcrypt.hash("password123", 10);
+    const [otherPlayer] = await db.insert(players).values({ name: "To Delete", isGuest: false }).returning();
+    const [otherUser] = await db.insert(users).values({ passwordHash: otherHash, isAdmin: false, playerId: otherPlayer.id }).returning();
+    const [survivorPlayer] = await db.insert(players).values({ name: "Survivor", isGuest: false }).returning();
+
+    await createCompletedGameday(otherUser.id, new Date("2025-06-05T18:00:00Z"), { teamA: 4, teamB: 1 }, [
+      { playerId: otherPlayer.id, team: "A", points: 4, goalDiff: 3 },
+      { playerId: survivorPlayer.id, team: "B", points: 1, goalDiff: -3 },
+    ]);
+
+    const res = await request(app).delete(`/api/admin/users/${otherUser.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const survivorStats = await db.query.playerGamedayStats.findMany({ where: eq(playerGamedayStats.playerId, survivorPlayer.id) });
+    expect(survivorStats).toHaveLength(1);
+    expect(survivorStats[0].points).toBe(1);
+    expect(survivorStats[0].goalDiff).toBe(-3);
+  });
+
+  it("nulls the creator/enterer of a gameday and its result instead of blocking deletion", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const otherHash = await bcrypt.hash("password123", 10);
+    const [otherPlayer] = await db.insert(players).values({ name: "Organizer", isGuest: false }).returning();
+    const [otherUser] = await db.insert(users).values({ passwordHash: otherHash, isAdmin: false, playerId: otherPlayer.id }).returning();
+    const { gameday, result } = await createCompletedGameday(otherUser.id, new Date("2025-06-05T18:00:00Z"), { teamA: 3, teamB: 0 }, []);
+
+    const res = await request(app).delete(`/api/admin/users/${otherUser.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const survivingGameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gameday.id) });
+    expect(survivingGameday?.createdByUserId).toBeNull();
+    const survivingResult = await db.query.results.findFirst({ where: eq(results.id, result.id) });
+    expect(survivingResult?.enteredByUserId).toBeNull();
+    expect(survivingResult?.teamAScore).toBe(3);
+  });
+
+  it("nulls registeredByUserId on a registration this user made for someone else, without touching the registrant", async () => {
+    const { user: admin } = await createAdmin("Admin");
+    const password = "password123";
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(admin.id, new Date(Date.now() + 86400000));
+
+    const registrarHash = await bcrypt.hash("password123", 10);
+    const [registrarPlayer] = await db.insert(players).values({ name: "Registrar", isGuest: false }).returning();
+    const [registrarUser] = await db
+      .insert(users)
+      .values({ passwordHash: registrarHash, isAdmin: false, playerId: registrarPlayer.id })
+      .returning();
+
+    const guest = await createGuestPlayer("Brought Along");
+    const [reg] = await db
+      .insert(registrations)
+      .values({ gamedayId: gameday.id, playerId: guest.id, status: "CONFIRMED", registeredByUserId: registrarUser.id })
+      .returning();
+
+    const res = await request(app).delete(`/api/admin/users/${registrarUser.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const survivingReg = await db.query.registrations.findFirst({ where: eq(registrations.id, reg.id) });
+    expect(survivingReg?.registeredByUserId).toBeNull();
+    expect(survivingReg?.playerId).toBe(guest.id);
+    expect(survivingReg?.status).toBe("CONFIRMED");
+  });
+
+  it("nulls createdByUserId on an invite this user issued, instead of blocking deletion", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const issuerHash = await bcrypt.hash("password123", 10);
+    const [issuerPlayer] = await db.insert(players).values({ name: "Issuer", isGuest: false }).returning();
+    const [issuerUser] = await db.insert(users).values({ passwordHash: issuerHash, isAdmin: true, playerId: issuerPlayer.id }).returning();
+    const issuerToken = await loginAs("Issuer", "password123");
+    const guest = await createGuestPlayer("Some Guest");
+    const createRes = await createInviteForGuest(issuerToken, guest.id);
+
+    const res = await request(app).delete(`/api/admin/users/${issuerUser.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const survivingInvite = await db.query.invites.findFirst({ where: eq(invites.id, createRes.body.invite.id) });
+    expect(survivingInvite?.createdByUserId).toBeNull();
+    expect(survivingInvite?.token).toBe(createRes.body.invite.token);
+  });
+
+  it("nulls mergedByUserId on a merge log this user performed, instead of blocking deletion", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const mergerHash = await bcrypt.hash("password123", 10);
+    const [mergerPlayer] = await db.insert(players).values({ name: "Merger", isGuest: false }).returning();
+    const [mergerUser] = await db.insert(users).values({ passwordHash: mergerHash, isAdmin: true, playerId: mergerPlayer.id }).returning();
+    const mergerToken = await loginAs("Merger", "password123");
+    const guest = await createGuestPlayer("Merge Me");
+
+    await request(app)
+      .post(`/api/admin/players/${mergerPlayer.id}/merge`)
+      .set("Authorization", `Bearer ${mergerToken}`)
+      .send({ guestPlayerId: guest.id });
+
+    const res = await request(app).delete(`/api/admin/users/${mergerUser.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const merge = await db.query.playerMerges.findFirst({ where: eq(playerMerges.targetPlayerId, mergerPlayer.id) });
+    expect(merge?.mergedByUserId).toBeNull();
   });
 
   it("deletes a clean account with no activity", async () => {

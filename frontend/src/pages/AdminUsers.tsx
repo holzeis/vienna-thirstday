@@ -505,7 +505,7 @@ export function AdminUsers() {
                 <span>
                   <strong>{m.guestPlayerName}</strong> merged into <strong>{m.targetPlayer.name}</strong>
                   <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
-                    {formatDateTime(m.createdAt)} by {m.mergedBy.email || "an admin"}
+                    {formatDateTime(m.createdAt)} by {m.mergedBy?.email || "an admin"}
                     {m.undoneAt && " · undone"}
                   </div>
                 </span>

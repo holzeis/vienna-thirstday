@@ -1,7 +1,7 @@
 # Data model
 
 Postgres via Drizzle ORM. Source of truth: `backend/src/db/schema.ts`; migrations
-live in `backend/drizzle/` (current head: `0008_free_wolfpack.sql`). This document
+live in `backend/drizzle/` (current head: `0009_shiny_mephisto.sql`). This document
 should be updated whenever a table, column, or relationship changes — see
 `docs/ARCHITECTURE.md` and `CLAUDE.md`'s Documentation section.
 
@@ -125,6 +125,15 @@ Note: `gameday_status.OPEN` past kickoff with no result reads as `CLOSED`
 everywhere — this is computed on read (`effectiveGamedayStatus`, see
 `docs/ARCHITECTURE.md`), never written back to the row.
 
+Note: every "who did this" column that points at `users` — `gamedays
+.created_by_user_id`, `results.entered_by_user_id`,
+`registrations.registered_by_user_id`, `invites.created_by_user_id`,
+`invites.used_by_user_id`, `player_merges.merged_by_user_id` — is nullable
+with `ON DELETE SET NULL`. Deleting a user (see
+`routes/adminUsers.ts`) must never be blocked by, or destroy, the
+substantive record (the gameday, the result, the registration, the invite,
+the merge log) - it just anonymizes who's attributed to it.
+
 ## Tables
 
 ### Identity & access
@@ -168,7 +177,7 @@ never creates a second player.
 | `status` | `gameday_status` | see the computed-status note above |
 | `notes` | text | |
 | `share_token` | varchar(64) | unique, nullable — generated lazily on first share |
-| `created_by_user_id` | integer | FK → `users.id`, not null |
+| `created_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 | `created_at`, `updated_at` | timestamptz | |
 
 **`registrations`** — a player's signup for a gameday.
@@ -180,7 +189,7 @@ never creates a second player.
 | `player_id` | integer | FK → `players.id` |
 | `status` | `registration_status` | |
 | `signup_at`, `cancelled_at` | timestamptz | |
-| `registered_by_user_id` | integer | FK → `users.id` |
+| `registered_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 
 Unique on `(gameday_id, player_id)` — cancelling and re-registering reuses
 the same row.
@@ -205,7 +214,7 @@ Unique on `(gameday_id, player_id)`.
 | `id` | serial | PK |
 | `gameday_id` | integer | FK → `gamedays.id`, unique, cascade delete — one result per gameday |
 | `team_a_score`, `team_b_score` | integer | |
-| `entered_by_user_id` | integer | FK → `users.id` |
+| `entered_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 | `created_at`, `updated_at` | timestamptz | |
 
 **`player_gameday_stats`** — a precomputed points/goal-diff snapshot per
@@ -239,8 +248,8 @@ revoked, each acceptance creating a genuinely new player. See
 | `token` | varchar(64) | unique — stored in plaintext so an admin can re-copy an unused link |
 | `note` | varchar(255) | |
 | `guest_player_id` | integer | FK → `players.id`, cascade delete, **nullable** |
-| `created_by_user_id` | integer | FK → `users.id` |
-| `used_by_user_id` | integer | FK → `users.id`, nullable — only ever set for a guest-linked invite |
+| `created_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
+| `used_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` — only ever set for a guest-linked invite |
 | `expires_at`, `used_at`, `revoked_at` | timestamptz | |
 | `created_at` | timestamptz | |
 
@@ -265,7 +274,7 @@ row ids are captured here — that's what makes undo possible.
 | `id` | serial | PK |
 | `guest_player_name` | varchar(255) | snapshot — the guest row is gone |
 | `target_player_id` | integer | FK → `players.id`, cascade delete |
-| `merged_by_user_id` | integer | FK → `users.id` |
+| `merged_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 | `moved_registration_ids` | text (json) | |
 | `moved_team_assignment_ids` | text (json) | |
 | `moved_stat_ids` | text (json) | |

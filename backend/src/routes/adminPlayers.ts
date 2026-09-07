@@ -78,7 +78,9 @@ router.get(
         id: m.id,
         guestPlayerName: m.guestPlayerName,
         targetPlayer: { id: m.targetPlayer.id, name: m.targetPlayer.name },
-        mergedBy: { id: m.mergedBy.id, email: m.mergedBy.email },
+        // Null once the admin who performed this merge is later deleted -
+        // the merge log itself (and its undo capability) is unaffected.
+        mergedBy: m.mergedBy ? { id: m.mergedBy.id, email: m.mergedBy.email } : null,
         undoneAt: m.undoneAt,
         createdAt: m.createdAt,
       })),

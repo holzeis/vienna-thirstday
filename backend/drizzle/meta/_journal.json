@@ -64,6 +64,13 @@
       "when": 1788800178640,
       "tag": "0008_free_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788804066898,
+      "tag": "0009_shiny_mephisto",
+      "breakpoints": true
     }
   ]
 }

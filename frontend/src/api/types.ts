@@ -21,7 +21,8 @@ export interface PlayerMerge {
   id: number;
   guestPlayerName: string;
   targetPlayer: { id: number; name: string };
-  mergedBy: { id: number; email: string | null };
+  /** Null if the admin who performed this merge was later deleted. */
+  mergedBy: { id: number; email: string | null } | null;
   undoneAt: string | null;
   createdAt: string;
 }
@@ -41,7 +42,8 @@ export interface Invite {
   note: string | null;
   /** Null for an "open" invite - reusable, no guest, each acceptance creates a brand-new player. */
   guestPlayer: { id: number; name: string } | null;
-  createdBy: { id: number; email: string | null };
+  /** Null if the admin who issued this invite was later deleted. */
+  createdBy: { id: number; email: string | null } | null;
   expiresAt: string;
   usedAt: string | null;
   usedBy: { id: number; email: string | null } | null;
@@ -70,7 +72,8 @@ export interface RegistrationView {
   status: RegistrationStatus;
   signupAt: string;
   player: { id: number; name: string; isGuest: boolean };
-  registeredBy: { id: number; email: string };
+  /** Null if the user who registered this player was later deleted. */
+  registeredBy: { id: number; email: string } | null;
 }
 
 export interface TeamAssignmentView {

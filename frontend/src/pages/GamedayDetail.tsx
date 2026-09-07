@@ -266,7 +266,7 @@ function PlayerList({
   return (
     <ul className="subtle-list">
       {regs.map((r) => {
-        const canCancel = isAdmin || r.registeredBy.id === currentUserId;
+        const canCancel = isAdmin || r.registeredBy?.id === currentUserId;
         return (
           <li key={r.id}>
             <span>

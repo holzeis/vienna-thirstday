@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db/client";
-import { gamedays, players, registrations, results, users } from "../db/schema";
+import { players, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -42,11 +42,21 @@ router.patch(
 );
 
 /**
- * Deletes a user account. Refuses to touch accounts with any activity
- * history (created a gameday, entered a result, or registered someone) -
- * those rows reference the user with a not-null foreign key by design, so
- * real league history can't silently cascade-delete with an account.
- * Guest players this user introduced survive, just ownerless.
+ * Deletes a user's login - email, password, and (via cascade) push
+ * subscriptions - but never their player's history. If they have a linked
+ * player, it's reverted to a guest (isGuest -> true, same as an unused
+ * invite being revoked) rather than touched: every registration, team
+ * assignment, and gameday stat stays exactly as it was, still pointing at
+ * that same player, so this never affects any other player's stats either.
+ * An admin can re-invite that guest later, or attach it to a different
+ * account via the merge tool, exactly like any other guest.
+ *
+ * Every other place a deleted user is referenced - who created a gameday,
+ * entered a result, registered someone, issued/accepted an invite, or
+ * performed a merge - has that attribution set to null rather than blocking
+ * the deletion (see the `onDelete: "set null"` on each of those columns in
+ * schema.ts); the record itself (the gameday, the result, the registration,
+ * the invite, the merge log) is untouched, just anonymized.
  */
 router.delete(
   "/:id",
@@ -62,18 +72,10 @@ router.delete(
       if (admins.length <= 1) throw ApiError.badRequest("Can't delete the last remaining admin");
     }
 
-    const [hasGameday, hasResult, hasRegistration] = await Promise.all([
-      db.query.gamedays.findFirst({ where: eq(gamedays.createdByUserId, id) }),
-      db.query.results.findFirst({ where: eq(results.enteredByUserId, id) }),
-      db.query.registrations.findFirst({ where: eq(registrations.registeredByUserId, id) }),
-    ]);
-    if (hasGameday || hasResult || hasRegistration) {
-      throw ApiError.badRequest(
-        "This user has activity on the platform (gamedays, results, or registrations) and can't be deleted, since that would break real game history."
-      );
-    }
-
     await db.transaction(async (tx) => {
+      if (target.playerId) {
+        await tx.update(players).set({ isGuest: true }).where(eq(players.id, target.playerId));
+      }
       await tx.update(players).set({ addedByUserId: null }).where(eq(players.addedByUserId, id));
       await tx.delete(users).where(eq(users.id, id));
     });
