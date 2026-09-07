@@ -16,6 +16,7 @@ import type { Invite, Player, PlayerMerge, User } from "../api/types";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { Spinner } from "../components/LoadingScreen";
+import { useToast } from "../toast/ToastContext";
 
 type UserWithPlayer = User & { player: Player | null };
 type GuestOption = Player & { gamesPlayed: number };
@@ -35,6 +36,7 @@ const INVITE_STATUS_BADGE: Record<Invite["status"], string> = {
 };
 
 export function AdminUsers() {
+  const { showToast } = useToast();
   const [users, setUsers] = useState<UserWithPlayer[] | null>(null);
   const [guests, setGuests] = useState<GuestOption[] | null>(null);
   const [merges, setMerges] = useState<PlayerMerge[] | null>(null);
@@ -52,7 +54,7 @@ export function AdminUsers() {
   const [justCreatedLink, setJustCreatedLink] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
-  const [mergeGuestName, setMergeGuestName] = useState("");
+  const [mergeGuestId, setMergeGuestId] = useState<number | "">("");
   const [mergeTargetPlayerId, setMergeTargetPlayerId] = useState<number | "">("");
   const [merging, setMerging] = useState(false);
 
@@ -77,16 +79,18 @@ export function AdminUsers() {
     return `${window.location.origin}/invite/${token}`;
   }
 
-  async function copyLink(token: string) {
+  function copyLink(token: string) {
     const link = inviteLink(token);
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      window.prompt("Copy this invite link:", link);
-      return;
-    }
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken((t) => (t === token ? null : t)), 1500);
+    navigator.clipboard.writeText(link).then(
+      () => {
+        setCopiedToken(token);
+        setTimeout(() => setCopiedToken((t) => (t === token ? null : t)), 1500);
+        showToast("Link copied to clipboard");
+      },
+      () => {
+        window.prompt("Copy this invite link:", link);
+      }
+    );
   }
 
   async function createInvite() {
@@ -154,7 +158,7 @@ export function AdminUsers() {
   }
 
   async function performMerge() {
-    const guest = guests?.find((g) => g.name.toLowerCase() === mergeGuestName.trim().toLowerCase());
+    const guest = guests?.find((g) => g.id === mergeGuestId);
     if (!mergeTargetPlayerId || !guest) return;
     const targetName = users?.find((u) => u.player?.id === mergeTargetPlayerId)?.player?.name || "this account";
     if (
@@ -167,7 +171,7 @@ export function AdminUsers() {
     setMerging(true);
     try {
       await adminMergeIntoPlayer(mergeTargetPlayerId, guest.id);
-      setMergeGuestName("");
+      setMergeGuestId("");
       setMergeTargetPlayerId("");
       load();
     } catch (err) {
@@ -274,7 +278,7 @@ export function AdminUsers() {
               {invites.map((inv) => (
                 <tr key={inv.id}>
                   <td>
-                    {inv.guestPlayer ? inv.guestPlayer.name : "Open invite (no guest)"}
+                    {inv.guestPlayer ? inv.guestPlayer.name : "Open invite"}
                     {inv.redemptions.length > 0 && (
                       <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
                         Joined: {inv.redemptions.map((r) => r.playerName).join(", ")}
@@ -319,7 +323,7 @@ export function AdminUsers() {
             <div className="card user-card" key={inv.id}>
               <div className="user-card-row">
                 <div>
-                  <div className="user-card-name">{inv.guestPlayer ? inv.guestPlayer.name : "Open invite (no guest)"}</div>
+                  <div className="user-card-name">{inv.guestPlayer ? inv.guestPlayer.name : "Open invite"}</div>
                   {inv.redemptions.length > 0 && (
                     <div style={{ color: "var(--text-faint)", fontSize: 12 }}>Joined: {inv.redemptions.map((r) => r.playerName).join(", ")}</div>
                   )}
@@ -449,19 +453,19 @@ export function AdminUsers() {
           <div className="form-row">
             <div className="field">
               <label htmlFor="merge-guest">Guest</label>
-              <input
+              <select
                 id="merge-guest"
-                list="admin-merge-guest-options"
-                placeholder="Type or pick a guest..."
-                value={mergeGuestName}
+                value={mergeGuestId}
                 disabled={merging}
-                onChange={(e) => setMergeGuestName(e.target.value)}
-              />
-              <datalist id="admin-merge-guest-options">
+                onChange={(e) => setMergeGuestId(e.target.value ? Number(e.target.value) : "")}
+              >
+                <option value="">Select a guest...</option>
                 {guests.map((g) => (
-                  <option key={g.id} value={g.name} />
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </div>
             <div className="field">
               <label htmlFor="merge-target">Player</label>
@@ -484,7 +488,7 @@ export function AdminUsers() {
           </div>
           <button
             className="btn btn-primary btn-sm"
-            disabled={merging || !mergeGuestName.trim() || !mergeTargetPlayerId}
+            disabled={merging || !mergeGuestId || !mergeTargetPlayerId}
             onClick={performMerge}
           >
             {merging ? "Merging..." : "Merge"}
