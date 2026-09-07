@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { formatDate } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
+import { Spinner } from "../components/LoadingScreen";
 
 function loadUpcoming(setUpcoming: (gamedays: GamedaySummary[]) => void) {
   listGamedays()
@@ -68,7 +69,7 @@ export function Overview() {
       <div className="grid grid-2">
         <div className="card">
           <div className="card-title">Next matchdays</div>
-          {upcoming === null && <div className="loading">Loading...</div>}
+          {upcoming === null && <Spinner />}
           {upcoming?.length === 0 && <div className="empty-state">No upcoming matchdays yet.</div>}
           {upcoming && upcoming.length > 0 && (
             <ul className="subtle-list">
@@ -105,7 +106,7 @@ export function Overview() {
 
         <div className="card">
           <div className="card-title">Season {year ?? ""} — Top 5</div>
-          {top === null && <div className="loading">Loading...</div>}
+          {top === null && <Spinner />}
           {top?.length === 0 && <div className="empty-state">No results recorded yet.</div>}
           {top && top.length > 0 && (
             <table>

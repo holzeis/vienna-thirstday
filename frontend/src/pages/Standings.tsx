@@ -5,6 +5,7 @@ import type { StandingRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
+import { Spinner } from "../components/LoadingScreen";
 
 export function Standings() {
   const { player } = useAuth();
@@ -52,7 +53,7 @@ export function Standings() {
       )}
 
       <div className="card">
-        {rows === null && <div className="loading">Loading...</div>}
+        {rows === null && <Spinner />}
         {rows?.length === 0 && <div className="empty-state">No results recorded for this season yet.</div>}
         {rows && rows.length > 0 && (
           <table>

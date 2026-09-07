@@ -19,6 +19,7 @@ import { formatDateTime } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { useToast } from "../toast/ToastContext";
 import { statusClass, statusLabel } from "../utils/gamedayStatus";
+import { Spinner } from "../components/LoadingScreen";
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -84,7 +85,7 @@ export function GamedayDetail() {
     }
   }, [gamedayId, gameday?.status]);
 
-  if (gameday === null) return <div className="loading">Loading...</div>;
+  if (gameday === null) return <Spinner />;
 
   const activeRegs = gameday.registrations;
   const confirmed = activeRegs.filter((r) => r.status === "CONFIRMED");

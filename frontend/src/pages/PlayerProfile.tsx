@@ -7,6 +7,7 @@ import { ApiClientError } from "../api/client";
 import { formatMonthYear } from "../utils/format";
 import { disablePushNotifications, enablePushNotifications, getExistingPushSubscription, isPushSupported } from "../push";
 import { isIOS, isStandalonePwa } from "../platform";
+import { Spinner } from "../components/LoadingScreen";
 
 const AWARD_LABELS: Record<AwardCategory, string> = {
   gamesPlayed: "Games Played",
@@ -65,7 +66,7 @@ export function PlayerProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
 
-  if (profile === null) return <div className="loading">Loading...</div>;
+  if (profile === null) return <Spinner />;
 
   const isOwnProfile = me?.id === playerId;
   const { veteran, undefeated, unlucky, ghost } = profile.currentForm;

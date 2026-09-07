@@ -7,6 +7,7 @@ import { BrandMark } from "../components/Layout";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { useInstallPrompt } from "../hooks/useInstallPrompt";
+import { Spinner } from "../components/LoadingScreen";
 
 function storageKey(token: string) {
   return `vt-share-guest-${token}`;
@@ -182,7 +183,7 @@ export function JoinGameday() {
     );
   }
 
-  if (!gameday) return <div className="loading">Loading...</div>;
+  if (!gameday) return <Spinner />;
 
   const spotsLeft = Math.max(0, gameday.maxPlayers - gameday.confirmedCount);
 

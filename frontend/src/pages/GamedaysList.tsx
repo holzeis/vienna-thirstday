@@ -7,6 +7,7 @@ import { ApiClientError } from "../api/client";
 import { formatMatchdayDate, toDatetimeLocalValue } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { statusClass, statusLabel } from "../utils/gamedayStatus";
+import { Spinner } from "../components/LoadingScreen";
 
 export function GamedaysList() {
   const { user } = useAuth();
@@ -78,7 +79,7 @@ export function GamedaysList() {
       )}
 
       <div className="card">
-        {gamedays === null && <div className="loading">Loading...</div>}
+        {gamedays === null && <Spinner />}
         {gamedays?.length === 0 && <div className="empty-state">No matchdays yet.</div>}
         {gamedays && gamedays.length > 0 && (
           <table>

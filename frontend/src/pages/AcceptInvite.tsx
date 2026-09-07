@@ -5,6 +5,7 @@ import { setAuthToken } from "../api/client";
 import { ApiClientError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { BrandMark } from "../components/Layout";
+import { Spinner } from "../components/LoadingScreen";
 
 type LoadState =
   | { status: "loading" }
@@ -77,7 +78,7 @@ export function AcceptInvite() {
           <span>Vienna Thirstday</span>
         </div>
 
-        {state.status === "loading" && <div className="loading">Checking your invite...</div>}
+        {state.status === "loading" && <Spinner />}
 
         {state.status === "invalid" && (
           <>

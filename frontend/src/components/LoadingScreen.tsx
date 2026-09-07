@@ -11,3 +11,14 @@ export function LoadingScreen() {
     </div>
   );
 }
+
+/** Smaller in-content spinner (same spinning mark, no text) for a table/card/page still fetching its own data - everywhere that used to show a plain "Loading..." string. */
+export function Spinner() {
+  return (
+    <div className="loading">
+      <div className="loading-mark">
+        <BrandMark />
+      </div>
+    </div>
+  );
+}

@@ -1046,9 +1046,21 @@ tr.me td:first-child {
 }
 
 .loading {
-  color: var(--text-dim);
+  display: flex;
+  justify-content: center;
   padding: 40px;
-  text-align: center;
+}
+
+.loading-mark {
+  width: 40px;
+  height: 40px;
+  animation: app-loading-spin 1.4s linear infinite;
+}
+
+.loading-mark .brand-mark,
+.loading-mark .brand-mark img {
+  width: 100%;
+  height: 100%;
 }
 
 .app-loading {

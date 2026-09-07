@@ -16,6 +16,7 @@ import {
 import type { Invite, Player, PlayerMerge, User } from "../api/types";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
+import { Spinner } from "../components/LoadingScreen";
 
 type UserWithPlayer = User & { player: Player | null };
 type GuestOption = Player & { gamesPlayed: number };
@@ -193,7 +194,7 @@ export function AdminUsers() {
     }
   }
 
-  if (users === null) return <div className="loading">Loading...</div>;
+  if (users === null) return <Spinner />;
 
   return (
     <div>

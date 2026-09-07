@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getHallOfFame, listSeasons } from "../api/endpoints";
 import type { HallOfFameResponse, PodiumEntry, SeasonAwardCategory } from "../api/types";
+import { Spinner } from "../components/LoadingScreen";
 
 type PodiumTier = "gold" | "silver" | "bronze";
 
@@ -81,7 +82,7 @@ export function HallOfFame() {
         </div>
       )}
 
-      {data === null && completedSeasons !== null && completedSeasons.length > 0 && <div className="loading">Loading...</div>}
+      {data === null && completedSeasons !== null && completedSeasons.length > 0 && <Spinner />}
 
       {data && (
         <>
