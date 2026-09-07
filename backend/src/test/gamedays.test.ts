@@ -4,7 +4,7 @@ import request from "supertest";
 import { createApp } from "../app";
 import { db } from "../db/client";
 import { gamedays, registrations } from "../db/schema";
-import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday } from "./helpers";
+import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday, createCompletedGameday } from "./helpers";
 
 const app = createApp();
 
@@ -67,6 +67,33 @@ describe("GET /gamedays", () => {
     const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
     const match = res.body.gamedays.find((g: any) => g.id === past.id);
     expect(match.status).toBe("CLOSED");
+  });
+});
+
+describe("GET /gamedays - played", () => {
+  it("is true when the caller has a stat row in that gameday's result", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    await createCompletedGameday(user.id, new Date("2025-06-05T18:00:00Z"), { teamA: 4, teamB: 1 }, [
+      { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+    ]);
+
+    const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
+    const match = res.body.gamedays.find((g: any) => g.matchday === 1);
+    expect(match.played).toBe(true);
+  });
+
+  it("is false when the caller didn't play in that gameday", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Other Guy");
+    await createCompletedGameday(user.id, new Date("2025-06-05T18:00:00Z"), { teamA: 4, teamB: 1 }, [
+      { playerId: guest.id, team: "A", points: 4, goalDiff: 3 },
+    ]);
+
+    const res = await request(app).get("/api/gamedays").set("Authorization", `Bearer ${token}`);
+    const match = res.body.gamedays.find((g: any) => g.matchday === 1);
+    expect(match.played).toBe(false);
   });
 });
 

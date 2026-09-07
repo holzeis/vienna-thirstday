@@ -9,6 +9,17 @@ import { usePolling } from "../hooks/usePolling";
 import { statusClass, statusLabel } from "../utils/gamedayStatus";
 import { Spinner } from "../components/LoadingScreen";
 
+/** Small marker shown right before the player count when the caller played that gameday - not a stand-in for the score column, just "you were there". */
+function PlayedIcon() {
+  return (
+    <span className="played-icon" title="You played" aria-label="You played">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.86L12 17.77l-6.18 3.23L7 14.14 2 9.27l7.1-1.01L12 2z" />
+      </svg>
+    </span>
+  );
+}
+
 export function GamedaysList() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -106,6 +117,7 @@ export function GamedaysList() {
                     <span className={`badge ${statusClass[g.status] || ""}`}>{statusLabel[g.status] || g.status}</span>
                   </td>
                   <td className="num">
+                    {g.played && <PlayedIcon />}
                     {g.confirmedCount + g.waitlistedCount}/{g.maxPlayers}
                   </td>
                 </tr>

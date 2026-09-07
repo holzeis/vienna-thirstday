@@ -1112,6 +1112,20 @@ tr.me td:first-child {
   margin: 18px 0;
 }
 
+.played-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  color: var(--accent);
+}
+
+.played-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
 .pull-refresh {
   position: fixed;
   top: env(safe-area-inset-top, 0px);

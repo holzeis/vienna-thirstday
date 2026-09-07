@@ -53,11 +53,14 @@ router.get(
   "/",
   asyncHandler(async (req, res) => {
     const seasonParam = req.query.season as string | undefined;
+    const me = await db.query.users.findFirst({ where: eq(users.id, req.user!.userId) });
+    const myPlayerId = me?.playerId ?? null;
+
     const all = await db.query.gamedays.findMany({
       orderBy: (g, { asc }) => asc(g.date),
       with: {
         registrations: { where: ne(registrations.status, "CANCELLED") },
-        result: true,
+        result: { with: { playerStats: true } },
       },
     });
 
@@ -73,7 +76,10 @@ router.get(
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .map((g) => {
         const regs = (g as any).registrations as { status: string }[];
-        const result = (g as any).result as { teamAScore: number; teamBScore: number } | null;
+        const result = (g as any).result as
+          | { teamAScore: number; teamBScore: number; playerStats: { playerId: number }[] }
+          | null;
+        const played = myPlayerId ? (result?.playerStats.some((s) => s.playerId === myPlayerId) ?? false) : false;
         return {
           id: g.id,
           date: g.date,
@@ -84,6 +90,7 @@ router.get(
           confirmedCount: regs.filter((r) => r.status === "CONFIRMED").length,
           waitlistedCount: regs.filter((r) => r.status === "WAITLISTED").length,
           result: g.status === "COMPLETED" && result ? { teamAScore: result.teamAScore, teamBScore: result.teamBScore } : null,
+          played,
         };
       });
 

@@ -65,6 +65,8 @@ export interface GamedaySummary {
   confirmedCount: number;
   waitlistedCount: number;
   result: { teamAScore: number; teamBScore: number } | null;
+  /** Whether the caller has a stat row in this gameday's result - false if they didn't play (or it hasn't been played yet). */
+  played: boolean;
 }
 
 export interface RegistrationView {
