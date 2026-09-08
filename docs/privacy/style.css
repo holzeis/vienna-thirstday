@@ -1,0 +1,167 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fdf8f3;
+  --panel: #ffffff;
+  --ink: #2f2013;
+  --ink-dim: #7a6552;
+  --line: #ecdfd0;
+  --accent: #ff7a45;
+  --accent2: #ff5da2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1230;
+    --panel: #251a3a;
+    --ink: #fbeee8;
+    --ink-dim: #cbb3c9;
+    --line: rgba(255, 255, 255, 0.12);
+    --accent: #ff8a5c;
+    --accent2: #c15cff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Nunito", "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+header.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  position: relative;
+}
+
+.brand-mark svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.brand-mark .mark-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .brand-mark .mark-light {
+    display: none;
+  }
+  .brand-mark .mark-dark {
+    display: block;
+  }
+}
+
+.brand span {
+  font-family: "Baloo 2", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.lang-switch a {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.lang-switch a:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+h1 {
+  font-family: "Baloo 2", "Segoe UI", sans-serif;
+  font-size: 30px;
+  margin: 24px 0 4px;
+  text-wrap: balance;
+}
+
+.meta {
+  color: var(--ink-dim);
+  font-size: 13px;
+  margin: 0 0 32px;
+}
+
+h2 {
+  font-family: "Baloo 2", "Segoe UI", sans-serif;
+  font-size: 19px;
+  margin: 36px 0 10px;
+}
+
+p, li {
+  font-size: 15.5px;
+}
+
+ul {
+  padding-left: 22px;
+}
+
+li + li {
+  margin-top: 6px;
+}
+
+a {
+  color: var(--accent2);
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 26px;
+  margin: 0 0 20px;
+}
+
+.card p:first-child {
+  margin-top: 0;
+}
+
+.card p:last-child {
+  margin-bottom: 0;
+}
+
+footer.page-foot {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+footer.page-foot a {
+  color: var(--ink-dim);
+  font-weight: 700;
+}

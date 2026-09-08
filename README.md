@@ -15,6 +15,7 @@ Jan 1 – Dec 31 season standings table.
 - [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet)
 - [Deploying to Kubernetes](#deploying-to-kubernetes)
 - [Usage metrics](#usage-metrics)
+- [Privacy policy](#privacy-policy)
 - [Environment variables](#environment-variables)
 - [Project layout](#project-layout)
 - [Known limitations](#known-limitations)
@@ -508,6 +509,20 @@ kubectl port-forward -n vienna-thirstday svc/postgres 5433:5432
 Then add a second connection in Metabase using host `host.docker.internal`,
 port `5433` - that connection only has data while the port-forward is
 running.
+
+## Privacy policy
+
+Hosted separately from the app itself, via GitHub Pages, in English and
+German: `docs/privacy/en.html` / `docs/privacy/de.html` (a shared
+`docs/privacy/style.css`, and `docs/privacy/index.html` as a
+language-detecting entry point). Linked from the app under Account Settings
+on the player profile page (`frontend/src/pages/PlayerProfile.tsx`).
+
+To publish it, GitHub Pages needs to be enabled once, on this repo's
+**Settings → Pages**: source "Deploy from a branch", branch `main`, folder
+`/docs`. After that, editing and pushing either HTML file republishes it
+automatically - no separate deploy step. Live at
+<https://holzeis.github.io/vienna-thirstday/privacy/>.
 
 ## Environment variables
 

@@ -412,6 +412,17 @@ function AccountSettings({ name, email, onSaved }: { name: string; email: string
           </button>
         </form>
       )}
+      <div className="divider" style={{ marginTop: open ? 16 : 14, marginBottom: 0 }} />
+      <p style={{ margin: "12px 0 0", fontSize: 12 }}>
+        <a
+          href="https://holzeis.github.io/vienna-thirstday/privacy/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--accent2)", fontWeight: 600, textDecoration: "none" }}
+        >
+          Privacy Policy
+        </a>
+      </p>
     </div>
   );
 }
