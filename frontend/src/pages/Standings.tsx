@@ -82,10 +82,12 @@ export function Standings() {
                     )}
                   </td>
                   <td>
-                    <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
-                      {row.name}
-                    </Link>
-                    <CurrentFormBadges currentForm={row.currentForm} />
+                    <span className="player-cell">
+                      <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        {row.name}
+                      </Link>
+                      <CurrentFormBadges currentForm={row.currentForm} />
+                    </span>
                   </td>
                   <td className="num">{row.gamesPlayed}</td>
                   <td className="num">{row.points}</td>

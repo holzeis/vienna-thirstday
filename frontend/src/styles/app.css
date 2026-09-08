@@ -852,6 +852,14 @@ tr.me td:first-child {
   vertical-align: middle;
 }
 
+/* Keeps a name and its current-form badges together as one unit - a plain
+   inline Link + badge span can otherwise break onto separate lines when
+   the column is tight. */
+.player-cell {
+  display: inline-flex;
+  align-items: center;
+}
+
 .rank-1 {
   color: var(--gold);
 }

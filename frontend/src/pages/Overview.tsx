@@ -123,10 +123,12 @@ export function Overview() {
                   <tr key={row.playerId} className={row.playerId === player?.id ? "me" : ""}>
                     <td className={row.rank <= 3 ? `rank-${row.rank}` : ""}>{row.rank}</td>
                     <td>
-                      <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
-                        {row.name}
-                      </Link>
-                      <CurrentFormBadges currentForm={row.currentForm} />
+                      <span className="player-cell">
+                        <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
+                          {row.name}
+                        </Link>
+                        <CurrentFormBadges currentForm={row.currentForm} />
+                      </span>
                     </td>
                     <td className="num">{row.points}</td>
                     <td className="num">{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
