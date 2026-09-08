@@ -169,12 +169,10 @@ const TEAMMATE_TALLY_THRESHOLD = 3;
  * shared wins/losses (same "at least 3 of the last 5" bar as `computeNemesis`)
  * - `mostPlayedWith` has no such threshold, any shared game counts.
  */
-export function computeTeammateTally(
-  allRows: StatRow[],
-  playerId: number
-): { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null } {
+/** Builds per-teammate shared-game tallies for `playerId` within `rows` - the shared building block behind computeTeammateTally and computeDreamTeamMate. */
+function tallyTeammates(rows: StatRow[], playerId: number): TeammateRecord[] {
   const groups = new Map<string, StatRow[]>();
-  for (const r of allRows) {
+  for (const r of rows) {
     const key = `${r.gamedayId}:${r.team}`;
     const list = groups.get(key);
     if (list) list.push(r);
@@ -204,8 +202,14 @@ export function computeTeammateTally(
       else if (mine.points === 1) rec.sharedLosses++;
     }
   }
+  return Array.from(tally.values());
+}
 
-  const all = Array.from(tally.values());
+export function computeTeammateTally(
+  allRows: StatRow[],
+  playerId: number
+): { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null } {
+  const all = tallyTeammates(allRows, playerId);
   const favorite = all
     .filter((r) => r.sharedWins >= TEAMMATE_TALLY_THRESHOLD)
     .sort((a, b) => b.sharedWins - a.sharedWins || b.sharedGames - a.sharedGames)[0];
@@ -219,25 +223,39 @@ export function computeTeammateTally(
   return { favorite: favorite ?? null, unfavorite: unfavorite ?? null, mostPlayedWith: mostPlayedWith ?? null };
 }
 
+/**
+ * The teammate with the best shared win-rate (min TEAMMATE_TALLY_THRESHOLD
+ * shared games, same statistical-significance bar as favorite/unfavorite) -
+ * distinct from `mostPlayedWith` (most shared games) and `favorite` (most
+ * shared wins, not rate). `seasonRows` is expected to already be scoped to
+ * a single calendar year, unlike the other Locker Room tallies which use
+ * the league's last-5-gamedays window - a "best pairing" only means much
+ * measured within one season, not smeared across a player's whole history.
+ */
+export function computeDreamTeamMate(seasonRows: StatRow[], playerId: number): TeammateRecord | null {
+  const dreamTeam = tallyTeammates(seasonRows, playerId)
+    .filter((r) => r.sharedGames >= TEAMMATE_TALLY_THRESHOLD)
+    .sort(
+      (a, b) => b.sharedWins / b.sharedGames - a.sharedWins / a.sharedGames || b.sharedGames - a.sharedGames || a.name.localeCompare(b.name)
+    )[0];
+  return dreamTeam ?? null;
+}
+
 export interface OpponentRecord {
   playerId: number;
   name: string;
   gamesAgainst: number;
   lossesAgainst: number;
+  winsAgainst: number;
   /** Populated by the route layer (this service has no DB access) - null until enriched. */
   avatarDataUri: string | null;
 }
 
 const NEMESIS_LOSS_THRESHOLD = 3;
+const FAVORITE_VICTIM_WIN_THRESHOLD = NEMESIS_LOSS_THRESHOLD;
 
-/**
- * The opponent this player has struggled against most within `rows`
- * (expected to already be scoped to the player's own last 5 games, same
- * window as the teammate tally) - null unless they've lost to that specific
- * opponent at least `NEMESIS_LOSS_THRESHOLD` times in that window. Ties
- * broken by games faced, then name, for a single deterministic nemesis.
- */
-export function computeNemesis(rows: StatRow[], playerId: number): OpponentRecord | null {
+/** Builds per-opponent head-to-head tallies for `playerId` within `rows` - the shared building block behind computeNemesis and computeFavoriteVictim. */
+function tallyOpponents(rows: StatRow[], playerId: number): OpponentRecord[] {
   const groups = new Map<number, StatRow[]>();
   for (const r of rows) {
     const list = groups.get(r.gamedayId);
@@ -253,19 +271,42 @@ export function computeNemesis(rows: StatRow[], playerId: number): OpponentRecor
       if (other.playerId === playerId || other.team === mine.team) continue;
       let rec = tally.get(other.playerId);
       if (!rec) {
-        rec = { playerId: other.playerId, name: other.playerName, gamesAgainst: 0, lossesAgainst: 0, avatarDataUri: null };
+        rec = { playerId: other.playerId, name: other.playerName, gamesAgainst: 0, lossesAgainst: 0, winsAgainst: 0, avatarDataUri: null };
         tally.set(other.playerId, rec);
       }
       rec.gamesAgainst++;
       if (mine.points === 1) rec.lossesAgainst++;
+      else if (mine.points === 4) rec.winsAgainst++;
     }
   }
+  return Array.from(tally.values());
+}
 
-  const nemesis = Array.from(tally.values())
+/**
+ * The opponent this player has struggled against most within `rows`
+ * (expected to already be scoped to the player's own last 5 games, same
+ * window as the teammate tally) - null unless they've lost to that specific
+ * opponent at least `NEMESIS_LOSS_THRESHOLD` times in that window. Ties
+ * broken by games faced, then name, for a single deterministic nemesis.
+ */
+export function computeNemesis(rows: StatRow[], playerId: number): OpponentRecord | null {
+  const nemesis = tallyOpponents(rows, playerId)
     .filter((r) => r.lossesAgainst >= NEMESIS_LOSS_THRESHOLD)
     .sort((a, b) => b.lossesAgainst - a.lossesAgainst || b.gamesAgainst - a.gamesAgainst || a.name.localeCompare(b.name))[0];
 
   return nemesis ?? null;
+}
+
+/**
+ * Mirror of computeNemesis: the opponent this player has beaten most within
+ * the same window, null below `FAVORITE_VICTIM_WIN_THRESHOLD` wins against them.
+ */
+export function computeFavoriteVictim(rows: StatRow[], playerId: number): OpponentRecord | null {
+  const victim = tallyOpponents(rows, playerId)
+    .filter((r) => r.winsAgainst >= FAVORITE_VICTIM_WIN_THRESHOLD)
+    .sort((a, b) => b.winsAgainst - a.winsAgainst || b.gamesAgainst - a.gamesAgainst || a.name.localeCompare(b.name))[0];
+
+  return victim ?? null;
 }
 
 export interface CurrentForm {
@@ -325,6 +366,39 @@ export function computeCurrentForm(allRows: StatRow[], playerId: number): Curren
   const unlucky = veteran && myRecentRows.every((r) => r.points === 1);
 
   return { veteran, undefeated, unlucky, ghost };
+}
+
+const ON_FIRE_STREAK_THRESHOLD = 3;
+
+/**
+ * The player's current active win streak, counted back from their most
+ * recent game and broken by the first non-win - unlike the last-5-window
+ * form badges (undefeated/unlucky) this can run arbitrarily long, so it's
+ * surfaced as a raw count rather than a boolean. `rows` must belong to a
+ * single player and be date-ascending (fetchStatRows's natural order).
+ * Returns null below `ON_FIRE_STREAK_THRESHOLD` so a 1- or 2-game streak
+ * doesn't clutter the Locker Room.
+ */
+export function computeOnFireStreak(rows: StatRow[]): number | null {
+  let streak = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].points !== 4) break;
+    streak++;
+  }
+  return streak >= ON_FIRE_STREAK_THRESHOLD ? streak : null;
+}
+
+/**
+ * True if this player's earliest recorded game falls in the current
+ * calendar year - i.e. this is the first season they've ever played, not
+ * merely the first they've played in so far this year. `rows` must belong
+ * to a single player.
+ */
+export function computeIsNewcomer(rows: StatRow[]): boolean {
+  if (rows.length === 0) return false;
+  const currentYear = new Date().getUTCFullYear();
+  const firstYear = Math.min(...rows.map((r) => r.date.getUTCFullYear()));
+  return firstYear === currentYear;
 }
 
 export type Momentum = number | "new";

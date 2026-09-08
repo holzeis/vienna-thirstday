@@ -9,11 +9,16 @@ import { avatarUpload, resizeAvatar } from "../utils/avatarUpload";
 import {
   computeCareerStats,
   computeCurrentForm,
+  computeDreamTeamMate,
+  computeFavoriteVictim,
+  computeIsNewcomer,
   computeNemesis,
+  computeOnFireStreak,
   computePersonalAwards,
   computePlayerSeasonAwards,
   computeTeammateTally,
   fetchStatRows,
+  groupRowsByYear,
   recentLeagueGamedayIds,
   type AwardTier,
 } from "../services/playerStatsService";
@@ -83,6 +88,8 @@ router.get(
       (a, b) => AWARD_TIER_RANK[a.tier] - AWARD_TIER_RANK[b.tier]
     );
     const currentForm = computeCurrentForm(allRows, id);
+    const onFireStreak = computeOnFireStreak(myRows);
+    const isNewcomer = computeIsNewcomer(myRows);
 
     // Teammate chemistry reflects the same "recent" window as the current-form
     // badges - the league's actual last 5 gamedays, not this player's own
@@ -90,11 +97,17 @@ router.get(
     // plays sporadically).
     const recentGamedayIds = new Set(recentLeagueGamedayIds(allRows));
     const formRows = allRows.filter((r) => recentGamedayIds.has(r.gamedayId));
-    const { favorite, unfavorite, mostPlayedWith, nemesis } = await attachAvatars({
+    // Dream Team is deliberately season-scoped rather than the last-5-gamedays
+    // window - a "best pairing" only means much measured within one season.
+    const currentYear = new Date().getUTCFullYear();
+    const seasonRows = groupRowsByYear(allRows).get(currentYear) ?? [];
+    const { favorite, unfavorite, mostPlayedWith, dreamTeam, nemesis, favoriteVictim } = await attachAvatars({
       ...computeTeammateTally(formRows, id),
+      dreamTeam: computeDreamTeamMate(seasonRows, id),
       nemesis: computeNemesis(formRows, id),
+      favoriteVictim: computeFavoriteVictim(formRows, id),
     });
-    const teammates = { favorite, unfavorite, mostPlayedWith };
+    const teammates = { favorite, unfavorite, mostPlayedWith, dreamTeam };
 
     res.json({
       player: {
@@ -110,8 +123,11 @@ router.get(
       },
       awards,
       currentForm,
+      onFireStreak,
+      isNewcomer,
       teammates,
       nemesis,
+      favoriteVictim,
     });
   })
 );

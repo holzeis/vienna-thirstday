@@ -174,6 +174,7 @@ export interface OpponentRecord {
   name: string;
   gamesAgainst: number;
   lossesAgainst: number;
+  winsAgainst: number;
   avatarDataUri: string | null;
 }
 
@@ -189,8 +190,20 @@ export interface PlayerProfile {
   player: { id: number; name: string; isGuest: boolean; isAdmin: boolean; avatarDataUri: string | null; joinedAt: string };
   awards: PlayerAward[];
   currentForm: CurrentForm;
-  teammates: { favorite: TeammateRecord | null; unfavorite: TeammateRecord | null; mostPlayedWith: TeammateRecord | null };
+  /** Current active win streak (3+), independent of the fixed last-5-window form badges above. */
+  onFireStreak: number | null;
+  /** This is the player's first-ever season. */
+  isNewcomer: boolean;
+  teammates: {
+    favorite: TeammateRecord | null;
+    unfavorite: TeammateRecord | null;
+    mostPlayedWith: TeammateRecord | null;
+    /** Best shared win-rate this season (min. shared games) - unlike the others, season-scoped rather than last-5-window. */
+    dreamTeam: TeammateRecord | null;
+  };
   nemesis: OpponentRecord | null;
+  /** Mirror of nemesis: the opponent beaten most within the same window. */
+  favoriteVictim: OpponentRecord | null;
 }
 
 export interface PodiumEntry {

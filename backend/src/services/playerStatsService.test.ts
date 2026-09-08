@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   computeCareerStats,
   computeCurrentForm,
+  computeDreamTeamMate,
+  computeFavoriteVictim,
+  computeIsNewcomer,
   computeMomentum,
   computeNemesis,
+  computeOnFireStreak,
   computePersonalAwards,
   computePlayerSeasonAwards,
   computeSeasonPodiums,
@@ -124,6 +128,46 @@ describe("computeTeammateTally", () => {
   });
 });
 
+describe("computeDreamTeamMate", () => {
+  it("picks the teammate with the best shared win-rate, not the most shared wins", () => {
+    const seasonRows: StatRow[] = [
+      // Alice: 3 shared games, all wins (100%).
+      ...[1, 2, 3].flatMap((gamedayId) => [
+        row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+        row({ playerId: 2, playerName: "Alice", gamedayId, team: "A", points: 4 }),
+      ]),
+      // Bob: 5 shared games, 4 wins (80%) - more wins, but a lower rate.
+      ...[4, 5, 6, 7].flatMap((gamedayId) => [
+        row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+        row({ playerId: 3, playerName: "Bob", gamedayId, team: "A", points: 4 }),
+      ]),
+      row({ playerId: 1, gamedayId: 8, team: "A", points: 1 }),
+      row({ playerId: 3, playerName: "Bob", gamedayId: 8, team: "A", points: 1 }),
+    ];
+    const dreamTeam = computeDreamTeamMate(seasonRows, 1);
+    expect(dreamTeam).toMatchObject({ playerId: 2, name: "Alice", sharedGames: 3, sharedWins: 3 });
+  });
+
+  it("requires at least the shared-games threshold before naming a dream team mate", () => {
+    const seasonRows: StatRow[] = [1, 2].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "Alice", gamedayId, team: "A", points: 4 }),
+    ]);
+    expect(computeDreamTeamMate(seasonRows, 1)).toBeNull();
+  });
+
+  it("breaks a tied win-rate by shared games, then name", () => {
+    const seasonRows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "Bob", gamedayId, team: "A", points: 4 }),
+      row({ playerId: 3, playerName: "Alice", gamedayId, team: "A", points: 4 }),
+    ]);
+    // Both Bob and Alice share all 3 games with player 1 at a 100% win rate -
+    // tie broken by name since shared games are also equal.
+    expect(computeDreamTeamMate(seasonRows, 1)?.name).toBe("Alice");
+  });
+});
+
 describe("computeNemesis", () => {
   it("names an opponent as nemesis after losing to them at least 3 times", () => {
     const rows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
@@ -177,6 +221,44 @@ describe("computeNemesis", () => {
         ])
       );
     expect(computeNemesis(rows, 1)?.name).toBe("Alice");
+  });
+});
+
+describe("computeFavoriteVictim", () => {
+  it("names an opponent as favorite victim after beating them at least 3 times", () => {
+    const rows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "Victim", gamedayId, team: "B", points: 1 }),
+    ]);
+    const victim = computeFavoriteVictim(rows, 1);
+    expect(victim).toMatchObject({ playerId: 2, name: "Victim", gamesAgainst: 3, winsAgainst: 3 });
+  });
+
+  it("returns null when wins against an opponent fall short of the threshold", () => {
+    const rows: StatRow[] = [1, 2].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+      row({ playerId: 2, gamedayId, team: "B", points: 1 }),
+    ]);
+    expect(computeFavoriteVictim(rows, 1)).toBeNull();
+  });
+
+  it("only counts games actually won against that opponent, not losses or draws", () => {
+    const points = [4, 1, 4, 4]; // 1 loss mixed in among 3 wins, same opponent every game
+    const rows: StatRow[] = points.flatMap((p, i) => [
+      row({ playerId: 1, gamedayId: i, team: "A", points: p }),
+      row({ playerId: 2, gamedayId: i, team: "B", points: p === 4 ? 1 : 4 }),
+    ]);
+    const victim = computeFavoriteVictim(rows, 1);
+    expect(victim).toMatchObject({ playerId: 2, gamesAgainst: 4, winsAgainst: 3 });
+  });
+
+  it("ignores teammates - only the opposing team counts as a potential victim", () => {
+    const rows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
+      row({ playerId: 1, gamedayId, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "AAA Teammate", gamedayId, team: "A", points: 4 }),
+      row({ playerId: 3, playerName: "ZZZ Opponent", gamedayId, team: "B", points: 1 }),
+    ]);
+    expect(computeFavoriteVictim(rows, 1)?.playerId).toBe(3);
   });
 });
 
@@ -263,6 +345,58 @@ describe("computeCurrentForm", () => {
     expect(form.undefeated).toBe(false);
     expect(form.veteran).toBe(false);
     expect(form.unlucky).toBe(false);
+  });
+});
+
+describe("computeOnFireStreak", () => {
+  it("returns null below the streak threshold", () => {
+    const points = [1, 4, 4]; // only 2 consecutive wins
+    const rows = points.map((p, i) => row({ playerId: 1, gamedayId: i, points: p }));
+    expect(computeOnFireStreak(rows)).toBeNull();
+  });
+
+  it("returns the current win streak once it reaches the threshold", () => {
+    const points = [1, 4, 4, 4];
+    const rows = points.map((p, i) => row({ playerId: 1, gamedayId: i, points: p }));
+    expect(computeOnFireStreak(rows)).toBe(3);
+  });
+
+  it("is broken by a draw or loss further back, not just counted from game one", () => {
+    const points = [4, 4, 1, 4, 4, 4, 4]; // an old streak, a loss, then a longer active streak
+    const rows = points.map((p, i) => row({ playerId: 1, gamedayId: i, points: p }));
+    expect(computeOnFireStreak(rows)).toBe(4);
+  });
+
+  it("returns null for no games", () => {
+    expect(computeOnFireStreak([])).toBeNull();
+  });
+
+  it("returns null when the most recent game wasn't a win", () => {
+    const points = [4, 4, 4, 2];
+    const rows = points.map((p, i) => row({ playerId: 1, gamedayId: i, points: p }));
+    expect(computeOnFireStreak(rows)).toBeNull();
+  });
+});
+
+describe("computeIsNewcomer", () => {
+  const currentYear = new Date().getUTCFullYear();
+  const lastYear = currentYear - 1;
+
+  it("returns false for a player with no games", () => {
+    expect(computeIsNewcomer([])).toBe(false);
+  });
+
+  it("returns true when the player's earliest game is this calendar year", () => {
+    const rows = [row({ playerId: 1, date: new Date(Date.UTC(currentYear, 3, 1)) })];
+    expect(computeIsNewcomer(rows)).toBe(true);
+  });
+
+  it("returns false when the player also played in an earlier season", () => {
+    const rows = [
+      row({ playerId: 1, gamedayId: 1, date: new Date(Date.UTC(lastYear, 5, 1)) }),
+      row({ playerId: 1, gamedayId: 2, date: new Date(Date.UTC(currentYear, 3, 1)) }),
+    ];
+    expect(computeIsNewcomer(rows)).toBe(false);
   });
 });
 

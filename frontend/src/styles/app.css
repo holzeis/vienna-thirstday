@@ -565,6 +565,18 @@ td .select {
 .achievement-tile.form-tier-ghost .label {
   color: var(--text-faint);
 }
+.achievement-tile.form-tier-onfire {
+  border-color: rgba(255, 111, 61, 0.55);
+}
+.achievement-tile.form-tier-onfire .label {
+  color: var(--accent);
+}
+.achievement-tile.form-tier-newcomer {
+  border-color: rgba(193, 92, 255, 0.5);
+}
+.achievement-tile.form-tier-newcomer .label {
+  color: var(--accent2);
+}
 
 /* Locker Room: teammate tiles use the other player's photo as the tile's
    "icon", with the relationship emoji as a medal-style overlay badge. */

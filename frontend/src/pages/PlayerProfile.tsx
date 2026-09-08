@@ -70,9 +70,21 @@ export function PlayerProfile() {
 
   const isOwnProfile = me?.id === playerId;
   const { veteran, undefeated, unlucky, ghost } = profile.currentForm;
-  const { mostPlayedWith, favorite, unfavorite } = profile.teammates;
-  const { nemesis } = profile;
-  const hasLockerRoomContent = veteran || undefeated || unlucky || ghost || !!mostPlayedWith || !!favorite || !!unfavorite || !!nemesis;
+  const { mostPlayedWith, favorite, unfavorite, dreamTeam } = profile.teammates;
+  const { nemesis, favoriteVictim, onFireStreak, isNewcomer } = profile;
+  const hasLockerRoomContent =
+    veteran ||
+    undefeated ||
+    unlucky ||
+    ghost ||
+    !!mostPlayedWith ||
+    !!favorite ||
+    !!unfavorite ||
+    !!dreamTeam ||
+    !!nemesis ||
+    !!favoriteVictim ||
+    !!onFireStreak ||
+    isNewcomer;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -136,6 +148,20 @@ export function PlayerProfile() {
         <div className="card-title">Locker Room</div>
         {hasLockerRoomContent ? (
           <div className="achievement-grid">
+            {isNewcomer && (
+              <div className="achievement-tile form-tier-newcomer">
+                <div className="achievement-icon">🌱</div>
+                <div className="label">Newcomer</div>
+                <div className="value">First season in the squad</div>
+              </div>
+            )}
+            {!!onFireStreak && (
+              <div className="achievement-tile form-tier-onfire">
+                <div className="achievement-icon">🔥</div>
+                <div className="label">On Fire</div>
+                <div className="value">{onFireStreak} wins in a row</div>
+              </div>
+            )}
             {veteran && (
               <div className="achievement-tile form-tier-veteran">
                 <div className="achievement-icon">🎖️</div>
@@ -173,8 +199,24 @@ export function PlayerProfile() {
             {unfavorite && (
               <TeammateTile teammate={unfavorite} emoji="💀" label="Jinx" stat={`${unfavorite.sharedLosses} losses in last 5`} />
             )}
+            {dreamTeam && (
+              <TeammateTile
+                teammate={dreamTeam}
+                emoji="💫"
+                label="Dream Team"
+                stat={`${Math.round((dreamTeam.sharedWins / dreamTeam.sharedGames) * 100)}% win rate this season`}
+              />
+            )}
             {nemesis && (
               <TeammateTile teammate={nemesis} emoji="😈" label="Nemesis" stat={`${nemesis.lossesAgainst} losses to them in last 5`} />
+            )}
+            {favoriteVictim && (
+              <TeammateTile
+                teammate={favoriteVictim}
+                emoji="🎯"
+                label="Favorite Victim"
+                stat={`${favoriteVictim.winsAgainst} wins over them in last 5`}
+              />
             )}
           </div>
         ) : (
