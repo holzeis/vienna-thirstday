@@ -62,8 +62,8 @@ export function Standings() {
                 <th>#</th>
                 <th>Player</th>
                 <th className="num">Games</th>
-                <th className="num">Points</th>
-                <th className="num">Goal diff</th>
+                <th className="num">PTS</th>
+                <th className="num">GD</th>
               </tr>
             </thead>
             <tbody>
