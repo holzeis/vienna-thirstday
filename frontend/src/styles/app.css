@@ -2,6 +2,22 @@
 
 .app-shell {
   min-height: 100%;
+  /* 100% (via html/body/#root's own height:100%) resolves against the
+     *large* viewport on mobile - the size as if the browser's address bar
+     were already hidden. While a page's own content is short (e.g. a
+     Spinner mid-load), the document never becomes tall enough to need
+     scrolling, so the address bar stays put and the *visible* viewport is
+     shorter than that. Once real content loads and the page grows past
+     that point, the browser recalculates and the address bar can hide,
+     which is what reads as the fixed tab bar "jumping" - it was correct
+     against the large viewport the whole time, just not against what was
+     actually on screen a moment earlier. 100dvh tracks the real, current
+     viewport instead, so short and tall pages agree from the start. Layered
+     as a second declaration (not a replacement) so unsupported browsers
+     just keep the 100% fallback above.
+     Deliberately not applied to the topbar/tabbar's own position:fixed/
+     sticky - those are already viewport-relative and unaffected by this. */
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -952,6 +968,7 @@ tr.me td:first-child {
 
 .auth-shell {
   min-height: 100%;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
