@@ -6,6 +6,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
+import { nameTakenByAnotherPlayer } from "./auth";
 
 const router = Router();
 
@@ -49,6 +50,13 @@ router.post(
     if (existing) {
       res.status(200).json({ guest: existing });
       return;
+    }
+
+    // This name might belong to a player who *used* to be a guest by this
+    // name - already promoted (merged, or via a guest-linked invite) - in
+    // which case it must never silently become a second, duplicate guest.
+    if (await nameTakenByAnotherPlayer(name, null)) {
+      throw ApiError.conflict("This name already belongs to an existing player account");
     }
 
     const [guest] = await db.insert(players).values({ name, isGuest: true, addedByUserId: req.user!.userId }).returning();

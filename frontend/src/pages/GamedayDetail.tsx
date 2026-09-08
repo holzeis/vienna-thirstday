@@ -67,13 +67,19 @@ export function GamedayDetail() {
     getGameday(gamedayId)
       .then((res) => setGameday(res.gameday))
       .catch(() => setGameday(null));
+    // Refreshed alongside the gameday (on an interval and on tab
+    // focus/visibility) rather than fetched once - a guest promoted to a
+    // real player elsewhere (merged, or via a guest-linked invite) must
+    // stop being offered here without needing a full page reload.
+    listGuests()
+      .then((res) => setGuests(res.guests))
+      .catch(() => {
+        /* datalist is a nicety - a typed name still works fine without it */
+      });
   }
 
   useEffect(load, [gamedayId]);
   usePolling(load, 15000);
-  useEffect(() => {
-    listGuests().then((res) => setGuests(res.guests));
-  }, []);
 
   // Fetched ahead of time (idempotent - always the same token) so the actual
   // "Share" click can copy synchronously: Safari/iOS only allows

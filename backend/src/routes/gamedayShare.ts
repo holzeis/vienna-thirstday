@@ -9,6 +9,7 @@ import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type 
 import { isPastLocalDay } from "../utils/timezone";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 import { recordAccessEvent } from "../services/accessEventService";
+import { nameTakenByAnotherPlayer } from "./auth";
 
 const router = Router();
 
@@ -118,6 +119,12 @@ router.post(
       where: and(eq(players.isGuest, true), sql`lower(${players.name}) = lower(${name})`),
     });
     if (!guest) {
+      // This name might belong to a player who *used* to be a guest by this
+      // name - already promoted (merged, or via a guest-linked invite) - in
+      // which case it must never silently become a second, duplicate guest.
+      if (await nameTakenByAnotherPlayer(name, null)) {
+        throw ApiError.conflict("This name already belongs to a registered player - please log in instead to sign up.");
+      }
       [guest] = await db.insert(players).values({ name, isGuest: true }).returning();
     }
 

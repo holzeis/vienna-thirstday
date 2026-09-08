@@ -17,6 +17,7 @@ import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { Spinner } from "../components/LoadingScreen";
 import { useToast } from "../toast/ToastContext";
+import { usePolling } from "../hooks/usePolling";
 
 type UserWithPlayer = User & { player: Player | null };
 type GuestOption = Player & { gamesPlayed: number };
@@ -74,6 +75,11 @@ export function AdminUsers() {
   }
 
   useEffect(load, []);
+  // A guest can be promoted (merged, or via a guest-linked invite created
+  // from this very page) without this page's own action triggering the
+  // refresh - e.g. another admin, or a second tab. Keep the guest/player
+  // pickers from going stale without a manual reload.
+  usePolling(load, 15000);
 
   function inviteLink(token: string) {
     return `${window.location.origin}/invite/${token}`;

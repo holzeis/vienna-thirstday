@@ -179,6 +179,19 @@ describe("POST /gameday-share/:token/register-guest", () => {
     expect(res.status).toBe(409);
   });
 
+  it("refuses a guest sign-up under a name that already belongs to an account-linked player", async () => {
+    const { user, password } = await createAdmin("Robert");
+    const token = await loginAs("Robert", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+
+    const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
+    expect(res.status).toBe(409);
+
+    const guest = await db.query.players.findFirst({ where: (p, { eq, and }) => and(eq(p.name, "Robert"), eq(p.isGuest, true)) });
+    expect(guest).toBeUndefined();
+  });
+
   it("refuses sign-up once the gameday is no longer OPEN, even if the date hasn't passed", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);

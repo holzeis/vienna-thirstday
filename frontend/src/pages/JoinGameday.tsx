@@ -7,6 +7,7 @@ import { BrandMark } from "../components/Layout";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { useInstallPrompt } from "../hooks/useInstallPrompt";
+import { usePolling } from "../hooks/usePolling";
 import { Spinner } from "../components/LoadingScreen";
 
 function storageKey(token: string) {
@@ -108,17 +109,19 @@ export function JoinGameday() {
     getPublicGameday(token, rememberedId)
       .then((res) => setGameday(res.gameday))
       .catch((err) => setLoadError(err instanceof ApiClientError ? err.message : "This link isn't valid"));
-  }
-
-  useEffect(load, [token]);
-  useEffect(() => {
-    if (!token) return;
+    // Refreshed alongside the gameday rather than fetched once - this link
+    // can sit open a while before someone signs up, and a guest promoted to
+    // a real player elsewhere (merged, or via a guest-linked invite) must
+    // stop being offered here without needing a reload.
     getShareLinkGuestNames(token)
       .then((res) => setGuestNames(res.names))
       .catch(() => {
         /* datalist is a nicety - a typed name still works fine without it */
       });
-  }, [token]);
+  }
+
+  useEffect(load, [token]);
+  usePolling(load, 15000);
 
   // Already signed in - just take them straight to the real page, where the
   // normal "I'm in" flow already exists. Guarded by `!submitting`: logging in
