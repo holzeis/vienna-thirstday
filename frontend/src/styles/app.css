@@ -1343,7 +1343,10 @@ tr.me td:first-child {
   }
 
   .main {
-    padding: 18px 14px calc(84px + env(safe-area-inset-bottom, 0px));
+    /* No bottom-padding reserve for the tabbar here - it's sticky (in
+       normal flow) now, not fixed/removed-from-flow, so it already
+       occupies its own space as .main's flex sibling. */
+    padding: 18px 14px 18px;
   }
 
   .page-header h2 {
@@ -1352,9 +1355,17 @@ tr.me td:first-child {
 
   .tabbar {
     display: flex;
-    position: fixed;
-    left: 0;
-    right: 0;
+    /* position:sticky, not fixed - matches .topbar. On iOS WebKit (including
+       standalone/installed PWAs), position:fixed elements are only reliably
+       placed once the page is actually scrollable; on a short page with
+       nothing to scroll (e.g. while data is still loading), a fixed bottom
+       bar can render in the wrong spot and "jump" into place once content
+       grows past the viewport. Sticky is resolved via normal document flow/
+       scroll position instead of that separate fixed-viewport code path, so
+       it doesn't have this bug - as the last flex child of the full-height
+       .app-shell, it naturally sits at the viewport bottom whether or not
+       the page scrolls. */
+    position: sticky;
     bottom: 0;
     z-index: 30;
     background: var(--tabbar-bg);
