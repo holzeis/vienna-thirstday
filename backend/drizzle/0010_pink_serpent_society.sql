@@ -1,0 +1,1 @@
+ALTER TABLE "registrations" ADD COLUMN "cancel_token" text;

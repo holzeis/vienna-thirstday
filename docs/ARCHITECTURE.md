@@ -173,3 +173,14 @@ update this document to reflect a deliberate change.
    `access_events`) survive untouched; it only removes login credentials.
    A genuine "erase my data" action, if ever needed, would be a separate,
    explicit feature that anonymizes those fields instead.
+9. **A public, unauthenticated write is authorized by a random unguessable
+   token, never by an id.** `gamedays.share_token` (the matchday link
+   itself), `invites.token`, and `registrations.cancel_token` (a guest
+   self-cancelling via the share link) are all 256-bit random strings from
+   the same generator (`utils/inviteToken.ts`). Why: a `playerId` or
+   `gamedayId` is not a secret - it's small, sequential, and often already
+   visible in a public response (e.g. the share link's own roster/status
+   lookup returns names and accepts `?playerId=` to check "am I on this
+   list"), so it can never be trusted alone to authorize *changing*
+   something. The token is handed back exactly once, in the response to the
+   action that created it, and never echoed by any read endpoint.

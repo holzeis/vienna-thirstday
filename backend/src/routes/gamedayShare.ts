@@ -10,6 +10,7 @@ import { isPastLocalDay } from "../utils/timezone";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 import { recordAccessEvent } from "../services/accessEventService";
 import { nameTakenByAnotherPlayer } from "./auth";
+import { generateInviteToken } from "../utils/inviteToken";
 
 const router = Router();
 
@@ -135,13 +136,19 @@ router.post(
       throw ApiError.conflict("This name is already registered for this matchday");
     }
 
+    // A fresh secret every time (first sign-up or re-confirming after a
+    // cancel) - only ever handed back in this response, never in the public
+    // status lookup, since that's what lets the holder prove it's their own
+    // registration when they come back to cancel it.
+    const cancelToken = generateInviteToken();
+
     const confirmedCountBefore = await countConfirmed(gameday.id);
     let waitlistResult: WaitlistRecomputeResult | null = null;
     await db.transaction(async (tx) => {
       if (existing) {
         await tx
           .update(registrations)
-          .set({ status: "CONFIRMED", signupAt: new Date(), cancelledAt: null })
+          .set({ status: "CONFIRMED", signupAt: new Date(), cancelledAt: null, cancelToken })
           .where(eq(registrations.id, existing.id));
       } else {
         await tx.insert(registrations).values({
@@ -151,6 +158,7 @@ router.post(
           // created the gameday, same as the historical importer does.
           registeredByUserId: gameday.createdByUserId,
           status: "CONFIRMED",
+          cancelToken,
         });
       }
       waitlistResult = await recomputeGamedayWaitlist(tx, gameday.id);
@@ -168,7 +176,49 @@ router.post(
       playerName: guest.name,
       userId: null,
     });
-    res.status(201).json({ status: finalReg?.status ?? "CONFIRMED", playerId: guest.id });
+    res.status(201).json({ status: finalReg?.status ?? "CONFIRMED", playerId: guest.id, cancelToken });
+    notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
+      console.error("notifyOnWaitlistChange failed:", err)
+    );
+  })
+);
+
+const cancelGuestSchema = z.object({
+  playerId: z.number().int().positive(),
+  cancelToken: z.string().min(1),
+});
+
+/**
+ * Lets a guest who signed up via this link cancel their own spot, without an
+ * account - the counterpart to /register-guest. Requires the `cancelToken`
+ * issued in that response; `playerId` alone can't authorize this since it's
+ * not a secret (derivable from the public roster/status lookup above), so a
+ * mismatch or missing token is rejected with the same generic message as a
+ * playerId that isn't registered at all - never revealing which case it was.
+ */
+router.post(
+  "/:token/cancel-guest",
+  asyncHandler(async (req, res) => {
+    const gameday = await loadGamedayByShareToken(req.params.token);
+    const parsed = cancelGuestSchema.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest("Invalid request");
+    const { playerId, cancelToken } = parsed.data;
+
+    const reg = await db.query.registrations.findFirst({
+      where: and(eq(registrations.gamedayId, gameday.id), eq(registrations.playerId, playerId), ne(registrations.status, "CANCELLED")),
+    });
+    if (!reg || !reg.cancelToken || reg.cancelToken !== cancelToken) {
+      throw ApiError.notFound("Registration not found");
+    }
+
+    const confirmedCountBefore = await countConfirmed(gameday.id);
+    let waitlistResult: WaitlistRecomputeResult | null = null;
+    await db.transaction(async (tx) => {
+      await tx.update(registrations).set({ status: "CANCELLED", cancelledAt: new Date() }).where(eq(registrations.id, reg.id));
+      waitlistResult = await recomputeGamedayWaitlist(tx, gameday.id);
+    });
+
+    res.status(204).send();
     notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
       console.error("notifyOnWaitlistChange failed:", err)
     );

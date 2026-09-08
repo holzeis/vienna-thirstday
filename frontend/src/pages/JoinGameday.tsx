@@ -1,6 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { getPublicGameday, getShareLinkGuestNames, registerForGameday, registerGuestViaShareLink } from "../api/endpoints";
+import {
+  cancelGuestViaShareLink,
+  getPublicGameday,
+  getShareLinkGuestNames,
+  registerForGameday,
+  registerGuestViaShareLink,
+} from "../api/endpoints";
 import type { GamedayPublicSummary } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { BrandMark } from "../components/Layout";
@@ -14,20 +20,38 @@ function storageKey(token: string) {
   return `vt-share-guest-${token}`;
 }
 
-function readRememberedPlayerId(token: string): number | null {
+interface RememberedGuest {
+  playerId: number;
+  /** Null for a value stored before self-cancel existed - status still shows, but no cancel button. */
+  cancelToken: string | null;
+}
+
+function readRememberedGuest(token: string): RememberedGuest | null {
   try {
     const raw = localStorage.getItem(storageKey(token));
-    return raw ? parseInt(raw, 10) : null;
+    if (!raw) return null;
+    // Legacy format (pre-self-cancel): a bare playerId, no token.
+    if (/^\d+$/.test(raw)) return { playerId: parseInt(raw, 10), cancelToken: null };
+    const parsed = JSON.parse(raw);
+    return typeof parsed.playerId === "number" ? { playerId: parsed.playerId, cancelToken: parsed.cancelToken ?? null } : null;
   } catch {
     return null;
   }
 }
 
-function rememberPlayerId(token: string, playerId: number) {
+function rememberGuest(token: string, playerId: number, cancelToken: string) {
   try {
-    localStorage.setItem(storageKey(token), String(playerId));
+    localStorage.setItem(storageKey(token), JSON.stringify({ playerId, cancelToken }));
   } catch {
     /* localStorage unavailable - they'll just see the sign-up form again next time */
+  }
+}
+
+function forgetGuest(token: string) {
+  try {
+    localStorage.removeItem(storageKey(token));
+  } catch {
+    /* no-op - worst case the sign-up form doesn't come back until they clear it themselves */
   }
 }
 
@@ -102,10 +126,12 @@ export function JoinGameday() {
   const [guestName, setGuestName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   function load() {
     if (!token) return;
-    const rememberedId = readRememberedPlayerId(token) ?? undefined;
+    const rememberedId = readRememberedGuest(token)?.playerId ?? undefined;
     getPublicGameday(token, rememberedId)
       .then((res) => setGameday(res.gameday))
       .catch((err) => setLoadError(err instanceof ApiClientError ? err.message : "This link isn't valid"));
@@ -161,13 +187,30 @@ export function JoinGameday() {
     setSubmitting(true);
     try {
       const res = await registerGuestViaShareLink(token, guestName.trim());
-      rememberPlayerId(token, res.playerId);
+      rememberGuest(token, res.playerId, res.cancelToken);
       const refreshed = await getPublicGameday(token, res.playerId);
       setGameday(refreshed.gameday);
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not sign up");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!token) return;
+    const remembered = readRememberedGuest(token);
+    if (!remembered?.cancelToken) return;
+    setCancelError(null);
+    setCancelling(true);
+    try {
+      await cancelGuestViaShareLink(token, remembered.playerId, remembered.cancelToken);
+      forgetGuest(token);
+      load();
+    } catch (err) {
+      setCancelError(err instanceof ApiClientError ? err.message : "Could not cancel");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -189,6 +232,7 @@ export function JoinGameday() {
   if (!gameday) return <Spinner />;
 
   const spotsLeft = Math.max(0, gameday.maxPlayers - gameday.confirmedCount);
+  const remembered = token ? readRememberedGuest(token) : null;
 
   return (
     <div className="auth-shell">
@@ -214,6 +258,14 @@ export function JoinGameday() {
                 ? "You're confirmed! See you on the pitch."
                 : "You're on the waitlist - we'll let you know if a spot opens up."}
             </div>
+            {remembered?.cancelToken && (
+              <>
+                {cancelError && <div className="alert alert-error">{cancelError}</div>}
+                <button type="button" className="btn btn-sm" disabled={cancelling} onClick={handleCancel} style={{ width: "100%" }}>
+                  {cancelling ? "Cancelling..." : "Cancel my spot"}
+                </button>
+              </>
+            )}
             <InstallHint />
           </>
         ) : (

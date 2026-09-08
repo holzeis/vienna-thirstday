@@ -215,10 +215,15 @@ export function getShareLinkGuestNames(token: string) {
 }
 
 export function registerGuestViaShareLink(token: string, name: string) {
-  return apiRequest<{ status: "CONFIRMED" | "WAITLISTED"; playerId: number }>(`/gameday-share/${token}/register-guest`, {
-    method: "POST",
-    body: { name },
-  });
+  return apiRequest<{ status: "CONFIRMED" | "WAITLISTED"; playerId: number; cancelToken: string }>(
+    `/gameday-share/${token}/register-guest`,
+    { method: "POST", body: { name } }
+  );
+}
+
+/** Self-service cancel for a guest who signed up via this same link - see register-guest's `cancelToken`. */
+export function cancelGuestViaShareLink(token: string, playerId: number, cancelToken: string) {
+  return apiRequest<void>(`/gameday-share/${token}/cancel-guest`, { method: "POST", body: { playerId, cancelToken } });
 }
 
 export function setTeams(gamedayId: number, assignments: { playerId: number; team: Team }[]) {

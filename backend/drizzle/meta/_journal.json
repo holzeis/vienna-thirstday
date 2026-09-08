@@ -71,6 +71,13 @@
       "when": 1788804066898,
       "tag": "0009_shiny_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788887178498,
+      "tag": "0010_pink_serpent_society",
+      "breakpoints": true
     }
   ]
 }

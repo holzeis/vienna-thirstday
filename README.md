@@ -56,6 +56,12 @@ Jan 1 – Dec 31 season standings table.
   can always be formed), and the rest wait. Cancelling a confirmed spot
   automatically re-evaluates the list and can promote someone off the
   waitlist. See [How the rules work](#how-the-rules-work) for the exact logic.
+  Each gameday also has a public share link (Admin → gameday → "Share link")
+  that lets someone with no account sign up as a guest by name - and, from
+  the same link, cancel that same sign-up later if their plans change.
+  Self-cancel is authorized by a one-time random token handed back at
+  sign-up (never the guest's player id, which isn't secret), so it only ever
+  lets someone cancel their own spot, not anyone else's.
 - **Teams & results.** Admins assign confirmed players to Team A / Team B
   (any time before or after the gameday) - either by hand, or with
   "Auto-assign by rank" (splits the registered roster in alternating order

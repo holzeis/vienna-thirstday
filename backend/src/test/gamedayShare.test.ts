@@ -160,12 +160,14 @@ describe("POST /gameday-share/:token/register-guest", () => {
     const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe("CONFIRMED");
+    expect(res.body.cancelToken).toEqual(expect.any(String));
 
     const guest = await db.query.players.findFirst({ where: (p, { eq, and }) => and(eq(p.name, "Robert"), eq(p.isGuest, true)) });
     expect(guest).toBeDefined();
     expect(res.body.playerId).toBe(guest!.id);
     const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, guest!.id) });
     expect(reg?.status).toBe("CONFIRMED");
+    expect(reg?.cancelToken).toBe(res.body.cancelToken);
   });
 
   it("rejects a second sign-up under the same name while already registered", async () => {
@@ -235,5 +237,105 @@ describe("POST /gameday-share/:token/register-guest", () => {
     await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
     const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
     expect(payload).toMatchObject({ title: "Matchday confirmed" });
+  });
+});
+
+describe("POST /gameday-share/:token/cancel-guest", () => {
+  it("cancels a registration given the matching playerId and cancelToken", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    const shareToken = shareRes.body.shareToken;
+
+    const signup = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Robert" });
+
+    const res = await request(app)
+      .post(`/api/gameday-share/${shareToken}/cancel-guest`)
+      .send({ playerId: signup.body.playerId, cancelToken: signup.body.cancelToken });
+    expect(res.status).toBe(204);
+
+    const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, signup.body.playerId) });
+    expect(reg?.status).toBe("CANCELLED");
+  });
+
+  it("promotes a waitlisted guest once a confirmed spot is freed up", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW, { minPlayers: 1, maxPlayers: 2 });
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    const shareToken = shareRes.body.shareToken;
+
+    const first = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Robert" });
+    const second = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Alice" });
+    expect(second.body.status).toBe("WAITLISTED");
+
+    await request(app)
+      .post(`/api/gameday-share/${shareToken}/cancel-guest`)
+      .send({ playerId: first.body.playerId, cancelToken: first.body.cancelToken });
+
+    const aliceReg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, second.body.playerId) });
+    expect(aliceReg?.status).toBe("CONFIRMED");
+  });
+
+  it("rejects a wrong cancelToken, and leaves the registration untouched", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    const shareToken = shareRes.body.shareToken;
+
+    const signup = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Robert" });
+
+    const res = await request(app)
+      .post(`/api/gameday-share/${shareToken}/cancel-guest`)
+      .send({ playerId: signup.body.playerId, cancelToken: "not-the-real-token" });
+    expect(res.status).toBe(404);
+
+    const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, signup.body.playerId) });
+    expect(reg?.status).toBe("CONFIRMED");
+  });
+
+  it("rejects one guest's token used against another guest's playerId", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    const shareToken = shareRes.body.shareToken;
+
+    const robert = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Robert" });
+    const alice = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Alice" });
+
+    const res = await request(app)
+      .post(`/api/gameday-share/${shareToken}/cancel-guest`)
+      .send({ playerId: robert.body.playerId, cancelToken: alice.body.cancelToken });
+    expect(res.status).toBe(404);
+  });
+
+  it("404s for a playerId with no active registration here", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+
+    const res = await request(app)
+      .post(`/api/gameday-share/${shareRes.body.shareToken}/cancel-guest`)
+      .send({ playerId: 999999, cancelToken: "anything" });
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects a replay against an already-cancelled registration", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    const shareToken = shareRes.body.shareToken;
+
+    const signup = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Robert" });
+    const body = { playerId: signup.body.playerId, cancelToken: signup.body.cancelToken };
+    await request(app).post(`/api/gameday-share/${shareToken}/cancel-guest`).send(body);
+
+    const res = await request(app).post(`/api/gameday-share/${shareToken}/cancel-guest`).send(body);
+    expect(res.status).toBe(404);
   });
 });

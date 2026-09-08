@@ -103,6 +103,16 @@ export const registrations = pgTable(
     // never delete or block deleting someone else's registration.
     registeredByUserId: integer("registered_by_user_id").references(() => users.id, { onDelete: "set null" }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    // Set only when a guest registers via the public matchday share link
+    // (gamedayShare.ts) - a random secret (same generator as invite/share
+    // tokens) returned once in that response and required to self-cancel
+    // through the same link. Necessary because playerId alone is not a
+    // secret there (it's derivable from the public roster/status lookup),
+    // so it can't be trusted to authorize cancelling someone else's spot.
+    // Null for registrations made any other way (authenticated players
+    // cancel via the JWT-gated route instead, which checks
+    // registeredByUserId).
+    cancelToken: text("cancel_token"),
   },
   (t) => ({
     gamedayPlayerUnique: uniqueIndex("registrations_gameday_player_unique").on(t.gamedayId, t.playerId),
