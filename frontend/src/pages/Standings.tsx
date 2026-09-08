@@ -69,7 +69,7 @@ export function Standings() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.playerId} className={row.playerId === player?.id ? "me" : ""}>
-                  <td className={row.rank <= 3 ? `rank-${row.rank}` : ""}>
+                  <td className={row.rank <= 3 ? `rank-${row.rank}` : ""} style={{ whiteSpace: "nowrap" }}>
                     {row.rank}
                     {typeof row.momentum === "number" && row.momentum !== 0 && (
                       <span
