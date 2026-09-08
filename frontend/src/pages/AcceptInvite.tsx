@@ -133,6 +133,7 @@ export function AcceptInvite() {
               <div className="field">
                 <label htmlFor="email">Email (optional)</label>
                 <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <p className="field-hint">Used only by the game organizers to contact you about games. Your email address is not publicly displayed.</p>
               </div>
               <div className="field">
                 <label htmlFor="password">Password</label>
