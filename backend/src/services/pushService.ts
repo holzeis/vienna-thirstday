@@ -68,6 +68,16 @@ async function userIdsForPlayers(db: DbOrTx, playerIds: number[]): Promise<numbe
   return linked.map((u) => u.id);
 }
 
+/** Sends `payload` to every admin's subscriptions. */
+async function sendPushToAdmins(db: DbOrTx, payload: PushPayload): Promise<void> {
+  const admins = await db.query.users.findMany({ where: eq(schema.users.isAdmin, true) });
+  await sendPushToUsers(
+    db,
+    admins.map((a) => a.id),
+    payload
+  );
+}
+
 function dateLabel(date: Date): string {
   return date.toLocaleDateString("en-GB", {
     weekday: "long",
@@ -103,6 +113,15 @@ export async function notifyPromotedFromWaitlist(db: DbOrTx, playerIds: number[]
     title: "You're in!",
     body: `A spot opened up - you're now confirmed for ${dateLabel(gameday.date)}.`,
     url: `/gamedays/${gameday.id}`,
+  });
+}
+
+/** Notifies every admin that someone accepted an invite link (guest-linked or open) and joined as a player. */
+export async function notifyAdminsInviteAccepted(db: DbOrTx, player: { name: string }): Promise<void> {
+  await sendPushToAdmins(db, {
+    title: "New player joined",
+    body: `${player.name} just accepted an invite.`,
+    url: "/admin/users",
   });
 }
 

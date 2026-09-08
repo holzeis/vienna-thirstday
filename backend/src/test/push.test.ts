@@ -1,12 +1,13 @@
 import "./testDb";
 import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
 import request from "supertest";
+import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
-import { gamedays, pushSubscriptions } from "../db/schema";
-import { resetDb, closeDb, createAdmin, createOpenGameday } from "./helpers";
+import { gamedays, players, pushSubscriptions, users } from "../db/schema";
+import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday } from "./helpers";
 
 vi.mock("web-push", () => ({
   default: {
@@ -253,5 +254,68 @@ describe("POST /gamedays/:id/cancel", () => {
 
     const res = await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /invites/:token/accept notifies admins", () => {
+  async function createInviteForGuest(adminToken: string, guestPlayerId: number) {
+    return request(app).post("/api/admin/invites").set("Authorization", `Bearer ${adminToken}`).send({ guestPlayerId });
+  }
+
+  it("notifies every subscribed admin when a guest-linked invite is accepted, and not a subscribed non-admin", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const subscribedAdmin = await createSubscribedCandidate(1);
+
+    // A subscribed non-admin must never be notified about this.
+    const regularHash = await bcrypt.hash("password123", 10);
+    const [regularPlayer] = await db.insert(players).values({ name: "Regular", isGuest: false }).returning();
+    const [regularUser] = await db.insert(users).values({ passwordHash: regularHash, isAdmin: false, playerId: regularPlayer.id }).returning();
+    await db.insert(pushSubscriptions).values({ userId: regularUser.id, endpoint: "https://push.example/regular", p256dh: "k", auth: "a" });
+
+    const guest = await createGuestPlayer("Robert");
+    const createRes = await createInviteForGuest(token, guest.id);
+
+    const res = await request(app)
+      .post(`/api/invites/${createRes.body.invite.token}/accept`)
+      .field("name", "Robert Real")
+      .field("password", "password123");
+    expect(res.status).toBe(201);
+
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
+    expect(payloadsSent()[0]).toMatchObject({ title: "New player joined", body: "Robert Real just accepted an invite.", url: "/admin/users" });
+    expect(endpointsNotified()).toEqual([subscribedAdmin.endpoint]);
+  });
+
+  it("notifies admins for an open (no-guest) invite too", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const subscribedAdmin = await createSubscribedCandidate(1);
+
+    const createRes = await request(app).post("/api/admin/invites").set("Authorization", `Bearer ${token}`).send({});
+
+    const res = await request(app)
+      .post(`/api/invites/${createRes.body.invite.token}/accept`)
+      .field("name", "Brand New Person")
+      .field("password", "password123");
+    expect(res.status).toBe(201);
+
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
+    expect(payloadsSent()[0]).toMatchObject({ title: "New player joined", body: "Brand New Person just accepted an invite." });
+    expect(endpointsNotified()).toEqual([subscribedAdmin.endpoint]);
+  });
+
+  it("does not fail the request if no admin has a push subscription", async () => {
+    const { password } = await createAdmin("Admin");
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const createRes = await createInviteForGuest(token, guest.id);
+
+    const res = await request(app)
+      .post(`/api/invites/${createRes.body.invite.token}/accept`)
+      .field("name", "Robert Real")
+      .field("password", "password123");
+    expect(res.status).toBe(201);
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
   });
 });

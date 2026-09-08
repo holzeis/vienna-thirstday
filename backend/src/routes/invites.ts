@@ -9,6 +9,7 @@ import { ApiError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
 import { avatarUpload, resizeAvatar } from "../utils/avatarUpload";
 import { nameTakenByAnotherPlayer, sanitizeUser } from "./auth";
+import { notifyAdminsInviteAccepted } from "../services/pushService";
 
 const router = Router();
 
@@ -138,6 +139,9 @@ router.post(
 
     const token = signToken({ userId: user.id, isAdmin: user.isAdmin });
     res.status(201).json({ token, user: sanitizeUser(user) });
+    // Fire-and-forget: push delivery is a real network round-trip per
+    // subscriber and must never add latency to the caller's response.
+    notifyAdminsInviteAccepted(db, { name }).catch((err) => console.error("notifyAdminsInviteAccepted failed:", err));
   })
 );
 
