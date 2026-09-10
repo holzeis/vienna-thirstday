@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { formatDate } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
+import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
 import { Spinner } from "../components/LoadingScreen";
 
 function loadUpcoming(setUpcoming: (gamedays: GamedaySummary[]) => void) {
@@ -127,6 +128,7 @@ export function Overview() {
                         <Link to={`/players/${row.playerId}`} style={{ textDecoration: "none", color: "inherit" }}>
                           {row.name}
                         </Link>
+                        <PreviousSeasonTitleBadge title={row.previousSeasonTitle} season={(year ?? new Date().getUTCFullYear()) - 1} />
                         <CurrentFormBadges currentForm={row.currentForm} />
                       </span>
                     </td>

@@ -4,7 +4,7 @@ import { db } from "../db/client";
 import { gamedays, playerGamedayStats, players, results } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
-import { computeCurrentForm, computeMomentum, fetchStatRows, type CurrentForm } from "../services/playerStatsService";
+import { computeCurrentForm, computeMomentum, computeSeasonPodiums, fetchStatRows, type CurrentForm } from "../services/playerStatsService";
 
 const router = Router();
 
@@ -86,10 +86,21 @@ router.get(
     // ongoing season; a past season shows none of them.
     const allRows = isCurrentSeason ? await fetchStatRows(db) : null;
 
+    // Champion/vice-champion badge: whoever topped the season immediately
+    // before the one being viewed - relative to `year`, not always "last
+    // year", so browsing a past season correctly shows who held the title
+    // going into *that* season rather than always the most recent one.
+    const previousSeasonRows = await fetchStatRows(db, { year: year - 1 });
+    const previousRanking = computeSeasonPodiums(previousSeasonRows).ranking;
+    const previousChampionId = previousRanking.gold?.playerId ?? null;
+    const previousViceChampionId = previousRanking.silver?.playerId ?? null;
+
     const standingsWithExtras = standings.map((s) => ({
       ...s,
       momentum: computeMomentum(beforeRankByPlayer.get(s.playerId), s.rank),
       currentForm: allRows ? computeCurrentForm(allRows, s.playerId) : NO_CURRENT_FORM,
+      previousSeasonTitle:
+        s.playerId === previousChampionId ? "champion" : s.playerId === previousViceChampionId ? "viceChampion" : null,
     }));
 
     res.json({ year, standings: standingsWithExtras });

@@ -128,6 +128,8 @@ export interface GamedayPublicSummary {
   myStatus: "CONFIRMED" | "WAITLISTED" | null;
 }
 
+export type PreviousSeasonTitle = "champion" | "viceChampion" | null;
+
 export interface StandingRow {
   rank: number;
   playerId: number;
@@ -139,6 +141,8 @@ export interface StandingRow {
   /** Rank places gained (positive) or lost (negative) since the last gameday; "new" = no prior rank to compare against. */
   momentum: number | "new";
   currentForm: CurrentForm;
+  /** Gold/silver of the season immediately before this one, if this player held it. */
+  previousSeasonTitle: PreviousSeasonTitle;
 }
 
 /**
