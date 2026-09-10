@@ -62,7 +62,10 @@ export function Standings() {
               <tr>
                 <th>#</th>
                 <th>Player</th>
-                <th className="num">Games</th>
+                <th className="num">
+                  <span className="label-full">Games</span>
+                  <span className="label-short">GMS</span>
+                </th>
                 <th className="num">PTS</th>
                 <th className="num">GD</th>
               </tr>

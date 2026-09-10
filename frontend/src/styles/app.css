@@ -858,6 +858,13 @@ th.num {
   white-space: nowrap;
 }
 
+/* Pair for a column header that should abbreviate on narrow screens - wrap
+   the full text in .label-full and the abbreviation in .label-short; the
+   mobile media query below swaps which one is visible. */
+.label-short {
+  display: none;
+}
+
 tr.me {
   background: var(--accent-dim);
 }
@@ -1348,6 +1355,13 @@ tr.me td:first-child {
 
   .topbar .nav {
     display: none;
+  }
+
+  .label-full {
+    display: none;
+  }
+  .label-short {
+    display: inline;
   }
 
   .user-chip span:first-child {
