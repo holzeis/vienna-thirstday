@@ -116,10 +116,13 @@ router.get(
         isGuest: player.isGuest,
         isAdmin: !!linkedUser?.isAdmin,
         avatarDataUri: avatarDataUri(player),
-        // A real member's join date is when their account was registered;
-        // guests/unmerged imports have no account, so fall back to when
-        // their player record was first created.
-        joinedAt: linkedUser?.createdAt ?? player.createdAt,
+        // The date they first appeared on a completed matchday (earliest
+        // player_gameday_stats row) - this is what "joined" the league
+        // actually means to the group, not account/player-record creation
+        // (which can predate their first game, e.g. an admin-created guest,
+        // or lag behind it for a historical import). Falls back to
+        // account/player creation for someone who hasn't played yet.
+        joinedAt: myRows[0]?.date ?? linkedUser?.createdAt ?? player.createdAt,
       },
       awards,
       currentForm,
