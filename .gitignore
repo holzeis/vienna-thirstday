@@ -21,3 +21,11 @@ npm-debug.log*
 
 # postgres data volume if run outside docker
 pgdata/
+
+# Locally-exported legacy spreadsheet data (real historical player names) -
+# not published to GitHub. The seasons already committed are explicitly
+# re-included below; a newly exported year stays local-only by default.
+backend/src/db/seed-data/kicken-*-import.json
+!backend/src/db/seed-data/kicken-2024-import.json
+!backend/src/db/seed-data/kicken-2025-import.json
+!backend/src/db/seed-data/kicken-2026-import.json
