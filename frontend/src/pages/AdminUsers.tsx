@@ -541,7 +541,7 @@ export function AdminUsers() {
                   <strong>{m.guestPlayerName}</strong> merged into <strong>{m.targetPlayer.name}</strong>
                   {m.season !== null && <span className="badge" style={{ marginLeft: 6 }}>{m.season} only</span>}
                   <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
-                    {formatDateTime(m.createdAt)} by {m.mergedBy?.email || "an admin"}
+                    {formatDateTime(m.createdAt)} by {m.mergedBy?.name || "an admin"}
                     {m.undoneAt && " · undone"}
                   </div>
                 </span>

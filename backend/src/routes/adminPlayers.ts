@@ -99,7 +99,7 @@ router.get(
   "/merges",
   asyncHandler(async (_req, res) => {
     const merges = await db.query.playerMerges.findMany({
-      with: { targetPlayer: true, mergedBy: true },
+      with: { targetPlayer: true, mergedBy: { with: { player: true } } },
       orderBy: (m, { desc }) => desc(m.createdAt),
     });
     res.json({
@@ -111,7 +111,8 @@ router.get(
         targetPlayer: { id: m.targetPlayer.id, name: m.targetPlayer.name },
         // Null once the admin who performed this merge is later deleted -
         // the merge log itself (and its undo capability) is unaffected.
-        mergedBy: m.mergedBy ? { id: m.mergedBy.id, email: m.mergedBy.email } : null,
+        // Name, not email - every account has one, but email is optional.
+        mergedBy: m.mergedBy ? { id: m.mergedBy.id, name: m.mergedBy.player?.name ?? null } : null,
         undoneAt: m.undoneAt,
         createdAt: m.createdAt,
       })),

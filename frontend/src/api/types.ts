@@ -24,7 +24,7 @@ export interface PlayerMerge {
   season: number | null;
   targetPlayer: { id: number; name: string };
   /** Null if the admin who performed this merge was later deleted. */
-  mergedBy: { id: number; email: string | null } | null;
+  mergedBy: { id: number; name: string | null } | null;
   undoneAt: string | null;
   createdAt: string;
 }

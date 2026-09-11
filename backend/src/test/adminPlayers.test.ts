@@ -159,6 +159,23 @@ describe("POST /admin/players/:targetPlayerId/merge", () => {
   });
 });
 
+describe("GET /admin/players/merges", () => {
+  it("identifies who performed a merge by name, not email - which is optional", async () => {
+    const { user, player, password } = await createAdmin("Admin", "password123"); // no email
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Richi");
+
+    await request(app)
+      .post(`/api/admin/players/${player.id}/merge`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ guestPlayerId: guest.id });
+
+    const res = await request(app).get("/api/admin/players/merges").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.merges[0].mergedBy).toEqual({ id: user.id, name: "Admin" });
+  });
+});
+
 describe("GET /admin/players/guests", () => {
   it("lists only the seasons a guest actually has games in, not every league season", async () => {
     const { user, password } = await createAdmin();
