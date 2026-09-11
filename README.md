@@ -220,28 +220,26 @@ cd backend && npm run seed
 npm run seed:import-xlsx
 ```
 
-Pre-generated `kicken-2024-import.json` / `kicken-2025-import.json` /
-`kicken-2026-import.json` (one per season, from the spreadsheets supplied
-during development) are already committed under `backend/src/db/seed-data/`,
-so step 1 is only needed if you want to regenerate one from an updated
-spreadsheet or add another season. Earlier seasons (e.g. 2018-2023) have
-been imported locally from spreadsheets kept outside the repo rather than
-committed here, since the exported JSON is effectively the group's full
-historical player-name data - regenerate one yourself from your own copy of
-that year's workbook via step 1 if you need it. Note that some older
-spreadsheets keep their results table on a sheet not named
-`Ergebnisse <year>` (e.g. 2018/2019's is called `Ergebnisüberblick`), in
-which case pass that sheet name as the 3rd argument. `npm run
-seed:import-xlsx` with no argument imports every `*-import.json` file found
-in `seed-data/`; pass a filename to import just one. The import is
-idempotent - it skips gamedays that already exist for a given date, so it's
-safe to re-run. A player appearing in multiple seasons' files is matched by
-exact name and shares one player record across years - and if that name was
-since merged into a differently-named real account (e.g. an older
-spreadsheet's "Richi" merged into the real "Richie" account via Admin →
-Users → "Merge guest history into an account"), a later import of another
-season attaches that season's history to the merged account too, instead of
-creating a duplicate guest under the old name.
+`backend/src/db/seed-data/kicken-*-import.json` is gitignored - the exported
+JSON is effectively the group's full historical player-name data, so none of
+it is published to GitHub, past seasons included. Run step 1 yourself
+against your own copy of each year's workbook to (re)generate the files
+locally before step 3. Note that some older spreadsheets keep their results
+table on a sheet not named `Ergebnisse <year>` (e.g. 2018/2019's is called
+`Ergebnisüberblick`), in which case pass that sheet name as the 3rd
+argument. `npm run seed:import-xlsx` with no argument imports every
+`*-import.json` file found in `seed-data/`; pass a filename to import just
+one. The import is idempotent for a brand-new gameday (it skips ones that
+already exist for a given date) - re-running it after a spreadsheet
+*correction* to an already-imported gameday's roster is not fully safe yet,
+though: a removed player's stats stay behind, and a renamed or newly-added
+player won't get a stats row backfilled. A player appearing in multiple
+seasons' files is matched by exact name and shares one player record across
+years - and if that name was since merged into a differently-named real
+account (e.g. an older spreadsheet's "Richi" merged into the real "Richie"
+account via Admin → Users → "Merge guest history into an account"), a later
+import of another season attaches that season's history to the merged
+account too, instead of creating a duplicate guest under the old name.
 
 ### Onboarding an imported player
 

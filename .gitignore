@@ -23,9 +23,7 @@ npm-debug.log*
 pgdata/
 
 # Locally-exported legacy spreadsheet data (real historical player names) -
-# not published to GitHub. The seasons already committed are explicitly
-# re-included below; a newly exported year stays local-only by default.
+# not published to GitHub, including seasons committed before this rule
+# existed (still present in git history and in the working tree - see the
+# commit that added this line for how those were untracked).
 backend/src/db/seed-data/kicken-*-import.json
-!backend/src/db/seed-data/kicken-2024-import.json
-!backend/src/db/seed-data/kicken-2025-import.json
-!backend/src/db/seed-data/kicken-2026-import.json
