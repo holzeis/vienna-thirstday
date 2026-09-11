@@ -38,12 +38,14 @@
  *
  * Run `npm run seed` first (bootstraps an admin) before running this.
  *
- * Safe to re-run after regenerating the JSON (e.g. after a fix to
- * scripts/export_xlsx_to_json.py's placeholder-score logic, or a kickoff-time
- * fix here): an existing gameday is matched by calendar date (not the exact
- * timestamp, so a time-of-day correction doesn't create a duplicate) and its
- * date/score/registrations/team assignments are reconciled in place rather
- * than re-created.
+ * Safe to re-run after regenerating the JSON - e.g. a fix to
+ * scripts/export_xlsx_to_json.py's placeholder-score logic, a kickoff-time
+ * fix here, or the spreadsheet itself being corrected (a wrong name
+ * dropped, a typo fixed, a missed attendee added). An existing gameday is
+ * matched by calendar date (not the exact timestamp, so a time-of-day
+ * correction doesn't create a duplicate), and its date/score/registrations/
+ * team-assignments/stats are reconciled in place rather than re-created -
+ * see `diffRoster`/`diffStats` for exactly what "reconciled" covers.
  *
  * Usage:
  *   npm run seed:import-xlsx                       # imports every *-import.json in seed-data/
@@ -54,7 +56,7 @@ import fs from "fs";
 import path from "path";
 import { db, pool } from "./client";
 import { gamedays, players, playerMerges, results, playerGamedayStats, registrations, teamAssignments, users } from "./schema";
-import { and, desc, eq, gte, isNull, like, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, like, lt } from "drizzle-orm";
 import { zonedTimeToUtc } from "../utils/timezone";
 
 const KICKOFF_HOUR = 19;
@@ -108,6 +110,63 @@ async function resolvePlayerIdForName(name: string): Promise<number | null> {
 
   const target = await db.query.players.findFirst({ where: eq(players.id, merge.targetPlayerId) });
   return target?.id ?? null;
+}
+
+/**
+ * Which of `rosterIds` (this gameday's current roster, by player id) are
+ * missing from `existingRows`, and which existing rows belong to a player
+ * the roster no longer includes - shared by the registrations and team-
+ * assignments reconcile passes below. A player can be "missing" (added to
+ * the spreadsheet since the last import) and another can be "stale" (a
+ * name correction dropped them) in the same reconcile pass.
+ */
+function diffRoster(existingRows: { id: number; playerId: number }[], rosterIds: number[]): { missingPlayerIds: number[]; staleRowIds: number[] } {
+  const rosterSet = new Set(rosterIds);
+  const existingPlayerIds = new Set(existingRows.map((r) => r.playerId));
+  return {
+    missingPlayerIds: rosterIds.filter((id) => !existingPlayerIds.has(id)),
+    staleRowIds: existingRows.filter((r) => !rosterSet.has(r.playerId)).map((r) => r.id),
+  };
+}
+
+interface StatEntry {
+  playerId: number;
+  team: "A" | "B";
+  points: number;
+  goalDiff: number;
+}
+
+/**
+ * Which gameday-stat rows to add, correct in place, or drop to bring an
+ * already-imported gameday's stats in line with a corrected spreadsheet -
+ * added for someone new to the roster, corrected for someone whose
+ * recorded team/points/goal-diff changed, dropped for someone the roster
+ * no longer includes. Without this, a spreadsheet correction to an
+ * already-imported gameday (a wrong name dropped, a typo fixed, a missed
+ * attendee added) would leave the old data behind - a renamed or newly-
+ * added player would show up on the roster but never actually score, and a
+ * dropped one would keep silently counting.
+ */
+function diffStats(
+  existingStats: { id: number; playerId: number; team: "A" | "B"; points: number; goalDiff: number }[],
+  entries: StatEntry[]
+): { toAdd: StatEntry[]; toUpdate: (StatEntry & { id: number })[]; staleRowIds: number[] } {
+  const existingByPlayer = new Map(existingStats.map((s) => [s.playerId, s]));
+  const entryPlayerIds = new Set(entries.map((e) => e.playerId));
+
+  const toAdd: StatEntry[] = [];
+  const toUpdate: (StatEntry & { id: number })[] = [];
+  for (const e of entries) {
+    const existing = existingByPlayer.get(e.playerId);
+    if (!existing) {
+      toAdd.push(e);
+    } else if (existing.team !== e.team || existing.points !== e.points || existing.goalDiff !== e.goalDiff) {
+      toUpdate.push({ id: existing.id, ...e });
+    }
+  }
+  const staleRowIds = existingStats.filter((s) => !entryPlayerIds.has(s.playerId)).map((s) => s.id);
+
+  return { toAdd, toUpdate, staleRowIds };
 }
 
 async function importFile(filePath: string, admin: { id: number }) {
@@ -168,24 +227,53 @@ async function importFile(filePath: string, admin: { id: number }) {
       }
 
       const existingRegs = await db.query.registrations.findMany({ where: eq(registrations.gamedayId, existingGameday.id) });
-      const alreadyRegistered = new Set(existingRegs.map((r) => r.playerId));
-      const missingRegs = roster
-        .filter((playerId) => !alreadyRegistered.has(playerId))
-        .map((playerId) => ({ gamedayId: existingGameday.id, playerId, status: "CONFIRMED" as const, registeredByUserId: admin.id }));
-      if (missingRegs.length > 0) {
-        await db.insert(registrations).values(missingRegs);
+      const regDiff = diffRoster(existingRegs, roster);
+      if (regDiff.missingPlayerIds.length > 0) {
+        await db.insert(registrations).values(
+          regDiff.missingPlayerIds.map((playerId) => ({ gamedayId: existingGameday.id, playerId, status: "CONFIRMED" as const, registeredByUserId: admin.id }))
+        );
+        touched = true;
+      }
+      if (regDiff.staleRowIds.length > 0) {
+        await db.delete(registrations).where(inArray(registrations.id, regDiff.staleRowIds));
         touched = true;
       }
 
       const existingAssignments = await db.query.teamAssignments.findMany({ where: eq(teamAssignments.gamedayId, existingGameday.id) });
-      const alreadyAssigned = new Set(existingAssignments.map((a) => a.playerId));
+      const assignmentDiff = diffRoster(existingAssignments, roster);
       const missingAssignments = [
-        ...teamAIds.filter((id) => !alreadyAssigned.has(id)).map((playerId) => ({ gamedayId: existingGameday.id, playerId, team: "A" as const })),
-        ...teamBIds.filter((id) => !alreadyAssigned.has(id)).map((playerId) => ({ gamedayId: existingGameday.id, playerId, team: "B" as const })),
+        ...teamAIds.filter((id) => assignmentDiff.missingPlayerIds.includes(id)).map((playerId) => ({ gamedayId: existingGameday.id, playerId, team: "A" as const })),
+        ...teamBIds.filter((id) => assignmentDiff.missingPlayerIds.includes(id)).map((playerId) => ({ gamedayId: existingGameday.id, playerId, team: "B" as const })),
       ];
       if (missingAssignments.length > 0) {
         await db.insert(teamAssignments).values(missingAssignments);
         touched = true;
+      }
+      if (assignmentDiff.staleRowIds.length > 0) {
+        await db.delete(teamAssignments).where(inArray(teamAssignments.id, assignmentDiff.staleRowIds));
+        touched = true;
+      }
+
+      if (existingResult) {
+        const existingStats = await db.query.playerGamedayStats.findMany({ where: eq(playerGamedayStats.resultId, existingResult.id) });
+        const entries: StatEntry[] = [
+          ...gd.teamA.map((e) => ({ playerId: playerIdByName.get(e.name), team: "A" as const, points: e.points, goalDiff: e.goalDiff })),
+          ...gd.teamB.map((e) => ({ playerId: playerIdByName.get(e.name), team: "B" as const, points: e.points, goalDiff: e.goalDiff })),
+        ].filter((e): e is StatEntry => e.playerId !== undefined);
+        const statDiff = diffStats(existingStats, entries);
+
+        if (statDiff.toAdd.length > 0) {
+          await db.insert(playerGamedayStats).values(statDiff.toAdd.map((e) => ({ resultId: existingResult.id, ...e })));
+          touched = true;
+        }
+        for (const u of statDiff.toUpdate) {
+          await db.update(playerGamedayStats).set({ team: u.team, points: u.points, goalDiff: u.goalDiff }).where(eq(playerGamedayStats.id, u.id));
+          touched = true;
+        }
+        if (statDiff.staleRowIds.length > 0) {
+          await db.delete(playerGamedayStats).where(inArray(playerGamedayStats.id, statDiff.staleRowIds));
+          touched = true;
+        }
       }
 
       if (touched) reconciled++;
@@ -312,4 +400,4 @@ if (require.main === module) {
     });
 }
 
-export { resolvePlayerIdForName };
+export { resolvePlayerIdForName, diffRoster, diffStats };
