@@ -73,7 +73,7 @@ export interface RegistrationView {
   id: number;
   status: RegistrationStatus;
   signupAt: string;
-  player: { id: number; name: string; isGuest: boolean };
+  player: { id: number; name: string; isGuest: boolean; currentForm: CurrentForm; previousSeasonTitle: PreviousSeasonTitle };
   /** Null if the user who registered this player was later deleted. */
   registeredBy: { id: number; email: string } | null;
 }

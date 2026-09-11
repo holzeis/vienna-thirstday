@@ -12,6 +12,7 @@ import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
+import { computeCurrentForm, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
 
 const router = Router();
 
@@ -115,6 +116,23 @@ router.get(
     });
     if (!gameday) throw ApiError.notFound("Gameday not found");
 
+    // Same Locker Room / champion badges shown on the leaderboard, so a
+    // registered player is recognizable here too - "previous season"
+    // relative to this gameday's own year, same rule as the standings page.
+    const allRows = await fetchStatRows(db);
+    const gamedayYear = new Date(gameday.date).getUTCFullYear();
+    const previousSeasonRows = await fetchStatRows(db, { year: gamedayYear - 1 });
+    const previousRanking = computeSeasonPodiums(previousSeasonRows).ranking;
+    const previousChampionId = previousRanking.gold?.playerId ?? null;
+    const previousViceChampionId = previousRanking.silver?.playerId ?? null;
+    function playerBadges(playerId: number) {
+      return {
+        currentForm: computeCurrentForm(allRows, playerId),
+        previousSeasonTitle:
+          playerId === previousChampionId ? "champion" : playerId === previousViceChampionId ? "viceChampion" : null,
+      };
+    }
+
     const regs = (gameday as any).registrations as any[];
     res.json({
       gameday: {
@@ -126,7 +144,7 @@ router.get(
             id: r.id,
             status: r.status,
             signupAt: r.signupAt,
-            player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest },
+            player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest, ...playerBadges(r.player.id) },
             // Null once the registering user's own account is later deleted
             // - the registration itself (and who it's for) is unaffected.
             registeredBy: r.registeredBy ? { id: r.registeredBy.id, email: r.registeredBy.email } : null,

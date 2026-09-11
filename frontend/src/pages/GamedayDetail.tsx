@@ -21,6 +21,8 @@ import { usePolling } from "../hooks/usePolling";
 import { useToast } from "../toast/ToastContext";
 import { statusClass, statusLabel } from "../utils/gamedayStatus";
 import { Spinner } from "../components/LoadingScreen";
+import { CurrentFormBadges } from "../components/CurrentFormBadges";
+import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -198,6 +200,7 @@ export function GamedayDetail() {
               currentUserId={user!.id}
               isAdmin={!!user?.isAdmin}
               busy={busy}
+              season={new Date(gameday.date).getUTCFullYear() - 1}
               onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
             />
           </div>
@@ -208,6 +211,7 @@ export function GamedayDetail() {
               currentUserId={user!.id}
               isAdmin={!!user?.isAdmin}
               busy={busy}
+              season={new Date(gameday.date).getUTCFullYear() - 1}
               onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
             />
           </div>
@@ -260,12 +264,15 @@ function PlayerList({
   currentUserId,
   isAdmin,
   busy,
+  season,
   onCancel,
 }: {
   regs: RegistrationView[];
   currentUserId: number;
   isAdmin: boolean;
   busy: boolean;
+  /** The previous-season year to badge a champion/vice-champion against - see PreviousSeasonTitleBadge. */
+  season: number;
   onCancel: (regId: number) => void;
 }) {
   if (regs.length === 0) return <div className="empty-state">Nobody yet.</div>;
@@ -275,8 +282,13 @@ function PlayerList({
         const canCancel = isAdmin || r.registeredBy?.id === currentUserId;
         return (
           <li key={r.id}>
-            <span>
-              {r.player.name} {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
+            <span className="player-cell">
+              <Link to={`/players/${r.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                {r.player.name}
+              </Link>
+              {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
+              <PreviousSeasonTitleBadge title={r.player.previousSeasonTitle} season={season} />
+              <CurrentFormBadges currentForm={r.player.currentForm} />
             </span>
             {canCancel && (
               <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => onCancel(r.id)}>
