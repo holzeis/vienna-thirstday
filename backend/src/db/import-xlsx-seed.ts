@@ -6,7 +6,10 @@
  * spreadsheet) and creates matching Players, Gamedays, Results and
  * PlayerGamedayStats so each imported season continues seamlessly inside the
  * app. A player appearing in multiple years' files is matched by exact name
- * and shares one player record across seasons.
+ * and shares one player record across seasons - see
+ * `resolvePlayerIdForName` for the one exception: a name that's since been
+ * merged into a differently-named real account resolves to that account
+ * instead of spawning a duplicate guest.
  *
  * Imported players are created as GUESTS, not real players. Nobody has an
  * account yet, so there's no user to "own" this history - and per the season
@@ -50,8 +53,8 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { db, pool } from "./client";
-import { gamedays, players, results, playerGamedayStats, registrations, teamAssignments, users } from "./schema";
-import { and, eq, gte, like, lt } from "drizzle-orm";
+import { gamedays, players, playerMerges, results, playerGamedayStats, registrations, teamAssignments, users } from "./schema";
+import { and, desc, eq, gte, isNull, like, lt } from "drizzle-orm";
 import { zonedTimeToUtc } from "../utils/timezone";
 
 const KICKOFF_HOUR = 19;
@@ -78,6 +81,35 @@ interface ImportFile {
   gamedays: ImportGameday[];
 }
 
+/**
+ * Resolves a spreadsheet player name to a live player id, honoring a prior
+ * guest-into-player merge under that exact name - without this, re-running
+ * (or first running a new year's) import for a guest who has since been
+ * merged into a differently-named real account would silently create a
+ * *second*, duplicate guest under the old name instead of attaching that
+ * year's history to the account it was already merged into (confirmed to
+ * happen live: "Richi" merged into "Richie" reappeared as a fresh guest on
+ * a later import). Falls back to null (caller creates a new guest) only
+ * when neither a live player nor a past merge log entry matches - most
+ * names never having been merged at all.
+ */
+async function resolvePlayerIdForName(name: string): Promise<number | null> {
+  const existing = await db.query.players.findFirst({ where: eq(players.name, name) });
+  if (existing) return existing.id;
+
+  // Most-recent non-undone merge wins, in case the name was merged more
+  // than once over the years (e.g. re-created as a guest and merged again
+  // after an earlier merge was undone).
+  const merge = await db.query.playerMerges.findFirst({
+    where: and(eq(playerMerges.guestPlayerName, name), isNull(playerMerges.undoneAt)),
+    orderBy: [desc(playerMerges.createdAt)],
+  });
+  if (!merge) return null;
+
+  const target = await db.query.players.findFirst({ where: eq(players.id, merge.targetPlayerId) });
+  return target?.id ?? null;
+}
+
 async function importFile(filePath: string, admin: { id: number }) {
   const data: ImportFile = JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
@@ -85,9 +117,9 @@ async function importFile(filePath: string, admin: { id: number }) {
 
   const playerIdByName = new Map<string, number>();
   for (const name of data.players) {
-    const existing = await db.query.players.findFirst({ where: eq(players.name, name) });
-    if (existing) {
-      playerIdByName.set(name, existing.id);
+    const resolvedId = await resolvePlayerIdForName(name);
+    if (resolvedId !== null) {
+      playerIdByName.set(name, resolvedId);
       continue;
     }
     const [created] = await db.insert(players).values({ name, isGuest: true }).returning();
@@ -267,11 +299,17 @@ async function main() {
   }
 }
 
-main()
-  .catch((err) => {
-    console.error("Import failed:", err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
-  });
+// Guarded so this file can be imported (e.g. by a test exercising
+// resolvePlayerIdForName) without immediately running the whole import.
+if (require.main === module) {
+  main()
+    .catch((err) => {
+      console.error("Import failed:", err);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await pool.end();
+    });
+}
+
+export { resolvePlayerIdForName };
