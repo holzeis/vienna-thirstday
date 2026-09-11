@@ -20,6 +20,8 @@ export interface Player {
 export interface PlayerMerge {
   id: number;
   guestPlayerName: string;
+  /** Null = the guest's whole history was merged; otherwise the single season this merge was scoped to. */
+  season: number | null;
   targetPlayer: { id: number; name: string };
   /** Null if the admin who performed this merge was later deleted. */
   mergedBy: { id: number; email: string | null } | null;

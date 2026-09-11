@@ -20,7 +20,7 @@ import { useToast } from "../toast/ToastContext";
 import { usePolling } from "../hooks/usePolling";
 
 type UserWithPlayer = User & { player: Player | null };
-type GuestOption = Player & { gamesPlayed: number };
+type GuestOption = Player & { gamesPlayed: number; seasons: number[] };
 
 const INVITE_STATUS_LABEL: Record<Invite["status"], string> = {
   pending: "Invited",
@@ -57,6 +57,7 @@ export function AdminUsers() {
 
   const [mergeGuestId, setMergeGuestId] = useState<number | "">("");
   const [mergeTargetPlayerId, setMergeTargetPlayerId] = useState<number | "">("");
+  const [mergeSeason, setMergeSeason] = useState<number | "all">("all");
   const [merging, setMerging] = useState(false);
 
   function load() {
@@ -167,18 +168,19 @@ export function AdminUsers() {
     const guest = guests?.find((g) => g.id === mergeGuestId);
     if (!mergeTargetPlayerId || !guest) return;
     const targetName = users?.find((u) => u.player?.id === mergeTargetPlayerId)?.player?.name || "this account";
-    if (
-      !window.confirm(
-        `Attach ${guest.name}'s ${guest.gamesPlayed} game(s) to ${targetName}? ${guest.name} is removed as a separate guest (reversible from "Recent guest merges" below).`
-      )
-    )
-      return;
+    const season = mergeSeason === "all" ? undefined : mergeSeason;
+    const confirmMessage =
+      season === undefined
+        ? `Attach ${guest.name}'s ${guest.gamesPlayed} game(s) to ${targetName}? ${guest.name} is removed as a separate guest (reversible from "Recent guest merges" below).`
+        : `Attach only ${guest.name}'s ${season} season to ${targetName}? ${guest.name} stays around for any other seasons (reversible from "Recent guest merges" below).`;
+    if (!window.confirm(confirmMessage)) return;
     setError(null);
     setMerging(true);
     try {
-      await adminMergeIntoPlayer(mergeTargetPlayerId, guest.id);
+      await adminMergeIntoPlayer(mergeTargetPlayerId, guest.id, season);
       setMergeGuestId("");
       setMergeTargetPlayerId("");
+      setMergeSeason("all");
       load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not merge guest into account");
@@ -188,7 +190,12 @@ export function AdminUsers() {
   }
 
   async function undoMerge(m: PlayerMerge) {
-    if (!window.confirm(`Undo merging "${m.guestPlayerName}" into ${m.targetPlayer.name}? This recreates ${m.guestPlayerName} as a separate guest.`))
+    const seasonNote = m.season !== null ? ` ${m.season} season` : "";
+    if (
+      !window.confirm(
+        `Undo merging "${m.guestPlayerName}"'s${seasonNote} history out of ${m.targetPlayer.name}? This moves it back onto ${m.guestPlayerName} as a separate guest.`
+      )
+    )
       return;
     setError(null);
     setBusyMergeId(m.id);
@@ -454,7 +461,8 @@ export function AdminUsers() {
           <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: -4, marginBottom: 12 }}>
             For a guest that's really the same person as an existing account - e.g. re-imported under a
             name they've since changed - moves the guest's registrations, team assignments, and stats
-            onto the account and removes the guest. Reversible below.
+            onto the account. "All" removes the guest entirely; a specific season only attaches that
+            year and leaves the guest around for the rest. Reversible below.
           </p>
           <div className="form-row">
             <div className="field">
@@ -463,7 +471,10 @@ export function AdminUsers() {
                 id="merge-guest"
                 value={mergeGuestId}
                 disabled={merging}
-                onChange={(e) => setMergeGuestId(e.target.value ? Number(e.target.value) : "")}
+                onChange={(e) => {
+                  setMergeGuestId(e.target.value ? Number(e.target.value) : "");
+                  setMergeSeason("all");
+                }}
               >
                 <option value="">Select a guest...</option>
                 {guests.map((g) => (
@@ -491,6 +502,24 @@ export function AdminUsers() {
                   ))}
               </select>
             </div>
+            <div className="field">
+              <label htmlFor="merge-season">Season</label>
+              <select
+                id="merge-season"
+                value={mergeSeason}
+                disabled={merging || !mergeGuestId}
+                onChange={(e) => setMergeSeason(e.target.value === "all" ? "all" : Number(e.target.value))}
+              >
+                <option value="all">All</option>
+                {guests
+                  .find((g) => g.id === mergeGuestId)
+                  ?.seasons.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
           <button
             className="btn btn-primary btn-sm"
@@ -510,6 +539,7 @@ export function AdminUsers() {
               <li key={m.id}>
                 <span>
                   <strong>{m.guestPlayerName}</strong> merged into <strong>{m.targetPlayer.name}</strong>
+                  {m.season !== null && <span className="badge" style={{ marginLeft: 6 }}>{m.season} only</span>}
                   <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
                     {formatDateTime(m.createdAt)} by {m.mergedBy?.email || "an admin"}
                     {m.undoneAt && " · undone"}

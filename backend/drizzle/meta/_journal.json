@@ -78,6 +78,13 @@
       "when": 1788887178498,
       "tag": "0010_pink_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789122994090,
+      "tag": "0011_powerful_the_initiative",
+      "breakpoints": true
     }
   ]
 }

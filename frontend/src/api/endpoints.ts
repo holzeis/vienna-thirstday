@@ -43,7 +43,7 @@ export function adminListUsers(status?: string) {
 }
 
 export function adminListGuestPlayers() {
-  return apiRequest<{ guests: (Player & { gamesPlayed: number })[] }>("/admin/players/guests");
+  return apiRequest<{ guests: (Player & { gamesPlayed: number; seasons: number[] })[] }>("/admin/players/guests");
 }
 
 export function adminSetRoles(id: number, roles: { isAdmin?: boolean }) {
@@ -62,9 +62,12 @@ export function adminUndoMerge(id: number) {
   return apiRequest<{ guest: Player }>(`/admin/players/merges/${id}/undo`, { method: "POST" });
 }
 
-/** Attaches an unclaimed guest's history to an already-claimed player (unlike the invite flow, which promotes a guest into a brand-new account). */
-export function adminMergeIntoPlayer(targetPlayerId: number, guestPlayerId: number) {
-  return apiRequest<{ ok: true }>(`/admin/players/${targetPlayerId}/merge`, { method: "POST", body: { guestPlayerId } });
+/**
+ * Attaches an unclaimed guest's history to an already-claimed player (unlike the invite flow, which promotes a guest into a
+ * brand-new account). Omit `season` to merge everything; pass one to attach just that year, leaving the rest on the guest.
+ */
+export function adminMergeIntoPlayer(targetPlayerId: number, guestPlayerId: number, season?: number) {
+  return apiRequest<{ ok: true }>(`/admin/players/${targetPlayerId}/merge`, { method: "POST", body: { guestPlayerId, season } });
 }
 
 // ---- admin: invites ----

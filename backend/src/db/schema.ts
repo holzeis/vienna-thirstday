@@ -260,15 +260,26 @@ export const pushSubscriptions = pgTable(
 );
 
 /**
- * Audit log for guest-into-player merges (playerMergeService). The guest
- * player row is deleted once merged, so its name is captured here; the
+ * Audit log for guest-into-player merges (playerMergeService). A merge can
+ * be scoped to one `season` (year) rather than the guest's whole history -
+ * in that case the guest keeps whatever's left of their other seasons and
+ * is *not* deleted, so `guestPlayerId` is captured (nullable, ON DELETE SET
+ * NULL) to let `undoPlayerMerge` move rows straight back onto that same
+ * still-alive guest instead of recreating one. Once a guest is fully
+ * drained (this merge or a later one covers every season they had) it's
+ * deleted like before, which naturally nulls out `guestPlayerId` on every
+ * merge log row that ever referenced it - `guestPlayerName` is the
+ * fallback undo uses once that happens, since the row itself is gone. The
  * moved-row id lists (JSON arrays of registration/team-assignment/gameday-
- * stat ids) are what makes `undoPlayerMerge` possible - reversing a merge
- * means recreating the guest and pointing exactly those rows back at it.
+ * stat ids) are what makes `undoPlayerMerge` possible either way.
  */
 export const playerMerges = pgTable("player_merges", {
   id: serial("id").primaryKey(),
   guestPlayerName: varchar("guest_player_name", { length: 255 }).notNull(),
+  guestPlayerId: integer("guest_player_id").references(() => players.id, { onDelete: "set null" }),
+  // Null = the whole guest's history was merged; otherwise the calendar
+  // year this merge was scoped to.
+  season: integer("season"),
   targetPlayerId: integer("target_player_id")
     .notNull()
     .references(() => players.id, { onDelete: "cascade" }),

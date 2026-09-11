@@ -620,14 +620,16 @@ docker-compose.yml    Local multi-container setup
   new player" option and no automatic name-matching when an admin creates an
   invite - they always pick (or first create) the specific guest to onboard,
   deliberately, since auto-matching on a name string risks silently pairing
-  the wrong person (e.g. two different people who both go by "Max"). The
-  underlying `mergeGuestIntoPlayer`/"Recent guest merges" audit log (Admin →
-  Users) still exists so a past merge can be reviewed and undone, but nothing
-  in the UI currently creates a *new* merge anymore - onboarding doesn't need
-  one since it promotes the guest in place. Attaching a second, later-
-  discovered guest identity onto an already-onboarded account would need a
-  one-off script or a small admin-route addition; there's no button for it
-  today.
+  the wrong person (e.g. two different people who both go by "Max"). Attaching
+  a second, later-discovered guest identity onto an already-onboarded account
+  (e.g. a re-import under a name they've since changed) is a separate step:
+  Admin → Users → "Merge guest history into an account" moves that guest's
+  registrations/team assignments/stats onto the real account. By default it
+  moves everything and removes the guest; picking a specific season instead
+  only attaches that year and leaves the guest around for whatever else they
+  have - useful when only part of a duplicate guest's history actually
+  belongs to that account. Reversible either way from "Recent guest merges"
+  below it.
 - **No email delivery.** Invite links are generated in the app but not
   emailed - an admin copies the link and sends it however they'd normally
   reach the group (WhatsApp, email, etc.). Worth automating with a
