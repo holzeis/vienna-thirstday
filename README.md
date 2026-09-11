@@ -229,11 +229,12 @@ table on a sheet not named `Ergebnisse <year>` (e.g. 2018/2019's is called
 `Ergebnisüberblick`), in which case pass that sheet name as the 3rd
 argument. `npm run seed:import-xlsx` with no argument imports every
 `*-import.json` file found in `seed-data/`; pass a filename to import just
-one. The import is idempotent for a brand-new gameday (it skips ones that
-already exist for a given date) - re-running it after a spreadsheet
-*correction* to an already-imported gameday's roster is not fully safe yet,
-though: a removed player's stats stay behind, and a renamed or newly-added
-player won't get a stats row backfilled. A player appearing in multiple
+one. The import is idempotent and safe to re-run after a spreadsheet
+correction, not just a brand-new season: an already-imported gameday's
+date/score/registrations/team-assignments/stats are reconciled to match -
+a player dropped from the corrected roster is removed, a renamed or
+newly-added one gets a stats row backfilled, and a changed points/goal-diff
+value is corrected in place. A player appearing in multiple
 seasons' files is matched by exact name and shares one player record across
 years - and if that name was since merged into a differently-named real
 account (e.g. an older spreadsheet's "Richi" merged into the real "Richie"
