@@ -12,7 +12,7 @@ import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
-import { computeCurrentForm, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
+import { computeCurrentForm, computeIsNewcomer, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
 
 const router = Router();
 
@@ -128,6 +128,7 @@ router.get(
     function playerBadges(playerId: number) {
       return {
         currentForm: computeCurrentForm(allRows, playerId),
+        isNewcomer: computeIsNewcomer(allRows.filter((r) => r.playerId === playerId)),
         previousSeasonTitle:
           playerId === previousChampionId ? "champion" : playerId === previousViceChampionId ? "viceChampion" : null,
       };

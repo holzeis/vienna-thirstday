@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
+import { NewcomerBadge } from "../components/NewcomerBadge";
 import { Spinner } from "../components/LoadingScreen";
 
 export function Standings() {
@@ -91,6 +92,7 @@ export function Standings() {
                         {row.name}
                       </Link>
                       <PreviousSeasonTitleBadge title={row.previousSeasonTitle} season={(year ?? new Date().getUTCFullYear()) - 1} />
+                      <NewcomerBadge isNewcomer={row.isNewcomer} />
                       <CurrentFormBadges currentForm={row.currentForm} />
                     </span>
                   </td>

@@ -23,6 +23,7 @@ import { statusClass, statusLabel } from "../utils/gamedayStatus";
 import { Spinner } from "../components/LoadingScreen";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
+import { NewcomerBadge } from "../components/NewcomerBadge";
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -288,6 +289,7 @@ function PlayerList({
               </Link>
               {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
               <PreviousSeasonTitleBadge title={r.player.previousSeasonTitle} season={season} />
+              <NewcomerBadge isNewcomer={r.player.isNewcomer} />
               <CurrentFormBadges currentForm={r.player.currentForm} />
             </span>
             {canCancel && (

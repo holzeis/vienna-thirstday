@@ -125,6 +125,23 @@ describe("GET /gamedays/:id", () => {
     expect(reg.player.previousSeasonTitle).toBe("champion");
     expect(reg.player.currentForm).toMatchObject({ veteran: false, undefeated: false, unlucky: false, ghost: false });
   });
+
+  it("badges a registered player as a newcomer when their first-ever matchday was that same past season", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const year = new Date().getUTCFullYear();
+
+    await createCompletedGameday(user.id, new Date(Date.UTC(year, 0, 5, 18)), { teamA: 5, teamB: 2 }, [
+      { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+    ]);
+
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+
+    const res = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
+    const reg = res.body.gameday.registrations.find((r: any) => r.player.id === player.id);
+    expect(reg.player.isNewcomer).toBe(true);
+  });
 });
 
 describe("POST /gamedays/:id/register", () => {

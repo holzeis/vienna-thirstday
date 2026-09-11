@@ -7,6 +7,7 @@ import { formatDate } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
+import { NewcomerBadge } from "../components/NewcomerBadge";
 import { Spinner } from "../components/LoadingScreen";
 
 function loadUpcoming(setUpcoming: (gamedays: GamedaySummary[]) => void) {
@@ -129,6 +130,7 @@ export function Overview() {
                           {row.name}
                         </Link>
                         <PreviousSeasonTitleBadge title={row.previousSeasonTitle} season={(year ?? new Date().getUTCFullYear()) - 1} />
+                        <NewcomerBadge isNewcomer={row.isNewcomer} />
                         <CurrentFormBadges currentForm={row.currentForm} />
                       </span>
                     </td>

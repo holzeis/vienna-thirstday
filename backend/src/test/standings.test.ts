@@ -178,3 +178,40 @@ describe("GET /:year/standings previousSeasonTitle", () => {
     expect(byId.get(guest.id)?.previousSeasonTitle).toBe("viceChampion");
   });
 });
+
+describe("GET /:year/standings isNewcomer", () => {
+  it("badges a player whose first-ever matchday is this calendar year", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    const year = new Date().getUTCFullYear();
+
+    // player's first-ever game is this season - a newcomer.
+    await createCompletedGameday(user.id, new Date(Date.UTC(year, 0, 5, 18)), { teamA: 5, teamB: 2 }, [
+      { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+      { playerId: guest.id, team: "B", points: 1, goalDiff: -3 },
+    ]);
+    // guest already played last season - a veteran of the league, not a newcomer.
+    await createCompletedGameday(user.id, new Date(Date.UTC(year - 1, 5, 1, 18)), { teamA: 2, teamB: 5 }, [
+      { playerId: guest.id, team: "B", points: 4, goalDiff: 3 },
+    ]);
+
+    const res = await request(app).get(`/api/seasons/${year}/standings`).set("Authorization", `Bearer ${token}`);
+    const byId = new Map<number, any>(res.body.standings.map((s: any) => [s.playerId, s]));
+    expect(byId.get(player.id)?.isNewcomer).toBe(true);
+    expect(byId.get(guest.id)?.isNewcomer).toBe(false);
+  });
+
+  it("never shows isNewcomer for a past, concluded season", async () => {
+    const { user, player, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const pastYear = new Date().getUTCFullYear() - 1;
+
+    await createCompletedGameday(user.id, new Date(Date.UTC(pastYear, 0, 5, 18)), { teamA: 5, teamB: 2 }, [
+      { playerId: player.id, team: "A", points: 4, goalDiff: 3 },
+    ]);
+
+    const res = await request(app).get(`/api/seasons/${pastYear}/standings`).set("Authorization", `Bearer ${token}`);
+    expect(res.body.standings[0].isNewcomer).toBe(false);
+  });
+});

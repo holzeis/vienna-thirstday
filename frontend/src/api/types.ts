@@ -73,7 +73,14 @@ export interface RegistrationView {
   id: number;
   status: RegistrationStatus;
   signupAt: string;
-  player: { id: number; name: string; isGuest: boolean; currentForm: CurrentForm; previousSeasonTitle: PreviousSeasonTitle };
+  player: {
+    id: number;
+    name: string;
+    isGuest: boolean;
+    currentForm: CurrentForm;
+    isNewcomer: boolean;
+    previousSeasonTitle: PreviousSeasonTitle;
+  };
   /** Null if the user who registered this player was later deleted. */
   registeredBy: { id: number; email: string } | null;
 }
@@ -141,6 +148,8 @@ export interface StandingRow {
   /** Rank places gained (positive) or lost (negative) since the last gameday; "new" = no prior rank to compare against. */
   momentum: number | "new";
   currentForm: CurrentForm;
+  /** This is their first-ever season - only meaningful for the current, ongoing season. */
+  isNewcomer: boolean;
   /** Gold/silver of the season immediately before this one, if this player held it. */
   previousSeasonTitle: PreviousSeasonTitle;
 }

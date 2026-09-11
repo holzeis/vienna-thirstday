@@ -4,7 +4,14 @@ import { db } from "../db/client";
 import { gamedays, playerGamedayStats, players, results } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
-import { computeCurrentForm, computeMomentum, computeSeasonPodiums, fetchStatRows, type CurrentForm } from "../services/playerStatsService";
+import {
+  computeCurrentForm,
+  computeIsNewcomer,
+  computeMomentum,
+  computeSeasonPodiums,
+  fetchStatRows,
+  type CurrentForm,
+} from "../services/playerStatsService";
 
 const router = Router();
 
@@ -99,6 +106,11 @@ router.get(
       ...s,
       momentum: computeMomentum(beforeRankByPlayer.get(s.playerId), s.rank),
       currentForm: allRows ? computeCurrentForm(allRows, s.playerId) : NO_CURRENT_FORM,
+      // Newcomer is also a live/"as of today" fact (their first-ever game
+      // being this calendar year), not something that made sense to ask
+      // about a past, concluded season - same current-season gate as
+      // currentForm above.
+      isNewcomer: allRows ? computeIsNewcomer(allRows.filter((r) => r.playerId === s.playerId)) : false,
       previousSeasonTitle:
         s.playerId === previousChampionId ? "champion" : s.playerId === previousViceChampionId ? "viceChampion" : null,
     }));
