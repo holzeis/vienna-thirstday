@@ -7,7 +7,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
 import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
-import { notifyGamedayCancelled, notifyNewGameday } from "../services/pushService";
+import { notifyCreatorOfRegistrationChange, notifyGamedayCancelled, notifyNewGameday } from "../services/pushService";
 import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
@@ -326,6 +326,12 @@ router.post(
     notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
       console.error("notifyOnWaitlistChange failed:", err)
     );
+    // Skip telling the creator about their own click - they already know.
+    if (req.user!.userId !== gameday.createdByUserId) {
+      notifyCreatorOfRegistrationChange(db, gameday, playerId!, "signed_up").catch((err) =>
+        console.error("notifyCreatorOfRegistrationChange failed:", err)
+      );
+    }
   })
 );
 
@@ -362,6 +368,12 @@ router.delete(
       notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
         console.error("notifyOnWaitlistChange failed:", err)
       );
+      // Skip telling the creator about their own click - they already know.
+      if (req.user!.userId !== gameday.createdByUserId) {
+        notifyCreatorOfRegistrationChange(db, gameday, reg.playerId, "cancelled").catch((err) =>
+          console.error("notifyCreatorOfRegistrationChange failed:", err)
+        );
+      }
     }
   })
 );

@@ -11,6 +11,7 @@ import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 import { recordAccessEvent } from "../services/accessEventService";
 import { nameTakenByAnotherPlayer } from "./auth";
 import { generateInviteToken } from "../utils/inviteToken";
+import { notifyCreatorOfRegistrationChange } from "../services/pushService";
 
 const router = Router();
 
@@ -180,6 +181,11 @@ router.post(
     notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
       console.error("notifyOnWaitlistChange failed:", err)
     );
+    // No authenticated actor to compare against the creator here (unlike
+    // the logged-in register endpoint) - always notify.
+    notifyCreatorOfRegistrationChange(db, gameday, guest.id, "signed_up").catch((err) =>
+      console.error("notifyCreatorOfRegistrationChange failed:", err)
+    );
   })
 );
 
@@ -221,6 +227,9 @@ router.post(
     res.status(204).send();
     notifyOnWaitlistChange(gameday, confirmedCountBefore, waitlistResult).catch((err) =>
       console.error("notifyOnWaitlistChange failed:", err)
+    );
+    notifyCreatorOfRegistrationChange(db, gameday, reg.playerId, "cancelled").catch((err) =>
+      console.error("notifyCreatorOfRegistrationChange failed:", err)
     );
   })
 );

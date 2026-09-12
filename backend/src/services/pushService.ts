@@ -126,6 +126,41 @@ export async function notifyAdminsInviteAccepted(db: DbOrTx, player: { name: str
 }
 
 /**
+ * Notifies a gameday's creator whenever someone signs up or cancels, so an
+ * admin can keep an eye on attendance without refreshing the page. Looks up
+ * the player's name and (for a signup) their resulting confirmed/waitlisted
+ * status itself, since callers already have their hands full with their own
+ * waitlist recompute - keeps every call site to one line. No-op if the
+ * gameday's creator account was since deleted (createdByUserId nulled) or
+ * the player id can't be resolved.
+ */
+export async function notifyCreatorOfRegistrationChange(
+  db: DbOrTx,
+  gameday: { id: number; date: Date; createdByUserId: number | null },
+  playerId: number,
+  kind: "signed_up" | "cancelled"
+): Promise<void> {
+  if (gameday.createdByUserId === null) return;
+  const player = await db.query.players.findFirst({ where: eq(schema.players.id, playerId) });
+  if (!player) return;
+
+  let title: string;
+  let body: string;
+  if (kind === "signed_up") {
+    const reg = await db.query.registrations.findFirst({
+      where: (r, { and, eq }) => and(eq(r.gamedayId, gameday.id), eq(r.playerId, playerId)),
+    });
+    title = "New sign-up";
+    body = `${player.name} just signed up for ${dateLabel(gameday.date)} - ${reg?.status === "WAITLISTED" ? "waitlisted" : "confirmed"}.`;
+  } else {
+    title = "Cancellation";
+    body = `${player.name} just cancelled their spot for ${dateLabel(gameday.date)}.`;
+  }
+
+  await sendPushToUsers(db, [gameday.createdByUserId], { title, body, url: `/gamedays/${gameday.id}` });
+}
+
+/**
  * Notifies every currently-confirmed player for a gameday that it just
  * crossed the minimum-players line - `confirmed: true` once enough players
  * signed up for it to go ahead, `confirmed: false` if a cancellation just

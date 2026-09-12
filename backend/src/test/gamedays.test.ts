@@ -1,14 +1,25 @@
 import "./testDb";
-import { beforeEach, afterAll, describe, it, expect } from "vitest";
+import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
 import request from "supertest";
+import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
-import { gamedays, registrations } from "../db/schema";
+import { gamedays, registrations, pushSubscriptions } from "../db/schema";
 import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday, createCompletedGameday } from "./helpers";
+
+vi.mock("web-push", () => ({
+  default: {
+    setVapidDetails: vi.fn(),
+    sendNotification: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 const app = createApp();
 
-beforeEach(resetDb);
+beforeEach(() => {
+  vi.mocked(webpush.sendNotification).mockClear();
+  return resetDb();
+});
 afterAll(closeDb);
 
 async function loginAs(name: string, password: string) {
@@ -152,5 +163,78 @@ describe("POST /gamedays/:id/register", () => {
 
     const res = await request(app).post(`/api/gamedays/${past.id}/register`).set("Authorization", `Bearer ${token}`).send({});
     expect(res.status).toBe(400);
+  });
+});
+
+describe("push notifications to a gameday's creator on sign-up/cancel", () => {
+  it("notifies the creator when someone else signs up", async () => {
+    const creator = await createAdmin("Creator");
+    const other = await createAdmin("Other", "password123");
+    const gameday = await createOpenGameday(creator.user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await db.insert(pushSubscriptions).values({ userId: creator.user.id, endpoint: "https://push.example/1", p256dh: "k1", auth: "a1" });
+
+    const otherToken = await loginAs("Other", "password123");
+    vi.mocked(webpush.sendNotification).mockClear();
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${otherToken}`).send({});
+    expect(res.status).toBe(201);
+
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalled());
+    const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
+    expect(payload).toMatchObject({ title: "New sign-up" });
+    expect(payload.body).toContain("Other");
+  });
+
+  it("does not notify the creator about their own sign-up", async () => {
+    const creator = await createAdmin("Creator");
+    const gameday = await createOpenGameday(creator.user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await db.insert(pushSubscriptions).values({ userId: creator.user.id, endpoint: "https://push.example/1", p256dh: "k1", auth: "a1" });
+
+    const token = await loginAs("Creator", creator.password);
+    vi.mocked(webpush.sendNotification).mockClear();
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+    expect(res.status).toBe(201);
+
+    // Give any stray async notification a moment to fire before asserting none did.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("notifies the creator when someone else cancels", async () => {
+    const creator = await createAdmin("Creator");
+    const other = await createAdmin("Other", "password123");
+    const gameday = await createOpenGameday(creator.user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await db.insert(pushSubscriptions).values({ userId: creator.user.id, endpoint: "https://push.example/1", p256dh: "k1", auth: "a1" });
+
+    const otherToken = await loginAs("Other", "password123");
+    await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${otherToken}`).send({});
+    const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, other.player.id) });
+
+    vi.mocked(webpush.sendNotification).mockClear();
+    const res = await request(app)
+      .delete(`/api/gamedays/${gameday.id}/register/${reg!.id}`)
+      .set("Authorization", `Bearer ${otherToken}`);
+    expect(res.status).toBe(204);
+
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalled());
+    const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
+    expect(payload).toMatchObject({ title: "Cancellation" });
+    expect(payload.body).toContain("Other");
+  });
+
+  it("does not notify the creator about cancelling their own registration", async () => {
+    const creator = await createAdmin("Creator");
+    const gameday = await createOpenGameday(creator.user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await db.insert(pushSubscriptions).values({ userId: creator.user.id, endpoint: "https://push.example/1", p256dh: "k1", auth: "a1" });
+
+    const token = await loginAs("Creator", creator.password);
+    await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+    const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, creator.player.id) });
+
+    vi.mocked(webpush.sendNotification).mockClear();
+    const res = await request(app).delete(`/api/gamedays/${gameday.id}/register/${reg!.id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
-import { gamedays } from "../db/schema";
+import { gamedays, pushSubscriptions } from "../db/schema";
 import { resetDb, closeDb, createAdmin, createOpenGameday } from "./helpers";
 
 vi.mock("web-push", () => ({
@@ -229,14 +229,15 @@ describe("POST /gameday-share/:token/register-guest", () => {
     vi.mocked(webpush.sendNotification).mockClear();
 
     // The guest's share-link sign-up is the 2nd registration, crossing minPlayers 2 -
-    // the admin (a guest has no account/subscription to notify) should get "confirmed".
+    // the admin (a guest has no account/subscription to notify) should get "confirmed",
+    // and - since they're also this gameday's creator - a second "New sign-up" notification.
     const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
 
     expect(res.status).toBe(201);
     // Notification dispatch is fire-and-forget - the response doesn't wait for it.
-    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
-    const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
-    expect(payload).toMatchObject({ title: "Matchday confirmed" });
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(2));
+    const titles = vi.mocked(webpush.sendNotification).mock.calls.map((call) => JSON.parse(call[1] as string).title);
+    expect(titles).toEqual(expect.arrayContaining(["Matchday confirmed", "New sign-up"]));
   });
 });
 
@@ -337,5 +338,49 @@ describe("POST /gameday-share/:token/cancel-guest", () => {
 
     const res = await request(app).post(`/api/gameday-share/${shareToken}/cancel-guest`).send(body);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("push notifications to a gameday's creator via the share link", () => {
+  it("notifies the creator when a guest signs up via the link", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    await db.insert(pushSubscriptions).values({ userId: user.id, endpoint: "https://push.example/1", p256dh: "k1", auth: "a1" });
+
+    vi.mocked(webpush.sendNotification).mockClear();
+    const res = await request(app).post(`/api/gameday-share/${shareRes.body.shareToken}/register-guest`).send({ name: "Robert" });
+    expect(res.status).toBe(201);
+
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalled());
+    const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
+    expect(payload).toMatchObject({ title: "New sign-up" });
+    expect(payload.body).toContain("Robert");
+  });
+
+  it("notifies the creator when a guest cancels via the link", async () => {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, TOMORROW);
+    const shareRes = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${adminToken}`);
+    const shareToken = shareRes.body.shareToken;
+    await db.insert(pushSubscriptions).values({ userId: user.id, endpoint: "https://push.example/1", p256dh: "k1", auth: "a1" });
+    const signup = await request(app).post(`/api/gameday-share/${shareToken}/register-guest`).send({ name: "Robert" });
+
+    // The signup's own (fire-and-forget) notification may still be in
+    // flight - let it land before clearing, so it can't be mistaken for
+    // the cancellation notification below.
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalled());
+    vi.mocked(webpush.sendNotification).mockClear();
+    const res = await request(app)
+      .post(`/api/gameday-share/${shareToken}/cancel-guest`)
+      .send({ playerId: signup.body.playerId, cancelToken: signup.body.cancelToken });
+    expect(res.status).toBe(204);
+
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalled());
+    const payload = JSON.parse(vi.mocked(webpush.sendNotification).mock.calls[0][1] as string);
+    expect(payload).toMatchObject({ title: "Cancellation" });
+    expect(payload.body).toContain("Robert");
   });
 });
