@@ -26,7 +26,7 @@ working conventions, see `CLAUDE.md`.
 | Path | Role |
 | --- | --- |
 | `backend/src/app.ts` | Express app assembly — mounts every router |
-| `backend/src/routes/*` | One file per resource area: `auth`, `gamedays`, `gamedayShare` (public, token-based, no login), `players`, `standings`, `hallOfFame`, `push`, `invites`/`adminInvites`, `adminUsers`, `adminPlayers`, `guests` |
+| `backend/src/routes/*` | One file per resource area: `auth`, `gamedays`, `gamedayShare` (public, token-based, no login), `players`, `standings`, `hallOfFame`, `push`, `invites`/`adminInvites`, `adminUsers`, `adminPlayers`, `guests`, `passwordReset` (public, token-based, no login) |
 | `backend/src/services/*` | Business logic factored out of route handlers so it's unit-testable: `playerStatsService`, `registrationService`, `pushService`, `playerMergeService`, `accessEventService` |
 | `backend/src/utils/*` | Pure/computational logic, one test file per module: `scoring`, `waitlist`, `matchday`, `timezone`, `gamedayStatus`, `achievementThresholds`, `userAgent` |
 | `backend/src/db/` | Drizzle schema, migrations, seed scripts |
@@ -175,12 +175,24 @@ update this document to reflect a deliberate change.
    explicit feature that anonymizes those fields instead.
 9. **A public, unauthenticated write is authorized by a random unguessable
    token, never by an id.** `gamedays.share_token` (the matchday link
-   itself), `invites.token`, and `registrations.cancel_token` (a guest
-   self-cancelling via the share link) are all 256-bit random strings from
-   the same generator (`utils/inviteToken.ts`). Why: a `playerId` or
-   `gamedayId` is not a secret - it's small, sequential, and often already
-   visible in a public response (e.g. the share link's own roster/status
-   lookup returns names and accepts `?playerId=` to check "am I on this
-   list"), so it can never be trusted alone to authorize *changing*
-   something. The token is handed back exactly once, in the response to the
-   action that created it, and never echoed by any read endpoint.
+   itself), `invites.token`, `registrations.cancel_token` (a guest
+   self-cancelling via the share link), and `password_reset_tokens.token`
+   (an admin-generated password-reset link) are all 256-bit random strings
+   from the same generator family (`utils/inviteToken.ts`,
+   `utils/passwordResetToken.ts`). Why: a `playerId` or `gamedayId` is not a
+   secret - it's small, sequential, and often already visible in a public
+   response (e.g. the share link's own roster/status lookup returns names
+   and accepts `?playerId=` to check "am I on this list"), so it can never
+   be trusted alone to authorize *changing* something. The token is handed
+   back exactly once, in the response to the action that created it, and
+   never echoed by any read endpoint.
+10. **An admin-generated single-use link keeps at most one live row per
+    target, not a history of them.** Generating a new password-reset link
+    for a user (`routes/adminUsers.ts`'s POST `/:id/reset-link`) deletes any
+    previous `password_reset_tokens` row for that user first, so a link is
+    invalidated the instant a new one is issued - not just on use or
+    expiry - matching the feature's own request ("regenerating replaces the
+    old link"). This is unlike `invites`, which keeps every issued link
+    around (revoked, used, or expired) for the admin's own audit trail; a
+    reset link has no such list to show, so there's nothing to lose by
+    deleting the superseded row outright.

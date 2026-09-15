@@ -238,6 +238,37 @@ export const inviteRedemptions = pgTable(
 );
 
 /**
+ * An admin-generated password-reset link for a user who forgot their
+ * password (routes/adminUsers.ts's POST /:id/reset-link, consumed by
+ * routes/passwordReset.ts). Same random-token convention as invites/share
+ * links (utils/passwordResetToken.ts). ON DELETE CASCADE (unlike invites'
+ * nullable attribution columns) because, unlike an invite, this token is
+ * meaningless once the user it resets is gone - there's nothing left to
+ * preserve. Generating a new link for a user deletes any previous row for
+ * that user first, so at most one is ever live per user and an old link
+ * stops working the moment a new one is issued, not just after use/expiry.
+ */
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: serial("id").primaryKey(),
+    token: varchar("token", { length: 64 }).notNull().unique(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    // Nullable, ON DELETE SET NULL - deleting the admin who generated this
+    // link must never be blocked by, or destroy, the link itself.
+    createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("password_reset_tokens_user_idx").on(t.userId),
+  })
+);
+
+/**
  * A browser/device's Web Push subscription (one row per PushSubscription
  * object the frontend registers via the service worker). A user can have
  * several - one per device/browser they've enabled notifications on.
@@ -398,6 +429,11 @@ export const inviteRedemptionsRelations = relations(inviteRedemptions, ({ one })
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
+}));
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, { fields: [passwordResetTokens.userId], references: [users.id] }),
+  createdBy: one(users, { fields: [passwordResetTokens.createdByUserId], references: [users.id] }),
 }));
 
 export const accessEventsRelations = relations(accessEvents, ({ one }) => ({

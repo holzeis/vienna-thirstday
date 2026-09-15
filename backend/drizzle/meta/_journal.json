@@ -85,6 +85,13 @@
       "when": 1789122994090,
       "tag": "0011_powerful_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789455253340,
+      "tag": "0012_fancy_jazinda",
+      "breakpoints": true
     }
   ]
 }

@@ -46,7 +46,13 @@ Jan 1 – Dec 31 season standings table.
   person's history: their player reverts to a guest (same as an unused
   invite being revoked), so every registration, team assignment, and
   gameday stat stays exactly as it was, unaffected, and can later be
-  re-invited or merged into another account like any other guest.
+  re-invited or merged into another account like any other guest. An admin
+  can also send someone a **password-reset link** (Admin → Users → "Reset
+  password") for when they forget theirs: the link is generated and copied
+  to the clipboard immediately (a toast confirms it), expires after an
+  hour, and lets that person set a new password without knowing their old
+  one. Clicking the button again invalidates whatever link was generated
+  before and copies a fresh one.
 - **Guests.** Any logged-in user can create reusable guest profiles and bring
   them to gamedays. Guests count toward a gameday's capacity/waitlist but are
   excluded from the season standings table.

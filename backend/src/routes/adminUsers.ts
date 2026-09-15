@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db/client";
-import { players, users } from "../db/schema";
+import { passwordResetTokens, players, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
+import { generateResetToken, resetTokenExpiry } from "../utils/passwordResetToken";
 import { sanitizeUser } from "./auth";
 
 const router = Router();
@@ -81,6 +82,39 @@ router.delete(
     });
 
     res.status(204).send();
+  })
+);
+
+/**
+ * Generates a fresh password-reset link for a user who forgot theirs -
+ * they set a new password (routes/passwordReset.ts) without providing the
+ * old one. Deletes any previous unused-or-not row for this user first, so
+ * at most one link is ever live: regenerating immediately invalidates
+ * whatever was issued before, even if it hadn't expired or been used yet.
+ * The token is returned once here, exactly like an invite's, and never
+ * echoed by any read endpoint.
+ */
+router.post(
+  "/:id/reset-link",
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const target = await db.query.users.findFirst({ where: eq(users.id, id) });
+    if (!target) throw ApiError.notFound("User not found");
+
+    const token = generateResetToken();
+    const expiresAt = resetTokenExpiry();
+
+    await db.transaction(async (tx) => {
+      await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, id));
+      await tx.insert(passwordResetTokens).values({
+        token,
+        userId: id,
+        expiresAt,
+        createdByUserId: req.user!.userId,
+      });
+    });
+
+    res.status(201).json({ token, expiresAt });
   })
 );
 

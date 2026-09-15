@@ -9,6 +9,7 @@ import adminUsersRouter from "./routes/adminUsers";
 import adminPlayersRouter from "./routes/adminPlayers";
 import adminInvitesRouter from "./routes/adminInvites";
 import invitesRouter from "./routes/invites";
+import passwordResetRouter from "./routes/passwordReset";
 import guestsRouter from "./routes/guests";
 import playersRouter from "./routes/players";
 import gamedaysRouter from "./routes/gamedays";
@@ -31,6 +32,7 @@ export function createApp() {
   app.use("/api/admin/players", adminPlayersRouter);
   app.use("/api/admin/invites", adminInvitesRouter);
   app.use("/api/invites", invitesRouter);
+  app.use("/api/password-reset", passwordResetRouter);
   app.use("/api/guests", guestsRouter);
   app.use("/api/players", playersRouter);
   app.use("/api/gamedays", gamedaysRouter);
