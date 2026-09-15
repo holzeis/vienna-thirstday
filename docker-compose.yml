@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: vienna
       POSTGRES_DB: vienna_thirstday
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -35,7 +35,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRES_IN: 7d
       PORT: 4000
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://0.0.0.0:8080}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vienna-thirstday.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
@@ -69,7 +69,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:8080"
+      - "8081:8080"
 
   metabase:
     image: metabase/metabase:v0.63.16.6

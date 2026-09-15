@@ -33,7 +33,7 @@ conventions for this repo — follow them without being asked each time.
 9. Once the feature (and all its commits) is complete, push to origin — no
    need to wait to be asked; this is the standing workflow for this repo.
 
-Postgres is exposed on `localhost:5432` (see `docker-compose.yml`), so one-off
+Postgres is exposed on `localhost:5433` (see `docker-compose.yml`), so one-off
 scripts (`npm run seed:sample`, migrations, etc.) can be run directly from
 `backend/` against the running container without exec-ing into it.
 

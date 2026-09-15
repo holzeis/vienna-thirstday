@@ -138,7 +138,8 @@ Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
    ```bash
    cd backend
    npm install
-   cp .env.example .env   # already points at the DB above; edit if needed
+   cp .env.example .env   # points at port 5433 (the docker-compose Postgres) - change
+                           # DATABASE_URL's port to 5432 for the native install above
    npm run db:migrate     # applies drizzle/*.sql
    npm run seed           # creates the first admin (see console output for credentials)
    npm run dev            # http://localhost:4000
@@ -174,7 +175,7 @@ Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
 ## Local development with Docker Compose
 
 This brings up Postgres, the backend, and the frontend (served by nginx on
-port 8080) together:
+port 8081) together:
 
 ```bash
 docker compose up --build
@@ -187,7 +188,7 @@ automatically on backend startup):
 docker compose run --rm backend node dist/db/seed.js
 ```
 
-Open http://localhost:8080.
+Open http://localhost:8081.
 
 Environment overrides (put them in a `.env` file next to `docker-compose.yml`,
 or export them before running `docker compose up`): `JWT_SECRET`,
