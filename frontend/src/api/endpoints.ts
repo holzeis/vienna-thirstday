@@ -54,6 +54,11 @@ export function adminDeleteUser(id: number) {
   return apiRequest<void>(`/admin/users/${id}`, { method: "DELETE" });
 }
 
+/** Generates a fresh password-reset link for this user, invalidating any link generated for them before. */
+export function adminGenerateResetLink(id: number) {
+  return apiRequest<{ token: string; expiresAt: string }>(`/admin/users/${id}/reset-link`, { method: "POST" });
+}
+
 export function adminListMerges() {
   return apiRequest<{ merges: PlayerMerge[] }>("/admin/players/merges");
 }
@@ -116,6 +121,16 @@ export async function acceptInvite(
     throw new ApiClientError(res.status, message, body && (body as any).details);
   }
   return body as { token: string; user: User };
+}
+
+// ---- password reset (public - accepting a reset link needs no auth) ----
+
+export function getPasswordResetStatus(token: string) {
+  return apiRequest<{ valid: true }>(`/password-reset/${token}`);
+}
+
+export function resetPassword(token: string, password: string) {
+  return apiRequest<{ token: string; user: User }>(`/password-reset/${token}`, { method: "POST", body: { password } });
 }
 
 // ---- guests ----

@@ -9,6 +9,7 @@ import { PullToRefresh } from "./components/PullToRefresh";
 import { ToastHost, ToastProvider } from "./toast/ToastContext";
 import { Login } from "./pages/Login";
 import { AcceptInvite } from "./pages/AcceptInvite";
+import { ResetPassword } from "./pages/ResetPassword";
 import { JoinGameday } from "./pages/JoinGameday";
 import { Overview } from "./pages/Overview";
 import { GamedaysList } from "./pages/GamedaysList";
@@ -32,6 +33,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/invite/:token" element={<AcceptInvite />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/join/:token" element={<JoinGameday />} />
 
           <Route

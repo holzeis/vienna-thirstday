@@ -3,6 +3,7 @@ import {
   adminCreateInvite,
   adminDeleteInvite,
   adminDeleteUser,
+  adminGenerateResetLink,
   adminListGuestPlayers,
   adminListInvites,
   adminListMerges,
@@ -162,6 +163,35 @@ export function AdminUsers() {
   function deleteUser(u: UserWithPlayer) {
     if (!window.confirm(`Delete the account for ${u.player?.name || "this user"}? This cannot be undone.`)) return;
     withBusy(u.id, () => adminDeleteUser(u.id));
+  }
+
+  function resetPasswordLink(token: string) {
+    return `${window.location.origin}/reset-password/${token}`;
+  }
+
+  /**
+   * Generates a fresh reset link and copies it straight to the clipboard -
+   * unlike an invite link, there's nothing useful to show on screen (the
+   * admin isn't going to read it, just hand it to whoever forgot their
+   * password), so a toast is the only feedback. Clicking again immediately
+   * invalidates this link and copies a new one (see adminUsers.ts's
+   * POST /:id/reset-link).
+   */
+  async function generateResetLink(u: UserWithPlayer) {
+    setError(null);
+    setBusyId(u.id);
+    try {
+      const res = await adminGenerateResetLink(u.id);
+      const link = resetPasswordLink(res.token);
+      navigator.clipboard.writeText(link).then(
+        () => showToast("Reset link copied to clipboard"),
+        () => window.prompt("Copy this reset link:", link)
+      );
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not generate reset link");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function performMerge() {
@@ -403,9 +433,14 @@ export function AdminUsers() {
                   />
                 </td>
                 <td>
-                  <button className="btn btn-sm btn-danger" disabled={busyId === u.id} onClick={() => deleteUser(u)}>
-                    Delete
-                  </button>
+                  <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button className="btn btn-sm" disabled={busyId === u.id} onClick={() => generateResetLink(u)}>
+                      Reset password
+                    </button>
+                    <button className="btn btn-sm btn-danger" disabled={busyId === u.id} onClick={() => deleteUser(u)}>
+                      Delete
+                    </button>
+                  </span>
                 </td>
               </tr>
             ))}
@@ -446,6 +481,9 @@ export function AdminUsers() {
             </div>
             {expandedUserId === u.id && (
               <div className="user-card-details">
+                <button className="btn btn-sm" disabled={busyId === u.id} onClick={() => generateResetLink(u)}>
+                  Reset password
+                </button>
                 <button className="btn btn-sm btn-danger" disabled={busyId === u.id} onClick={() => deleteUser(u)}>
                   Delete user
                 </button>
