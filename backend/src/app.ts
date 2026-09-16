@@ -1,5 +1,6 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { config } from "./config";
 import { ApiError } from "./utils/errors";
 import { optionalAuth } from "./middleware/auth";
@@ -21,6 +22,10 @@ import pushRouter from "./routes/push";
 export function createApp() {
   const app = express();
 
+  // Baseline security headers (X-Content-Type-Options, X-Frame-Options,
+  // etc.) - defense in depth, not a substitute for CORS/auth. CSP is left
+  // at helmet's default since this API never serves HTML itself.
+  app.use(helmet());
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
   app.use(express.json());
   app.use(optionalAuth);

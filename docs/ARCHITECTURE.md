@@ -20,6 +20,10 @@ working conventions, see `CLAUDE.md`.
   different host/port.
 - **Database**: a single Postgres database (`vienna_thirstday`). Schema and
   migrations live in `backend/src/db/schema.ts` / `backend/drizzle/`.
+- **Baseline hardening**: `helmet()` sets standard security headers on every
+  response (`backend/src/app.ts`), and `POST /auth/login` is throttled
+  per-account (`backend/src/middleware/loginRateLimit.ts`, decision #11
+  below).
 
 ## Components
 
@@ -196,3 +200,18 @@ update this document to reflect a deliberate change.
     around (revoked, used, or expired) for the admin's own audit trail; a
     reset link has no such list to show, so there's nothing to lose by
     deleting the superseded row outright.
+11. **Login brute-force throttling is keyed by account, not source IP.**
+    `middleware/loginRateLimit.ts` limits `POST /auth/login` by the
+    submitted name/email (case-insensitive), not `req.ip`. Why: the app
+    sits behind a different number of reverse-proxy hops in each
+    environment (one nginx container in docker-compose, ingress-nginx *and*
+    the frontend nginx container in Kubernetes — see `k8s/ingress.yaml`),
+    so there's no single `trust proxy` hop count that's correct everywhere;
+    getting it wrong either lets an attacker spoof `X-Forwarded-For` past
+    the limit, or collapses every real user behind the same proxy onto one
+    shared bucket. Keying by account sidesteps the whole question and
+    directly targets the actual threat (credential guessing against one
+    account) regardless of topology. Skipped entirely when
+    `NODE_ENV=test`, since the same in-memory limiter store persists for a
+    whole test file's app instance and plenty of files log in as "Admin"
+    dozens of times.

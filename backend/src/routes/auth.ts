@@ -7,6 +7,7 @@ import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt";
 import { ApiError } from "../utils/errors";
 import { requireAuth } from "../middleware/auth";
+import { loginRateLimit } from "../middleware/loginRateLimit";
 import { asyncHandler } from "../utils/asyncHandler";
 import { recordAccessEvent } from "../services/accessEventService";
 
@@ -46,6 +47,7 @@ const loginSchema = z.object({
 
 router.post(
   "/login",
+  loginRateLimit,
   asyncHandler(async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
