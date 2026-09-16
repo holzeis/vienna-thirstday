@@ -148,7 +148,12 @@ router.get(
             player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest, ...playerBadges(r.player.id) },
             // Null once the registering user's own account is later deleted
             // - the registration itself (and who it's for) is unaffected.
-            registeredBy: r.registeredBy ? { id: r.registeredBy.id, email: r.registeredBy.email } : null,
+            // email is admin-only: the privacy policy promises it's "never
+            // shown to other players", and the frontend's own cancel-button
+            // ownership check only ever needs `id` (GamedayDetail.tsx).
+            registeredBy: r.registeredBy
+              ? { id: r.registeredBy.id, ...(req.user!.isAdmin ? { email: r.registeredBy.email } : {}) }
+              : null,
           })),
       },
     });
@@ -163,6 +168,7 @@ router.get(
  */
 router.post(
   "/:id/share-link",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, id) });

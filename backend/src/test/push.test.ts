@@ -7,7 +7,7 @@ import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
 import { gamedays, players, pushSubscriptions, users } from "../db/schema";
-import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday } from "./helpers";
+import { resetDb, closeDb, createAdmin, createRegularUser, createGuestPlayer, createOpenGameday } from "./helpers";
 
 vi.mock("web-push", () => ({
   default: {
@@ -109,6 +109,27 @@ describe("POST /push/subscribe and /push/unsubscribe", () => {
 
     expect(res.status).toBe(200);
     expect(await db.query.pushSubscriptions.findMany()).toHaveLength(0);
+  });
+
+  it("does not remove another user's subscription, even if you know its endpoint", async () => {
+    const { user: victim, password: victimPassword } = await createAdmin("Victim");
+    await request(app)
+      .post("/api/push/subscribe")
+      .set("Authorization", `Bearer ${await loginAs("Victim", victimPassword)}`)
+      .send({ endpoint: "https://push.example/victim", keys: { p256dh: "p256dh-key", auth: "auth-key" } });
+
+    const { password: attackerPassword } = await createRegularUser("Attacker");
+    const attackerToken = await loginAs("Attacker", attackerPassword);
+
+    const res = await request(app)
+      .post("/api/push/unsubscribe")
+      .set("Authorization", `Bearer ${attackerToken}`)
+      .send({ endpoint: "https://push.example/victim" });
+
+    expect(res.status).toBe(200);
+    const rows = await db.query.pushSubscriptions.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: victim.id, endpoint: "https://push.example/victim" });
   });
 });
 

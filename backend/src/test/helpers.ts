@@ -23,6 +23,14 @@ export async function createAdmin(name = "Admin", password = "password123", emai
   return { player, user, password };
 }
 
+/** Creates a non-admin user (and its player) directly in the DB, for tests exercising authorization boundaries. */
+export async function createRegularUser(name = "Regular", password = "password123", email?: string) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const [player] = await db.insert(players).values({ name, isGuest: false }).returning();
+  const [user] = await db.insert(users).values({ passwordHash, isAdmin: false, playerId: player.id, email: email ?? null }).returning();
+  return { player, user, password };
+}
+
 /** Creates a non-admin guest player directly in the DB, for tests exercising the invite flow. */
 export async function createGuestPlayer(name: string) {
   const [player] = await db.insert(players).values({ name, isGuest: true }).returning();

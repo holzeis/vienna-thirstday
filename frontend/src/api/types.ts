@@ -83,8 +83,8 @@ export interface RegistrationView {
     isNewcomer: boolean;
     previousSeasonTitle: PreviousSeasonTitle;
   };
-  /** Null if the user who registered this player was later deleted. */
-  registeredBy: { id: number; email: string } | null;
+  /** Null if the user who registered this player was later deleted. email is only present for an admin viewer. */
+  registeredBy: { id: number; email?: string } | null;
 }
 
 export interface TeamAssignmentView {

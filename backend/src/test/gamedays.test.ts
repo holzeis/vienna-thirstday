@@ -5,7 +5,7 @@ import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
 import { gamedays, registrations, pushSubscriptions } from "../db/schema";
-import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday, createCompletedGameday } from "./helpers";
+import { resetDb, closeDb, createAdmin, createRegularUser, createGuestPlayer, createOpenGameday, createCompletedGameday } from "./helpers";
 
 vi.mock("web-push", () => ({
   default: {
@@ -152,6 +152,55 @@ describe("GET /gamedays/:id", () => {
     const res = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
     const reg = res.body.gameday.registrations.find((r: any) => r.player.id === player.id);
     expect(reg.player.isNewcomer).toBe(true);
+  });
+
+  it("includes the registering user's email for an admin viewer", async () => {
+    const { user, password } = await createAdmin("Admin", "password123", "admin@example.com");
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+
+    const res = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
+    const reg = res.body.gameday.registrations.find((r: any) => r.player.id === user.playerId);
+    expect(reg.registeredBy).toMatchObject({ id: user.id, email: "admin@example.com" });
+  });
+
+  it("omits the registering user's email for a non-admin viewer", async () => {
+    const { user: adminUser, password: adminPassword } = await createAdmin("Admin", "password123", "admin@example.com");
+    const adminToken = await loginAs("Admin", adminPassword);
+    const gameday = await createOpenGameday(adminUser.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${adminToken}`).send({});
+
+    const { password: regularPassword } = await createRegularUser();
+    const regularToken = await loginAs("Regular", regularPassword);
+
+    const res = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${regularToken}`);
+    const reg = res.body.gameday.registrations.find((r: any) => r.player.id === adminUser.playerId);
+    expect(reg.registeredBy).toEqual({ id: adminUser.id });
+  });
+});
+
+describe("POST /gamedays/:id/share-link", () => {
+  it("rejects a non-admin caller", async () => {
+    const { user, password: adminPassword } = await createAdmin();
+    const adminToken = await loginAs("Admin", adminPassword);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+
+    const { password } = await createRegularUser();
+    const token = await loginAs("Regular", password);
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("lets an admin generate a share link", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/share-link`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.shareToken).toBeTruthy();
   });
 });
 

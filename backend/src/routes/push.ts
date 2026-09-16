@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { pushSubscriptions } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -53,7 +53,13 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = unsubscribeSchema.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest("Invalid payload", parsed.error.flatten());
-    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, parsed.data.endpoint));
+    // Scoped to the caller's own userId too, not just the endpoint - an
+    // endpoint alone isn't a secret the way the p256dh/auth keys are, so
+    // without this a user could silently kill someone else's subscription
+    // just by knowing (or guessing) their endpoint URL.
+    await db
+      .delete(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.endpoint, parsed.data.endpoint), eq(pushSubscriptions.userId, req.user!.userId)));
     res.json({ ok: true });
   })
 );
