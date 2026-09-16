@@ -27,6 +27,10 @@ interface RecordAccessEventInput {
  * from the User-Agent alone. Its absence (an older cached build, or a
  * request from something other than the app itself) is recorded as
  * "unknown" (null), distinct from a real "opened in a browser tab" (false).
+ * It likewise sends X-App-Version (its own build identifier, see
+ * frontend/src/appVersion.ts), absent the same way for the same reasons -
+ * this is what lets "which version is each player/guest's installed app
+ * actually running" be answered later from the latest row per player.
  * Never throws - a metrics-logging failure must never fail the request it's
  * attached to.
  */
@@ -36,6 +40,8 @@ export async function recordAccessEvent(input: RecordAccessEventInput): Promise<
 
   const standaloneHeader = input.req.headers["x-standalone"];
   const isPwa = standaloneHeader === undefined ? null : standaloneHeader === "1" || standaloneHeader === "true";
+
+  const appVersion = (input.req.headers["x-app-version"] as string | undefined) ?? null;
 
   try {
     await db.insert(accessEvents).values({
@@ -49,6 +55,7 @@ export async function recordAccessEvent(input: RecordAccessEventInput): Promise<
       deviceType,
       isPwa,
       userAgent,
+      appVersion,
     });
   } catch (err) {
     console.error("recordAccessEvent failed:", err);

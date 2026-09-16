@@ -356,6 +356,14 @@ export const accessEvents = pgTable(
     // real "opened in a browser tab" false.
     isPwa: boolean("is_pwa"),
     userAgent: text("user_agent"),
+    // The frontend's own build identifier (frontend/src/appVersion.ts -
+    // short git SHA baked in at build time, "dev" outside Docker), sent as
+    // X-App-Version the same way isPwa's X-Standalone is. Null when the
+    // client sent no header (an older cached build, or a non-app request).
+    // Lets "which installed version is each player/guest actually running"
+    // be answered by querying the latest row per playerId - see README's
+    // "Usage metrics" section.
+    appVersion: varchar("app_version", { length: 64 }),
   },
   (t) => ({
     occurredAtIdx: index("access_events_occurred_at_idx").on(t.occurredAt),

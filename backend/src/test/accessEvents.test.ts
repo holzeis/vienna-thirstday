@@ -29,6 +29,7 @@ describe("POST /auth/login records an access event", () => {
       .post("/api/auth/login")
       .set("User-Agent", IOS_SAFARI_UA)
       .set("X-Standalone", "1")
+      .set("X-App-Version", "abc1234")
       .send({ name: "Admin", password });
     expect(res.status).toBe(200);
 
@@ -44,16 +45,18 @@ describe("POST /auth/login records an access event", () => {
       deviceType: "mobile",
       isPwa: true,
       userAgent: IOS_SAFARI_UA,
+      appVersion: "abc1234",
     });
   });
 
-  it("records isPwa as null (not false) when the client sends no X-Standalone header", async () => {
+  it("records isPwa and appVersion as null when the client sends neither header", async () => {
     const { password } = await createAdmin();
 
     await request(app).post("/api/auth/login").send({ name: "Admin", password });
 
     const row = await findLatestAccessEvent();
     expect(row.isPwa).toBeNull();
+    expect(row.appVersion).toBeNull();
   });
 
   it("does not record an event for a failed login", async () => {

@@ -1,4 +1,5 @@
 import { isStandalonePwa } from "../platform";
+import { APP_VERSION } from "../appVersion";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -59,8 +60,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   // Only the client can know this (display-mode isn't visible in the User-
   // Agent) - the backend reads it for the access-metrics table (see
   // services/accessEventService.ts). Harmless on requests that don't record
-  // anything; costs nothing to always send.
-  const headers: Record<string, string> = { "Content-Type": "application/json", "X-Standalone": isStandalonePwa() ? "1" : "0" };
+  // anything; costs nothing to always send. X-App-Version is the same idea,
+  // for tracking which build each player/guest has installed.
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Standalone": isStandalonePwa() ? "1" : "0",
+    "X-App-Version": APP_VERSION,
+  };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
   let res: Response;

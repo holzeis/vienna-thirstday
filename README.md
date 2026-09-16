@@ -452,13 +452,15 @@ Every login (`POST /auth/login`), authenticated app load
 (`POST /gameday-share/:token/register-guest`) writes one row to the
 `access_events` table: who (player id/name, or a guest with no linked
 account), when, and their OS/browser/device type (parsed server-side from
-the `User-Agent` header - see `backend/src/utils/userAgent.ts`) and whether
+the `User-Agent` header - see `backend/src/utils/userAgent.ts`), whether
 they're using the installed PWA or a regular browser tab (`X-Standalone`
 header, sent by the frontend on every request since only the client can
-know its own display mode - see `frontend/src/api/client.ts`). This is a
-plain table meant to be queried directly with SQL, not surfaced anywhere in
-the app itself - point a BI tool like [Metabase](https://www.metabase.com/)
-at the same Postgres database and build dashboards from it.
+know its own display mode - see `frontend/src/api/client.ts`), and which
+build of the frontend they're running (`X-App-Version` header, same
+convention - see `frontend/src/appVersion.ts`). This is a plain table meant
+to be queried directly with SQL, not surfaced anywhere in the app itself -
+point a BI tool like [Metabase](https://www.metabase.com/) at the same
+Postgres database and build dashboards from it.
 
 `LOGIN` only fires on an actual credentials submit, so it undercounts real
 usage once someone's JWT is cached (it lasts 7 days by default -
@@ -472,8 +474,10 @@ Columns: `occurred_at`, `event_type` (`LOGIN` | `GUEST_REGISTER` |
 `player_name` (a snapshot, so a later rename doesn't rewrite history),
 `user_id` (null for guests), `os`, `browser`, `device_type`
 (`mobile`/`tablet`/`desktop`), `is_pwa` (null if the client didn't send the
-header at all, distinct from a real "opened in a browser" `false`), and the
-raw `user_agent` string in case anything needs re-classifying later.
+header at all, distinct from a real "opened in a browser" `false`), the raw
+`user_agent` string in case anything needs re-classifying later, and
+`app_version` (the client's build id, null under the same "header wasn't
+sent" convention as `is_pwa`).
 
 For Metabase (or any external tool), connect it with a **read-only**
 Postgres role rather than the app's own credentials - run
@@ -510,6 +514,12 @@ SELECT
   count(*)
 FROM access_events
 GROUP BY access_mode;
+
+-- Currently-installed app version per player/guest (latest event wins)
+SELECT DISTINCT ON (player_id) player_name, is_guest, app_version, occurred_at
+FROM access_events
+WHERE player_id IS NOT NULL
+ORDER BY player_id, occurred_at DESC;
 ```
 
 ### Running Metabase

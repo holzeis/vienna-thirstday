@@ -1,0 +1,1 @@
+ALTER TABLE "access_events" ADD COLUMN "app_version" varchar(64);

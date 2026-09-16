@@ -337,6 +337,7 @@ for example queries and the read-only role setup.
 | `device_type` | varchar(16) | `mobile` / `tablet` / `desktop` |
 | `is_pwa` | boolean, nullable | null when the client sent no `X-Standalone` header, distinct from a real "opened in a browser" `false` |
 | `user_agent` | text | raw string, kept in case a classification needs revisiting |
+| `app_version` | varchar(64), nullable | client's build id, from `X-App-Version` (null when absent, same convention as `is_pwa`); the latest row per `player_id` is that player/guest's currently-installed version |
 
 `LOGIN` only fires on an actual credentials submit (undercounts real usage
 once a JWT is cached — 7-day default expiry). `APP_OPEN` fires on every
