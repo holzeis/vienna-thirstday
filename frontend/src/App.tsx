@@ -4,6 +4,7 @@ import { RequireAdmin, RequireAuth } from "./auth/RequireAuth";
 import { Layout } from "./components/Layout";
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import { InstallPwaPrompt } from "./components/InstallPwaPrompt";
+import { PushNotificationPrompt } from "./components/PushNotificationPrompt";
 import { ServerOfflineBanner } from "./components/ServerOfflineBanner";
 import { PullToRefresh } from "./components/PullToRefresh";
 import { ToastHost, ToastProvider } from "./toast/ToastContext";
@@ -28,6 +29,7 @@ export default function App() {
           <ServerOfflineBanner />
           <PwaUpdatePrompt />
           <InstallPwaPrompt />
+          <PushNotificationPrompt />
           <ToastHost />
         </div>
         <Routes>
