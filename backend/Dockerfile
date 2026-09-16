@@ -1,18 +1,18 @@
 # ---- deps: install once, reused by the build stage ----
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 # ---- build: compile TypeScript to dist/ ----
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
 # ---- runtime: only production deps + compiled output ----
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
@@ -20,7 +20,7 @@ RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/drizzle ./drizzle
 
-# node:22-alpine already has a "node" user at uid/gid 1000 - reuse it rather
+# node:24-alpine already has a "node" user at uid/gid 1000 - reuse it rather
 # than creating a new one, and own the app files it needs to read.
 # USER must be the numeric uid, not the name ("node") - k8s's
 # securityContext.runAsNonRoot can only verify a numeric uid baked into the

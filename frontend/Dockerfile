@@ -1,5 +1,5 @@
 # ---- build: compile the Vite app into static assets ----
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
@@ -25,7 +25,7 @@ RUN npm run build
 # file (/tmp/nginx.pid) already owned by that user. Plain nginx:alpine runs
 # its master process as root; this avoids that instead of trying to
 # re-plumb ownership/ports onto the stock image ourselves.
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 

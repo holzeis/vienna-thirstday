@@ -10,7 +10,7 @@
 # verify that against a numeric UID baked into the image; a named user fails
 # with "cannot verify user is non-root" (CreateContainerConfigError) before
 # the container ever starts.
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache curl jq kubectl && \
     adduser -D -u 1000 watcher
 COPY check.sh /usr/local/bin/check.sh
