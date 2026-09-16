@@ -1,9 +1,18 @@
 import type { Request } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
-/** Extracted so the keying logic is unit-testable without going through express-rate-limit/supertest. */
+/**
+ * Extracted so the keying logic is unit-testable without going through
+ * express-rate-limit/supertest. Falls back through ipKeyGenerator (not raw
+ * req.ip) so an IPv6 address gets normalized to its /56 subnet first -
+ * without that, express-rate-limit logs an ERR_ERL_KEY_GEN_IPV6 validation
+ * warning on every startup, since a bare IPv6 address defeats rate limiting
+ * (an attacker can cycle through addresses within their own /64 for free).
+ */
 export function loginRateLimitKey(req: Pick<Request, "body" | "ip">): string {
-  return String(req.body?.name ?? "").trim().toLowerCase() || req.ip || "unknown";
+  const name = String(req.body?.name ?? "").trim().toLowerCase();
+  if (name) return name;
+  return req.ip ? ipKeyGenerator(req.ip) : "unknown";
 }
 
 /**
