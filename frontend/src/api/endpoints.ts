@@ -204,6 +204,11 @@ export function cancelGameday(id: number) {
   return apiRequest<{ gameday: GamedayDetail }>(`/gamedays/${id}/cancel`, { method: "POST" });
 }
 
+/** Reverts a cancellation back to OPEN - only allowed while the gameday's date is still in the future. */
+export function uncancelGameday(id: number) {
+  return apiRequest<{ gameday: GamedayDetail }>(`/gamedays/${id}/uncancel`, { method: "POST" });
+}
+
 export function registerForGameday(gamedayId: number, playerId?: number) {
   return apiRequest<{ message: string }>(`/gamedays/${gamedayId}/register`, {
     method: "POST",

@@ -7,7 +7,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
 import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type WaitlistRecomputeResult } from "../services/registrationService";
-import { notifyCreatorOfRegistrationChange, notifyGamedayCancelled, notifyNewGameday } from "../services/pushService";
+import { notifyCreatorOfRegistrationChange, notifyGamedayCancelled, notifyGamedayReinstated, notifyNewGameday } from "../services/pushService";
 import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
 import { computeMatchdayNumbers } from "../utils/matchday";
@@ -258,6 +258,46 @@ router.post(
       activeRegs.map((r) => r.playerId),
       updated
     ).catch((err) => console.error("notifyGamedayCancelled failed:", err));
+  })
+);
+
+/**
+ * Admin reverts a cancellation, back to OPEN - only while the gameday's own
+ * date is still in the future. A cancelled gameday whose date has already
+ * passed can't be un-cancelled: there's no "still OPEN" to go back to, since
+ * it would immediately read as an odd not-CANCELLED-but-already-past state
+ * (effectiveGamedayStatus would show CLOSED, not CANCELLED) rather than
+ * something a player could actually sign up for. Registrations were never
+ * touched by the cancel itself, so there's nothing to restore there -
+ * everyone who was still confirmed/waitlisted just gets notified it's back
+ * on.
+ */
+router.post(
+  "/:id/uncancel",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, id) });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+    if (gameday.status !== "CANCELLED") throw ApiError.conflict("This matchday isn't cancelled");
+    if (gameday.date.getTime() <= Date.now()) throw ApiError.badRequest("This matchday's date has already passed");
+
+    const activeRegs = await db.query.registrations.findMany({
+      where: and(eq(registrations.gamedayId, id), ne(registrations.status, "CANCELLED")),
+    });
+
+    const [updated] = await db
+      .update(gamedays)
+      .set({ status: "OPEN", updatedAt: new Date() })
+      .where(eq(gamedays.id, id))
+      .returning();
+
+    res.json({ gameday: updated });
+    notifyGamedayReinstated(
+      db,
+      activeRegs.map((r) => r.playerId),
+      updated
+    ).catch((err) => console.error("notifyGamedayReinstated failed:", err));
   })
 );
 

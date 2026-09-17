@@ -106,6 +106,16 @@ export async function notifyGamedayCancelled(db: DbOrTx, playerIds: number[], ga
   });
 }
 
+/** Notifies every player (confirmed or waitlisted) that a cancelled gameday they're signed up for is back on. */
+export async function notifyGamedayReinstated(db: DbOrTx, playerIds: number[], gameday: { id: number; date: Date }): Promise<void> {
+  const userIds = await userIdsForPlayers(db, playerIds);
+  await sendPushToUsers(db, userIds, {
+    title: "Matchday back on",
+    body: `${dateLabel(gameday.date)} is back on - the cancellation was reverted.`,
+    url: `/gamedays/${gameday.id}`,
+  });
+}
+
 /** Notifies specific players (by player id) that they've been moved off the waitlist onto the confirmed list. */
 export async function notifyPromotedFromWaitlist(db: DbOrTx, playerIds: number[], gameday: { id: number; date: Date }): Promise<void> {
   const userIds = await userIdsForPlayers(db, playerIds);

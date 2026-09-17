@@ -12,6 +12,7 @@ import {
   registerForGameday,
   setResult,
   setTeams,
+  uncancelGameday,
 } from "../api/endpoints";
 import type { GamedayDetail as GamedayDetailType, Player, RegistrationView, StandingRow, Team } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -49,6 +50,13 @@ const CancelIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" />
     <line x1="8" y1="8" x2="16" y2="16" />
+  </svg>
+);
+
+const UndoIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7v6h6" />
+    <path d="M3 13a9 9 0 1 0 3-6.7L3 9" />
   </svg>
 );
 
@@ -158,6 +166,11 @@ export function GamedayDetail() {
     doAction(() => cancelGameday(gamedayId));
   }
 
+  async function handleUncancel() {
+    if (!window.confirm("Revert the cancellation? Everyone still signed up will be notified it's back on.")) return;
+    doAction(() => uncancelGameday(gamedayId));
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -173,6 +186,11 @@ export function GamedayDetail() {
           {user?.isAdmin && (gameday.status === "OPEN" || gameday.status === "CLOSED") && (
             <button className="icon-btn icon-btn-danger" aria-label="Cancel matchday" title="Cancel matchday" disabled={busy} onClick={handleCancel}>
               <CancelIcon />
+            </button>
+          )}
+          {user?.isAdmin && gameday.status === "CANCELLED" && !gameHasHappened && (
+            <button className="icon-btn" aria-label="Revert cancellation" title="Revert cancellation" disabled={busy} onClick={handleUncancel}>
+              <UndoIcon />
             </button>
           )}
           {user?.isAdmin && (

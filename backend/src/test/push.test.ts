@@ -278,6 +278,60 @@ describe("POST /gamedays/:id/cancel", () => {
   });
 });
 
+describe("POST /gamedays/:id/uncancel", () => {
+  it("reverts a cancelled future gameday to OPEN and notifies everyone still signed up", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 10, maxPlayers: 10 });
+    const candidates = [await createSubscribedCandidate(1), await createSubscribedCandidate(2)];
+    for (const c of candidates) await registerCandidate(token, gameday.id, c.player.id);
+    await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
+    // Cancel's own notification is fire-and-forget - wait for it to actually
+    // land before clearing, or a straggler can bleed into the assertions below.
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(candidates.length));
+    vi.mocked(webpush.sendNotification).mockClear();
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/uncancel`).set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.gameday.status).toBe("OPEN");
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(2));
+    expect(payloadsSent().every((p) => p.title === "Matchday back on")).toBe(true);
+    expect(endpointsNotified().sort()).toEqual(candidates.map((c) => c.endpoint).sort());
+  });
+
+  it("rejects a non-admin caller", async () => {
+    const { user, password: adminPassword } = await createAdmin();
+    const adminToken = await loginAs("Admin", adminPassword);
+    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${adminToken}`);
+
+    const { password } = await createRegularUser();
+    const token = await loginAs("Regular", password);
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/uncancel`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects reverting a gameday that isn't cancelled", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/uncancel`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects reverting a cancelled gameday whose date has already passed", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() - 1000 * 60 * 60));
+    await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/uncancel`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("POST /invites/:token/accept notifies admins", () => {
   async function createInviteForGuest(adminToken: string, guestPlayerId: number) {
     return request(app).post("/api/admin/invites").set("Authorization", `Bearer ${adminToken}`).send({ guestPlayerId });
