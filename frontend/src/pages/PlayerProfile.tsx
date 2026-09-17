@@ -8,6 +8,7 @@ import { formatMonthYear } from "../utils/format";
 import { disablePushNotifications, enablePushNotifications, getExistingPushSubscription, isPushSupported } from "../push";
 import { isIOS, isStandalonePwa } from "../platform";
 import { Spinner } from "../components/LoadingScreen";
+import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
 
 const AWARD_LABELS: Record<AwardCategory, string> = {
   gamesPlayed: "Games Played",
@@ -255,6 +256,8 @@ export function PlayerProfile() {
       )}
 
       {isOwnProfile && <PushNotificationsCard />}
+
+      <WhatsAppGroupLink />
     </div>
   );
 }

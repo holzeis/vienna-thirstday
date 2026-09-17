@@ -205,41 +205,6 @@ export function GamedayDetail() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <WhatsAppGroupLink />
-
-      {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
-        <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
-      )}
-
-      {gameday.status !== "COMPLETED" && (
-        <div className="grid grid-2">
-          <div className="card">
-            <div className="card-title">
-              Confirmed ({confirmed.length}/{gameday.maxPlayers})
-            </div>
-            <PlayerList
-              regs={confirmed}
-              currentUserId={user!.id}
-              isAdmin={!!user?.isAdmin}
-              busy={busy}
-              season={new Date(gameday.date).getUTCFullYear() - 1}
-              onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
-            />
-          </div>
-          <div className="card">
-            <div className="card-title">Waitlist ({waitlisted.length})</div>
-            <PlayerList
-              regs={waitlisted}
-              currentUserId={user!.id}
-              isAdmin={!!user?.isAdmin}
-              busy={busy}
-              season={new Date(gameday.date).getUTCFullYear() - 1}
-              onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
-            />
-          </div>
-        </div>
-      )}
-
       {gameday.status === "OPEN" && (
         <div className="card">
           <div className="card-title">Sign up</div>
@@ -276,7 +241,42 @@ export function GamedayDetail() {
         </div>
       )}
 
+      {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
+        <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
+      )}
+
+      {gameday.status !== "COMPLETED" && (
+        <div className="grid grid-2">
+          <div className="card">
+            <div className="card-title">
+              Confirmed ({confirmed.length}/{gameday.maxPlayers})
+            </div>
+            <PlayerList
+              regs={confirmed}
+              currentUserId={user!.id}
+              isAdmin={!!user?.isAdmin}
+              busy={busy}
+              season={new Date(gameday.date).getUTCFullYear() - 1}
+              onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
+            />
+          </div>
+          <div className="card">
+            <div className="card-title">Waitlist ({waitlisted.length})</div>
+            <PlayerList
+              regs={waitlisted}
+              currentUserId={user!.id}
+              isAdmin={!!user?.isAdmin}
+              busy={busy}
+              season={new Date(gameday.date).getUTCFullYear() - 1}
+              onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
+            />
+          </div>
+        </div>
+      )}
+
       {user?.isAdmin && <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />}
+
+      {gameday.status !== "COMPLETED" && <WhatsAppGroupLink />}
     </div>
   );
 }
