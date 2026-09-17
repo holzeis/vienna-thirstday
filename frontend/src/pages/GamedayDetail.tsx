@@ -241,7 +241,7 @@ export function GamedayDetail() {
         </div>
       )}
 
-      {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
+      {gameday.status !== "CANCELLED" && (gameday.result || (user?.isAdmin && gameHasHappened)) && (
         <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
       )}
 
@@ -274,9 +274,11 @@ export function GamedayDetail() {
         </div>
       )}
 
-      {user?.isAdmin && <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />}
+      {user?.isAdmin && !(gameday.status === "CANCELLED" && gameHasHappened) && (
+        <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />
+      )}
 
-      {gameday.status !== "COMPLETED" && <WhatsAppGroupLink />}
+      {gameday.status !== "COMPLETED" && gameday.status !== "CANCELLED" && <WhatsAppGroupLink />}
     </div>
   );
 }
