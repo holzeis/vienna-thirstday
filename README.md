@@ -68,6 +68,11 @@ Jan 1 – Dec 31 season standings table.
   Self-cancel is authorized by a one-time random token handed back at
   sign-up (never the guest's player id, which isn't secret), so it only ever
   lets someone cancel their own spot, not anyone else's.
+- **WhatsApp group link.** Every matchday page (for logged-in players) and
+  the public sign-up link (for guests) links out to the group's WhatsApp
+  chat - that's where last-minute coordination actually happens (extra
+  player requests, weather calls, etc.), not in the app itself. The link
+  lives in `frontend/src/components/WhatsAppGroupLink.tsx`.
 - **Teams & results.** Admins assign confirmed players to Team A / Team B
   (any time before or after the gameday) - either by hand, or with
   "Auto-assign by rank" (splits the registered roster in alternating order

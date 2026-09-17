@@ -25,6 +25,7 @@ import { Spinner } from "../components/LoadingScreen";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
 import { NewcomerBadge } from "../components/NewcomerBadge";
+import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -203,6 +204,8 @@ export function GamedayDetail() {
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      <WhatsAppGroupLink />
 
       {(gameday.result || (user?.isAdmin && gameHasHappened)) && (
         <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />

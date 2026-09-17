@@ -15,6 +15,7 @@ import { formatDateTime } from "../utils/format";
 import { useInstallPrompt } from "../hooks/useInstallPrompt";
 import { usePolling } from "../hooks/usePolling";
 import { Spinner } from "../components/LoadingScreen";
+import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
 
 function storageKey(token: string) {
   return `vt-share-guest-${token}`;
@@ -266,6 +267,7 @@ export function JoinGameday() {
                 </button>
               </>
             )}
+            <WhatsAppGroupLink />
             <InstallHint />
           </>
         ) : (
