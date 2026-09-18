@@ -172,6 +172,46 @@ export function GamedayDetail() {
     doAction(() => uncancelGameday(gamedayId));
   }
 
+  // Top of the page while you still need to decide whether to sign up -
+  // that's the whole reason you're here. Once you're already in (or
+  // waitlisted), it drops below the roster: at that point checking who else
+  // is playing matters more than the sign-up form you've already used.
+  const signUpCard = (
+    <div className="card">
+      <div className="card-title">Sign up</div>
+      {!myRegistration ? (
+        <button className="btn btn-primary" disabled={busy} onClick={() => doAction(() => registerForGameday(gamedayId))}>
+          I'm in
+        </button>
+      ) : (
+        <div className={`status-pill ${myRegistration.status === "WAITLISTED" ? "status-pill-waitlisted" : ""}`}>
+          {myRegistration.status === "CONFIRMED" ? "✓ You're in" : "⏳ You're waitlisted"}
+        </div>
+      )}
+
+      <div className="divider" />
+      <GuestSignup
+        guests={guests}
+        registeredPlayerIds={registeredPlayerIds}
+        busy={busy}
+        onAddAndRegister={async (name) => {
+          setError(null);
+          setBusy(true);
+          try {
+            const { guest } = await createGuest(name);
+            setGuests((g) => (g?.some((x) => x.id === guest.id) ? g : [...(g || []), guest]));
+            await registerForGameday(gamedayId, guest.id);
+            load();
+          } catch (err) {
+            setError(err instanceof ApiClientError ? err.message : "Could not add guest");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+    </div>
+  );
+
   return (
     <div>
       <div className="page-header">
@@ -205,41 +245,7 @@ export function GamedayDetail() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {gameday.status === "OPEN" && (
-        <div className="card">
-          <div className="card-title">Sign up</div>
-          {!myRegistration ? (
-            <button className="btn btn-primary" disabled={busy} onClick={() => doAction(() => registerForGameday(gamedayId))}>
-              I'm in
-            </button>
-          ) : (
-            <div className={`status-pill ${myRegistration.status === "WAITLISTED" ? "status-pill-waitlisted" : ""}`}>
-              {myRegistration.status === "CONFIRMED" ? "✓ You're in" : "⏳ You're waitlisted"}
-            </div>
-          )}
-
-          <div className="divider" />
-          <GuestSignup
-            guests={guests}
-            registeredPlayerIds={registeredPlayerIds}
-            busy={busy}
-            onAddAndRegister={async (name) => {
-              setError(null);
-              setBusy(true);
-              try {
-                const { guest } = await createGuest(name);
-                setGuests((g) => (g?.some((x) => x.id === guest.id) ? g : [...(g || []), guest]));
-                await registerForGameday(gamedayId, guest.id);
-                load();
-              } catch (err) {
-                setError(err instanceof ApiClientError ? err.message : "Could not add guest");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
-        </div>
-      )}
+      {gameday.status === "OPEN" && !myRegistration && signUpCard}
 
       {gameday.status !== "CANCELLED" && (gameday.result || (user?.isAdmin && gameHasHappened)) && (
         <ResultCard gamedayId={gamedayId} gameday={gameday} isAdmin={!!user?.isAdmin} onChanged={load} />
@@ -273,6 +279,8 @@ export function GamedayDetail() {
           </div>
         </div>
       )}
+
+      {gameday.status === "OPEN" && myRegistration && signUpCard}
 
       {user?.isAdmin && !(gameday.status === "CANCELLED" && gameHasHappened) && (
         <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />
