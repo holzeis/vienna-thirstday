@@ -314,7 +314,7 @@ export function GamedayDetail() {
       {gameday.status === "OPEN" && myRegistration && signUpCard}
 
       {user?.isAdmin && !(gameday.status === "CANCELLED" && gameHasHappened) && (
-        <TeamsCard gamedayId={gamedayId} gameday={gameday} activeRegs={activeRegs} onChanged={load} />
+        <TeamsCard gamedayId={gamedayId} gameday={gameday} confirmedRegs={confirmed} onChanged={load} />
       )}
 
       {gameday.status !== "COMPLETED" && gameday.status !== "CANCELLED" && <WhatsAppGroupLink />}
@@ -424,12 +424,13 @@ function GuestSignup({
 function TeamsCard({
   gamedayId,
   gameday,
-  activeRegs,
+  confirmedRegs,
   onChanged,
 }: {
   gamedayId: number;
   gameday: GamedayDetailType;
-  activeRegs: RegistrationView[];
+  /** Only CONFIRMED registrations - a waitlisted or unavailable player can't be picked for a team. */
+  confirmedRegs: RegistrationView[];
   onChanged: () => void;
 }) {
   const [assignments, setAssignments] = useState<Record<number, Team | "">>({});
@@ -439,7 +440,7 @@ function TeamsCard({
 
   useEffect(() => {
     const initial: Record<number, Team | ""> = {};
-    for (const r of activeRegs) initial[r.player.id] = "";
+    for (const r of confirmedRegs) initial[r.player.id] = "";
     for (const ta of gameday.teamAssignments) initial[ta.player.id] = ta.team;
     setAssignments(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -483,7 +484,7 @@ function TeamsCard({
    */
   function autoAssignByRank() {
     const rankByPlayer = new Map((standings ?? []).map((s) => [s.playerId, s.rank]));
-    const sorted = [...activeRegs].sort((a, b) => {
+    const sorted = [...confirmedRegs].sort((a, b) => {
       const rankA = rankByPlayer.get(a.player.id) ?? Infinity;
       const rankB = rankByPlayer.get(b.player.id) ?? Infinity;
       return rankA - rankB;
@@ -500,7 +501,7 @@ function TeamsCard({
       <div className="card-title">Teams</div>
       {error && <div className="alert alert-error">{error}</div>}
 
-      {activeRegs.length === 0 ? (
+      {confirmedRegs.length === 0 ? (
         <div className="empty-state">Nobody yet.</div>
       ) : (
         <>
@@ -512,7 +513,7 @@ function TeamsCard({
               </tr>
             </thead>
             <tbody>
-              {activeRegs.map((r) => (
+              {confirmedRegs.map((r) => (
                 <tr key={r.player.id}>
                   <td>
                     {r.player.name} {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
