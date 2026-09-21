@@ -1,5 +1,5 @@
 export type GamedayStatus = "OPEN" | "CLOSED" | "CANCELLED" | "COMPLETED";
-export type RegistrationStatus = "CONFIRMED" | "WAITLISTED" | "CANCELLED";
+export type RegistrationStatus = "CONFIRMED" | "WAITLISTED" | "CANCELLED" | "UNAVAILABLE";
 export type Team = "A" | "B";
 
 export interface User {

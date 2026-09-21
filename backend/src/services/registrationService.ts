@@ -1,5 +1,5 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { computeWaitlistAssignments } from "../utils/waitlist";
 import { db } from "../db/client";
@@ -24,13 +24,19 @@ export interface WaitlistRecomputeResult {
  * the caller's own insert/cancel has usually already happened in the same
  * transaction, so the "before" snapshot has to come from the caller, taken
  * before it made that change.
+ *
+ * "Active" excludes both CANCELLED and UNAVAILABLE - someone who's marked
+ * themselves unavailable never held a confirmed/waitlisted spot in the
+ * first place, so they must never be pulled into this recompute (it would
+ * otherwise flip them straight to CONFIRMED or WAITLISTED, undoing their
+ * own declaration).
  */
 export async function recomputeGamedayWaitlist(tx: DbOrTx, gamedayId: number): Promise<WaitlistRecomputeResult | null> {
   const gameday = await tx.query.gamedays.findFirst({ where: eq(schema.gamedays.id, gamedayId) });
   if (!gameday) return null;
 
   const active = await tx.query.registrations.findMany({
-    where: and(eq(schema.registrations.gamedayId, gamedayId), ne(schema.registrations.status, "CANCELLED")),
+    where: and(eq(schema.registrations.gamedayId, gamedayId), notInArray(schema.registrations.status, ["CANCELLED", "UNAVAILABLE"])),
   });
 
   const decisions = computeWaitlistAssignments(

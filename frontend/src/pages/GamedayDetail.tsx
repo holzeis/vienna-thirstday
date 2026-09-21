@@ -9,6 +9,7 @@ import {
   getGamedayShareLink,
   getStandings,
   listGuests,
+  markUnavailableForGameday,
   registerForGameday,
   setResult,
   setTeams,
@@ -109,6 +110,7 @@ export function GamedayDetail() {
   const activeRegs = gameday.registrations;
   const confirmed = activeRegs.filter((r) => r.status === "CONFIRMED");
   const waitlisted = activeRegs.filter((r) => r.status === "WAITLISTED");
+  const unavailable = activeRegs.filter((r) => r.status === "UNAVAILABLE");
   const myRegistration = activeRegs.find((r) => r.player.id === player?.id);
   const registeredPlayerIds = activeRegs.map((r) => r.player.id);
   // The result form only makes sense once the game has actually kicked off -
@@ -180,12 +182,25 @@ export function GamedayDetail() {
     <div className="card">
       <div className="card-title">Sign up</div>
       {!myRegistration ? (
-        <button className="btn btn-primary" disabled={busy} onClick={() => doAction(() => registerForGameday(gamedayId))}>
-          I'm in
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-primary" disabled={busy} onClick={() => doAction(() => registerForGameday(gamedayId))} style={{ flex: 1 }}>
+            I'm in
+          </button>
+          <button className="btn" disabled={busy} onClick={() => doAction(() => markUnavailableForGameday(gamedayId))} style={{ flex: 1 }}>
+            I'm out
+          </button>
+        </div>
       ) : (
-        <div className={`status-pill ${myRegistration.status === "WAITLISTED" ? "status-pill-waitlisted" : ""}`}>
-          {myRegistration.status === "CONFIRMED" ? "✓ You're in" : "⏳ You're waitlisted"}
+        <div
+          className={`status-pill ${
+            myRegistration.status === "WAITLISTED" ? "status-pill-waitlisted" : myRegistration.status === "UNAVAILABLE" ? "status-pill-unavailable" : ""
+          }`}
+        >
+          {myRegistration.status === "CONFIRMED"
+            ? "✓ You're in"
+            : myRegistration.status === "WAITLISTED"
+              ? "⏳ You're waitlisted"
+              : "🚫 You're out"}
         </div>
       )}
 
@@ -277,6 +292,20 @@ export function GamedayDetail() {
               onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
             />
           </div>
+        </div>
+      )}
+
+      {gameday.status !== "COMPLETED" && (
+        <div className="card">
+          <div className="card-title">Unavailable ({unavailable.length})</div>
+          <PlayerList
+            regs={unavailable}
+            currentUserId={user!.id}
+            isAdmin={!!user?.isAdmin}
+            busy={busy}
+            season={new Date(gameday.date).getUTCFullYear() - 1}
+            onCancel={(regId) => doAction(() => cancelRegistration(gamedayId, regId))}
+          />
         </div>
       )}
 

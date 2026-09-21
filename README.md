@@ -67,7 +67,12 @@ Jan 1 – Dec 31 season standings table.
   the same link, cancel that same sign-up later if their plans change.
   Self-cancel is authorized by a one-time random token handed back at
   sign-up (never the guest's player id, which isn't secret), so it only ever
-  lets someone cancel their own spot, not anyone else's.
+  lets someone cancel their own spot, not anyone else's. A player (not a
+  guest they've brought) can also declare themselves unavailable ("I'm
+  out") instead of signing up - shown on its own "Unavailable" card below
+  the waitlist, and cancellable the same way as a confirmed/waitlisted
+  spot. It never occupies a confirmed/waitlisted slot or affects the
+  waitlist for anyone else.
 - **WhatsApp group link.** Every matchday page (for logged-in players) and
   the public sign-up link (for guests) links out to the group's WhatsApp
   chat - that's where last-minute coordination actually happens (extra
@@ -105,7 +110,10 @@ always be formed: the 9th sign-up (with the default min of 8) waits until a
 and so on, with a hard cap at `maxPlayers`. Cancelling a confirmed
 registration re-runs this calculation immediately, which can bump someone off
 the waitlist into a confirmed spot (or drop the group back down to the next
-even number, per the same pairing rule).
+even number, per the same pairing rule). A player marked `UNAVAILABLE` is
+never part of this calculation at all - excluded from both the count and
+the recompute, so it can't consume a confirmed/waitlisted slot or shift
+anyone else's position.
 
 **Scoring** (`backend/src/utils/scoring.ts`): a gameday is one match between
 Team A and Team B. Whichever team's score is higher gets 4 points per player

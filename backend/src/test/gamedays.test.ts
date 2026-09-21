@@ -215,6 +215,94 @@ describe("POST /gamedays/:id/register", () => {
   });
 });
 
+describe("POST /gamedays/:id/unavailable", () => {
+  it("marks the current user unavailable without touching confirmed/waitlisted counts", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/unavailable`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(201);
+
+    const detail = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
+    expect(detail.body.gameday.registrations).toHaveLength(1);
+    expect(detail.body.gameday.registrations[0]).toMatchObject({ status: "UNAVAILABLE", player: { id: user.playerId } });
+  });
+
+  it("rejects marking unavailable when already registered", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/unavailable`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects marking unavailable twice in a row", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    await request(app).post(`/api/gamedays/${gameday.id}/unavailable`).set("Authorization", `Bearer ${token}`);
+
+    const res = await request(app).post(`/api/gamedays/${gameday.id}/unavailable`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects marking unavailable once an open gameday's kickoff has passed", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const past = await createOpenGameday(user.id, new Date(Date.now() - 1000 * 60 * 60));
+
+    const res = await request(app).post(`/api/gamedays/${past.id}/unavailable`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("never gets pulled into a waitlist recompute - stays UNAVAILABLE while others fill every confirmed/waitlisted slot", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24), { minPlayers: 2, maxPlayers: 2 });
+
+    const { password: outPassword } = await createRegularUser("OptOut");
+    const outToken = await loginAs("OptOut", outPassword);
+    await request(app).post(`/api/gamedays/${gameday.id}/unavailable`).set("Authorization", `Bearer ${outToken}`);
+
+    // Fill confirmed (2) and waitlist (1) past capacity - if recomputeGamedayWaitlist
+    // ever pulled the UNAVAILABLE row back into its "active" set, this is where
+    // it would get silently flipped to CONFIRMED or WAITLISTED.
+    for (let i = 1; i <= 3; i++) {
+      const guest = await createGuestPlayer(`Filler${i}`);
+      await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({ playerId: guest.id });
+    }
+
+    const detail = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
+    const optOutReg = detail.body.gameday.registrations.find((r: any) => r.player.name === "OptOut");
+    expect(optOutReg.status).toBe("UNAVAILABLE");
+    expect(detail.body.gameday.registrations.filter((r: any) => r.status === "CONFIRMED")).toHaveLength(2);
+    expect(detail.body.gameday.registrations.filter((r: any) => r.status === "WAITLISTED")).toHaveLength(1);
+  });
+
+  it("lets the player cancel their unavailable declaration and re-register afterward, same as confirmed/waitlisted", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const gameday = await createOpenGameday(user.id, new Date(Date.now() + 1000 * 60 * 60 * 24));
+    const markRes = await request(app).post(`/api/gamedays/${gameday.id}/unavailable`).set("Authorization", `Bearer ${token}`);
+    expect(markRes.status).toBe(201);
+
+    const before = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
+    const regId = before.body.gameday.registrations[0].id;
+
+    const cancelRes = await request(app).delete(`/api/gamedays/${gameday.id}/register/${regId}`).set("Authorization", `Bearer ${token}`);
+    expect(cancelRes.status).toBe(204);
+
+    const after = await request(app).get(`/api/gamedays/${gameday.id}`).set("Authorization", `Bearer ${token}`);
+    expect(after.body.gameday.registrations).toHaveLength(0);
+
+    const registerRes = await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${token}`).send({});
+    expect(registerRes.status).toBe(201);
+  });
+});
+
 describe("push notifications to a gameday's creator on sign-up/cancel", () => {
   it("notifies the creator when someone else signs up", async () => {
     const creator = await createAdmin("Creator");
@@ -258,6 +346,10 @@ describe("push notifications to a gameday's creator on sign-up/cancel", () => {
     await request(app).post(`/api/gamedays/${gameday.id}/register`).set("Authorization", `Bearer ${otherToken}`).send({});
     const reg = await db.query.registrations.findFirst({ where: (r, { eq }) => eq(r.playerId, other.player.id) });
 
+    // The register call's own "New sign-up" notification is fire-and-forget -
+    // wait for it to actually land before clearing, or it can bleed into the
+    // cancel assertions below.
+    await vi.waitFor(() => expect(webpush.sendNotification).toHaveBeenCalledTimes(1));
     vi.mocked(webpush.sendNotification).mockClear();
     const res = await request(app)
       .delete(`/api/gamedays/${gameday.id}/register/${reg!.id}`)

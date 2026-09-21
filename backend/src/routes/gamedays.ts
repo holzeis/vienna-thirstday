@@ -381,6 +381,52 @@ router.post(
   })
 );
 
+/**
+ * Marks the current user unavailable for a gameday - self only, never a
+ * guest (a guest brought along is by definition coming; there's no one to
+ * ask). Unlike /register, this never touches the waitlist: an unavailable
+ * declaration was never a confirmed/waitlisted spot, so nothing needs
+ * recomputing. Cancelling it later goes through the same DELETE
+ * /:id/register/:registrationId as any other registration.
+ */
+router.post(
+  "/:id/unavailable",
+  asyncHandler(async (req, res) => {
+    const gamedayId = parseInt(req.params.id, 10);
+
+    const gameday = await db.query.gamedays.findFirst({ where: eq(gamedays.id, gamedayId) });
+    if (!gameday) throw ApiError.notFound("Gameday not found");
+    if (effectiveGamedayStatus(gameday) !== "OPEN") throw ApiError.badRequest("This gameday is not open for registration");
+
+    const me = await db.query.users.findFirst({ where: eq(users.id, req.user!.userId) });
+    if (!me?.playerId) throw ApiError.badRequest("Your account has no player profile");
+    const playerId = me.playerId;
+
+    const existing = await db.query.registrations.findFirst({
+      where: and(eq(registrations.gamedayId, gamedayId), eq(registrations.playerId, playerId)),
+    });
+    if (existing && existing.status !== "CANCELLED") {
+      throw ApiError.conflict("This player already has a status for this gameday");
+    }
+
+    if (existing) {
+      await db
+        .update(registrations)
+        .set({ status: "UNAVAILABLE", signupAt: new Date(), cancelledAt: null, registeredByUserId: req.user!.userId })
+        .where(eq(registrations.id, existing.id));
+    } else {
+      await db.insert(registrations).values({
+        gamedayId,
+        playerId,
+        registeredByUserId: req.user!.userId,
+        status: "UNAVAILABLE",
+      });
+    }
+
+    res.status(201).json({ message: "Marked unavailable" });
+  })
+);
+
 /** Cancel a registration (self, own guest, or admin on behalf of anyone). */
 router.delete(
   "/:id/register/:registrationId",

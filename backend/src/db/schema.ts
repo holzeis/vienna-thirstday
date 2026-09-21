@@ -24,7 +24,7 @@ import {
 import { relations } from "drizzle-orm";
 
 export const gamedayStatusEnum = pgEnum("gameday_status", ["OPEN", "CLOSED", "CANCELLED", "COMPLETED"]);
-export const registrationStatusEnum = pgEnum("registration_status", ["CONFIRMED", "WAITLISTED", "CANCELLED"]);
+export const registrationStatusEnum = pgEnum("registration_status", ["CONFIRMED", "WAITLISTED", "CANCELLED", "UNAVAILABLE"]);
 export const teamEnum = pgEnum("team", ["A", "B"]);
 export const accessEventTypeEnum = pgEnum("access_event_type", ["LOGIN", "GUEST_REGISTER", "APP_OPEN"]);
 

@@ -220,6 +220,11 @@ export function cancelRegistration(gamedayId: number, registrationId: number) {
   return apiRequest<void>(`/gamedays/${gamedayId}/register/${registrationId}`, { method: "DELETE" });
 }
 
+/** Marks the current user unavailable for a gameday (self only, never a guest). */
+export function markUnavailableForGameday(gamedayId: number) {
+  return apiRequest<{ message: string }>(`/gamedays/${gamedayId}/unavailable`, { method: "POST" });
+}
+
 /** Gets (generating on first call) this gameday's public share link token. */
 export function getGamedayShareLink(gamedayId: number) {
   return apiRequest<{ shareToken: string }>(`/gamedays/${gamedayId}/share-link`, { method: "POST" });

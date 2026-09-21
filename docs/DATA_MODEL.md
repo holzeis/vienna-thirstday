@@ -127,7 +127,7 @@ erDiagram
 | Enum | Values |
 | --- | --- |
 | `gameday_status` | `OPEN`, `CLOSED`, `CANCELLED`, `COMPLETED` |
-| `registration_status` | `CONFIRMED`, `WAITLISTED`, `CANCELLED` |
+| `registration_status` | `CONFIRMED`, `WAITLISTED`, `CANCELLED`, `UNAVAILABLE` |
 | `team` | `A`, `B` |
 | `access_event_type` | `LOGIN`, `GUEST_REGISTER`, `APP_OPEN` |
 
