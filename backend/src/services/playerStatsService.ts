@@ -351,17 +351,21 @@ export function recentLeagueGamedayIds(allRows: StatRow[]): number[] {
  * consistent (e.g. ghost and undefeated can never both be true - ghost
  * needs 0 appearances in that window, undefeated needs all 5).
  *  - veteran: played in every one of those 5 gamedays.
- *  - ghost: the exact opposite - played in none of them (including someone
- *    who's never played at all).
+ *  - ghost: played in none of them, but *not* someone who's simply never
+ *    played at all - that's a newcomer, not a ghost. Requires at least one
+ *    appearance somewhere in the player's history (necessarily older than
+ *    the window, since none of their rows are in it) before the badge
+ *    applies.
  *  - undefeated / unlucky: played all 5 (i.e. veteran), and every one of
  *    those 5 results was a win-or-draw / a loss.
  */
 export function computeCurrentForm(allRows: StatRow[], playerId: number): CurrentForm {
   const recentGamedayIds = recentLeagueGamedayIds(allRows);
 
-  const myRecentRows = allRows.filter((r) => r.playerId === playerId && recentGamedayIds.includes(r.gamedayId));
+  const myRows = allRows.filter((r) => r.playerId === playerId);
+  const myRecentRows = myRows.filter((r) => recentGamedayIds.includes(r.gamedayId));
   const veteran = recentGamedayIds.length === 5 && myRecentRows.length === 5;
-  const ghost = recentGamedayIds.length === 5 && myRecentRows.length === 0;
+  const ghost = recentGamedayIds.length === 5 && myRecentRows.length === 0 && myRows.length > 0;
   const undefeated = veteran && myRecentRows.every((r) => r.points !== 1);
   const unlucky = veteran && myRecentRows.every((r) => r.points === 1);
 

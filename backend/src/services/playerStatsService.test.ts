@@ -315,10 +315,19 @@ describe("computeCurrentForm", () => {
     expect(form.unlucky).toBe(false);
   });
 
-  it("awards ghost when the player appears in none of the league's last 5 gamedays", () => {
+  it("awards ghost when the player has played before but appears in none of the league's last 5 gamedays", () => {
+    const recent = [1, 2, 3, 4, 5].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
+    // Player 1 has history, just not in any of the last 5 gamedays.
+    const older = [row({ playerId: 1, gamedayId: 0, date: new Date(2023, 11, 1) })];
+    const form = computeCurrentForm([...recent, ...older], 1);
+    expect(form.ghost).toBe(true);
+    expect(form.veteran).toBe(false);
+  });
+
+  it("does not award ghost to a player who has never played at all - that's a newcomer, not a ghost", () => {
     const allRows: StatRow[] = [1, 2, 3, 4, 5].map((gamedayId) => row({ playerId: 99, gamedayId, date: new Date(2024, 0, gamedayId) }));
-    // Player 1 never shows up in any of those gamedays.
-    expect(computeCurrentForm(allRows, 1).ghost).toBe(true);
+    // Player 1 has no history whatsoever - too new to have missed anything.
+    expect(computeCurrentForm(allRows, 1).ghost).toBe(false);
     expect(computeCurrentForm(allRows, 1).veteran).toBe(false);
   });
 
