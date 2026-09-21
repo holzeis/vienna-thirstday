@@ -223,18 +223,24 @@ export function computeTeammateTally(
   return { favorite: favorite ?? null, unfavorite: unfavorite ?? null, mostPlayedWith: mostPlayedWith ?? null };
 }
 
+const DREAM_TEAM_MIN_WIN_RATE = 0.7;
+
 /**
  * The teammate with the best shared win-rate (min TEAMMATE_TALLY_THRESHOLD
- * shared games, same statistical-significance bar as favorite/unfavorite) -
- * distinct from `mostPlayedWith` (most shared games) and `favorite` (most
- * shared wins, not rate). `seasonRows` is expected to already be scoped to
- * a single calendar year, unlike the other Locker Room tallies which use
- * the league's last-5-gamedays window - a "best pairing" only means much
- * measured within one season, not smeared across a player's whole history.
+ * shared games, same statistical-significance bar as favorite/unfavorite,
+ * and at least DREAM_TEAM_MIN_WIN_RATE together) - distinct from
+ * `mostPlayedWith` (most shared games) and `favorite` (most shared wins,
+ * not rate). Below that win-rate bar, no pairing is a "dream team" no
+ * matter how much better it is than the player's other teammates -
+ * there's simply no dream team mate this season, not their least-bad one.
+ * `seasonRows` is expected to already be scoped to a single calendar year,
+ * unlike the other Locker Room tallies which use the league's
+ * last-5-gamedays window - a "best pairing" only means much measured
+ * within one season, not smeared across a player's whole history.
  */
 export function computeDreamTeamMate(seasonRows: StatRow[], playerId: number): TeammateRecord | null {
   const dreamTeam = tallyTeammates(seasonRows, playerId)
-    .filter((r) => r.sharedGames >= TEAMMATE_TALLY_THRESHOLD)
+    .filter((r) => r.sharedGames >= TEAMMATE_TALLY_THRESHOLD && r.sharedWins / r.sharedGames >= DREAM_TEAM_MIN_WIN_RATE)
     .sort(
       (a, b) => b.sharedWins / b.sharedGames - a.sharedWins / a.sharedGames || b.sharedGames - a.sharedGames || a.name.localeCompare(b.name)
     )[0];

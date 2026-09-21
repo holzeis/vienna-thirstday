@@ -156,6 +156,19 @@ describe("computeDreamTeamMate", () => {
     expect(computeDreamTeamMate(seasonRows, 1)).toBeNull();
   });
 
+  it("returns null when no teammate's shared win-rate reaches 70%, even if it's the best available", () => {
+    const seasonRows: StatRow[] = [
+      // Alice: 3 shared games, 2 wins - 66.7%, the best of the bunch but still short of 70%.
+      row({ playerId: 1, gamedayId: 1, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "Alice", gamedayId: 1, team: "A", points: 4 }),
+      row({ playerId: 1, gamedayId: 2, team: "A", points: 4 }),
+      row({ playerId: 2, playerName: "Alice", gamedayId: 2, team: "A", points: 4 }),
+      row({ playerId: 1, gamedayId: 3, team: "A", points: 1 }),
+      row({ playerId: 2, playerName: "Alice", gamedayId: 3, team: "A", points: 1 }),
+    ];
+    expect(computeDreamTeamMate(seasonRows, 1)).toBeNull();
+  });
+
   it("breaks a tied win-rate by shared games, then name", () => {
     const seasonRows: StatRow[] = [1, 2, 3].flatMap((gamedayId) => [
       row({ playerId: 1, gamedayId, team: "A", points: 4 }),
