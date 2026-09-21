@@ -906,6 +906,17 @@ tr.me td:first-child {
   align-items: center;
 }
 
+/* .mini-badge (newcomer/champion/current-form) carries its own margin-left,
+   but .badge-guest doesn't - inside a flex container like .player-cell, a
+   plain whitespace text node between the name and the badge collapses to
+   zero width (unlike normal inline text flow), so it needs real spacing.
+   Scoped to .player-cell specifically so PlayerProfile.tsx's own
+   badge-guest (inside a flex header with its own explicit gap) isn't
+   affected. */
+.player-cell .badge-guest {
+  margin-left: 5px;
+}
+
 .rank-1 {
   color: var(--gold);
 }

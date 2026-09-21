@@ -346,7 +346,7 @@ function PlayerList({
             <span className="player-cell">
               <Link to={`/players/${r.player.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                 {r.player.name}
-              </Link>{" "}
+              </Link>
               {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
               <PreviousSeasonTitleBadge title={r.player.previousSeasonTitle} season={season} />
               <NewcomerBadge isNewcomer={r.player.isNewcomer} />
