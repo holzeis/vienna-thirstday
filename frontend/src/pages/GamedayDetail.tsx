@@ -27,6 +27,7 @@ import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
 import { NewcomerBadge } from "../components/NewcomerBadge";
 import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
+import { WaitlistExplainer } from "../components/WaitlistExplainer";
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -203,6 +204,7 @@ export function GamedayDetail() {
               : "🚫 You're out"}
         </div>
       )}
+      {myRegistration?.status === "WAITLISTED" && <WaitlistExplainer />}
 
       <div className="divider" />
       <GuestSignup

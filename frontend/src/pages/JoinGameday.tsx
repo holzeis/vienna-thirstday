@@ -16,6 +16,7 @@ import { useInstallPrompt } from "../hooks/useInstallPrompt";
 import { usePolling } from "../hooks/usePolling";
 import { Spinner } from "../components/LoadingScreen";
 import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
+import { WaitlistExplainer } from "../components/WaitlistExplainer";
 
 function storageKey(token: string) {
   return `vt-share-guest-${token}`;
@@ -259,6 +260,7 @@ export function JoinGameday() {
                 ? "You're confirmed! See you on the pitch."
                 : "You're on the waitlist - we'll let you know if a spot opens up."}
             </div>
+            {gameday.myStatus === "WAITLISTED" && <WaitlistExplainer />}
             {remembered?.cancelToken && (
               <>
                 {cancelError && <div className="alert alert-error">{cancelError}</div>}
