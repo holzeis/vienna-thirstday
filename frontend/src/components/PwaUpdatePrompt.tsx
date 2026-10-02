@@ -9,6 +9,17 @@ export function PwaUpdatePrompt() {
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
       if (!registration) return;
+      // A worker already sitting in `waiting` at a fresh page load means an
+      // update went unapplied last session (toast missed/dismissed, or the
+      // app was never foregrounded long enough to show it - common on iOS
+      // Home Screen apps, which can go long stretches without running any
+      // JS at all). Nothing is in progress yet at this point, so it's safe
+      // to apply immediately rather than risk leaving the install stuck on
+      // a stale build indefinitely.
+      if (registration.waiting) {
+        updateServiceWorker(true);
+        return;
+      }
       const check = () => registration.update().catch(() => {});
       setInterval(check, CHECK_INTERVAL_MS);
       document.addEventListener("visibilitychange", () => {
