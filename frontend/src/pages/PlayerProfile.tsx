@@ -257,7 +257,7 @@ export function PlayerProfile() {
 
       {isOwnProfile && <PushNotificationsCard />}
 
-      <WhatsAppGroupLink />
+      {isOwnProfile && <WhatsAppGroupLink />}
     </div>
   );
 }
