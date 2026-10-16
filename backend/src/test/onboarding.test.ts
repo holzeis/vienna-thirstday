@@ -457,12 +457,58 @@ describe("onboarding: guest promotion is logged as a merge", () => {
     expect(await mergesFor(adminToken)).toHaveLength(0);
   });
 
+  it("backfill also covers accounts with no invite at all, leaving out history a logged merge moved in", async () => {
+    const { adminUser, adminToken } = await setup();
+    // An account that predates invites: created directly, owning an imported player's history.
+    const { player: oldTimer, user: oldUser } = await createAdmin("Old Timer", "password123");
+    await db.update(users).set({ createdAt: new Date("2024-07-01T00:00:00Z") }).where(eq(users.id, oldUser.id));
+    const g2022 = await createCompletedGameday(adminUser.id, new Date("2022-05-04T17:00:00Z"), { teamA: 1, teamB: 0 }, [{ playerId: oldTimer.id, team: "A", points: 5, goalDiff: 1 }]);
+    const g2023 = await createCompletedGameday(adminUser.id, new Date("2023-05-04T17:00:00Z"), { teamA: 1, teamB: 0 }, []);
+    await createCompletedGameday(adminUser.id, new Date("2025-05-04T17:00:00Z"), { teamA: 1, teamB: 0 }, [{ playerId: oldTimer.id, team: "A", points: 5, goalDiff: 1 }]); // as the account
+    // 2023 arrived through an explicit, logged merge.
+    const dup = await createGuestPlayer("Old Timer Dup");
+    await db.insert(playerGamedayStats).values({ resultId: g2023.result.id, playerId: dup.id, team: "A", points: 4, goalDiff: 0 });
+    await request(app).post(`/api/admin/players/${oldTimer.id}/merge`).set("Authorization", `Bearer ${adminToken}`).send({ guestPlayerId: dup.id });
+
+    await db.transaction((tx) => backfillGuestPromotions(tx));
+    const promotion = (await db.select().from(playerMerges)).find((m) => m.isPromotion && m.targetPlayerId === oldTimer.id)!;
+    expect(promotion).toBeDefined();
+    expect(promotion.guestPlayerName).toBe("Old Timer");
+    const movedStats = JSON.parse(promotion.movedStatIds) as number[];
+    expect(movedStats).toHaveLength(1); // 2022 only: not the merged-in 2023, not the 2025 game
+    const [row] = await db.select().from(playerGamedayStats).where(eq(playerGamedayStats.resultId, g2022.result.id));
+    expect(movedStats).toEqual([row.id]);
+  });
+
+  it("backfill repairs an earlier promotion entry that still claims rows a logged merge moved in", async () => {
+    const { adminUser, adminToken } = await setup();
+    const { player, user } = await createAdmin("Old Timer", "password123");
+    await db.update(users).set({ createdAt: new Date("2024-07-01T00:00:00Z") }).where(eq(users.id, user.id));
+    const own = await createCompletedGameday(adminUser.id, new Date("2022-05-04T17:00:00Z"), { teamA: 1, teamB: 0 }, [{ playerId: player.id, team: "A", points: 5, goalDiff: 1 }]);
+    const merged = await createCompletedGameday(adminUser.id, new Date("2023-05-04T17:00:00Z"), { teamA: 1, teamB: 0 }, []);
+    const dup = await createGuestPlayer("Dup");
+    await db.insert(playerGamedayStats).values({ resultId: merged.result.id, playerId: dup.id, team: "A", points: 4, goalDiff: 0 });
+    await request(app).post(`/api/admin/players/${player.id}/merge`).set("Authorization", `Bearer ${adminToken}`).send({ guestPlayerId: dup.id });
+    const allStatIds = (await db.select().from(playerGamedayStats)).filter((x) => x.playerId === player.id).map((x) => x.id);
+    // The old, over-inclusive entry: both rows, though one belongs to the merge.
+    await db.insert(playerMerges).values({
+      guestPlayerName: "Old Timer", isPromotion: true, targetPlayerId: player.id, mergedByUserId: null,
+      movedRegistrationIds: "[]", movedTeamAssignmentIds: "[]", movedStatIds: JSON.stringify(allStatIds),
+    });
+
+    await db.transaction((tx) => backfillGuestPromotions(tx));
+    const promotion = (await db.select().from(playerMerges)).find((m) => m.isPromotion && m.targetPlayerId === player.id)!;
+    const [ownRow] = await db.select().from(playerGamedayStats).where(eq(playerGamedayStats.resultId, own.result.id));
+    expect(JSON.parse(promotion.movedStatIds)).toEqual([ownRow.id]);
+  });
+
   it("backfill logs past promotions with only their pre-account history, and is idempotent", async () => {
     const { adminUser, adminToken, guest } = await setup();
     // Simulate a promotion from before logging existed: promoted in place, invite used, nothing logged.
     await db.update(players).set({ isGuest: false, name: "Robert Real" }).where(eq(players.id, guest.id));
     const usedAt = new Date("2024-06-01T00:00:00Z");
     await db.insert(invites).values({ token: "old-invite", guestPlayerId: guest.id, createdByUserId: adminUser.id, expiresAt: new Date("2030-01-01"), usedAt });
+    await db.insert(users).values({ passwordHash: "x", isAdmin: false, playerId: guest.id, createdAt: usedAt });
     // A game played later, as the account - must not be swept into an undo.
     await createCompletedGameday(adminUser.id, new Date("2025-05-01T17:00:00Z"), { teamA: 1, teamB: 0 }, [{ playerId: guest.id, team: "A", points: 5, goalDiff: 1 }]);
 

@@ -142,27 +142,34 @@ export async function mergeGuestIntoPlayer(
 }
 
 /**
- * Logs a guest-linked invite's in-place promotion as a merge, so it appears
- * under "Recent guest merges" and can be undone: undoing moves the
- * guest-era history onto a fresh guest named `guestName` (the promoted
- * player keeps their account but loses that history), from where the
- * ordinary merge tool can attach just the right season(s) again.
+ * Logs a guest's promotion to an account as a merge, so it appears under
+ * "Recent guest merges" and can be undone: undoing moves the guest-era
+ * history onto a fresh guest named `guestName` (the promoted player keeps
+ * their account but loses that history), from where the ordinary merge tool
+ * can attach just the right season(s) again.
  *
  * Nothing is moved here - the rows are already on the player - this only
  * records which ones were the guest's: all of them, or with `upTo` only
  * those from gamedays on or before it (for a backfill, so games played
- * *as the account* afterwards aren't swept into an undo). Idempotent: a
- * player gets at most one promotion entry, and one with no guest-era rows
- * isn't logged. Returns whether an entry was written.
+ * *as the account* afterwards aren't swept into an undo). Rows that a logged
+ * merge already moved onto this player are left out: they have their own
+ * entry and their own undo. Idempotent: a player gets at most one promotion
+ * entry, and one with no guest-era rows isn't logged. Returns whether an
+ * entry was written.
  */
 export async function recordGuestPromotion(
   tx: DbOrTx,
   opts: { playerId: number; guestName: string; mergedByUserId: number | null; upTo?: Date; at?: Date }
 ): Promise<boolean> {
-  const already = await tx.query.playerMerges.findFirst({
-    where: and(eq(schema.playerMerges.targetPlayerId, opts.playerId), eq(schema.playerMerges.isPromotion, true)),
-  });
-  if (already) return false;
+  const priorMerges = await tx.query.playerMerges.findMany({ where: eq(schema.playerMerges.targetPlayerId, opts.playerId) });
+  if (priorMerges.some((m) => m.isPromotion)) return false;
+
+  // Ids already accounted for by a live (not undone) merge into this player.
+  const mergedIds = (column: "movedRegistrationIds" | "movedTeamAssignmentIds" | "movedStatIds") =>
+    new Set(priorMerges.filter((m) => !m.undoneAt).flatMap((m) => JSON.parse(m[column]) as number[]));
+  const mergedRegs = mergedIds("movedRegistrationIds");
+  const mergedAssignments = mergedIds("movedTeamAssignmentIds");
+  const mergedStats = mergedIds("movedStatIds");
 
   const keep = (date: Date) => !opts.upTo || date.getTime() <= opts.upTo.getTime();
   const [regs, assignments, stats] = await Promise.all([
@@ -173,9 +180,9 @@ export async function recordGuestPromotion(
       with: { result: { with: { gameday: true } } },
     }),
   ]);
-  const regIds = regs.filter((r) => keep(r.gameday.date)).map((r) => r.id);
-  const assignmentIds = assignments.filter((a) => keep(a.gameday.date)).map((a) => a.id);
-  const statIds = stats.filter((s) => keep(s.result.gameday.date)).map((s) => s.id);
+  const regIds = regs.filter((r) => keep(r.gameday.date) && !mergedRegs.has(r.id)).map((r) => r.id);
+  const assignmentIds = assignments.filter((a) => keep(a.gameday.date) && !mergedAssignments.has(a.id)).map((a) => a.id);
+  const statIds = stats.filter((s) => keep(s.result.gameday.date) && !mergedStats.has(s.id)).map((s) => s.id);
   if (regIds.length + assignmentIds.length + statIds.length === 0) return false;
 
   await tx.insert(schema.playerMerges).values({
@@ -194,27 +201,67 @@ export async function recordGuestPromotion(
 }
 
 /**
- * One-off, idempotent catch-up for promotions that happened before they were
- * logged: every used whole-guest invite (no `season`) whose promoted player
- * has no promotion entry yet. Runs with the migrations (db/migrate.ts), so
- * every environment gets it. The invite's acceptance time is the cutoff and
- * the entry's timestamp; the guest's pre-rename name wasn't kept, so the
- * player's current name stands in for it.
+ * An early version of the backfill logged *every* pre-account row, including
+ * ones a logged merge had moved in. Undoing both would fight over the same
+ * rows, so strip from each live promotion entry any id that a live merge
+ * into the same player owns. Idempotent (a clean entry is left as is).
+ */
+async function trimPromotionOverlap(tx: DbOrTx) {
+  const live = (await tx.query.playerMerges.findMany()).filter((m) => !m.undoneAt);
+  for (const promotion of live.filter((m) => m.isPromotion)) {
+    const others = live.filter((m) => m.targetPlayerId === promotion.targetPlayerId && m.id !== promotion.id);
+    const trim = (column: "movedRegistrationIds" | "movedTeamAssignmentIds" | "movedStatIds") => {
+      const owned = new Set(others.flatMap((m) => JSON.parse(m[column]) as number[]));
+      const ids = JSON.parse(promotion[column]) as number[];
+      return { ids: ids.filter((id) => !owned.has(id)), changed: ids.some((id) => owned.has(id)) };
+    };
+    const regs = trim("movedRegistrationIds");
+    const assignments = trim("movedTeamAssignmentIds");
+    const stats = trim("movedStatIds");
+    if (!regs.changed && !assignments.changed && !stats.changed) continue;
+    await tx
+      .update(schema.playerMerges)
+      .set({
+        movedRegistrationIds: JSON.stringify(regs.ids),
+        movedTeamAssignmentIds: JSON.stringify(assignments.ids),
+        movedStatIds: JSON.stringify(stats.ids),
+      })
+      .where(eq(schema.playerMerges.id, promotion.id));
+  }
+}
+
+/**
+ * Idempotent catch-up for promotions that happened before they were logged.
+ * Covers every account, not just ones made from a guest-linked invite: the
+ * oldest accounts predate invites (or were linked to an imported player
+ * directly), so there is no invite to find - but any history on a gameday
+ * dated before the account existed can only have been the guest's. So the
+ * cutoff is when the account came into being (a whole-guest invite's
+ * acceptance time when there is one, else the user's creation), and rows
+ * already moved in by a logged merge are excluded. Runs with the migrations
+ * (db/migrate.ts), so every environment gets it. The guest's pre-rename
+ * name wasn't kept, so the player's current name stands in for it.
  */
 export async function backfillGuestPromotions(tx: DbOrTx): Promise<number> {
-  const used = await tx.query.invites.findMany({
+  await trimPromotionOverlap(tx);
+
+  const accounts = await tx.query.users.findMany({ where: isNotNull(schema.users.playerId), with: { player: true } });
+  const wholeGuestInvites = await tx.query.invites.findMany({
     where: and(isNotNull(schema.invites.guestPlayerId), isNull(schema.invites.season), isNotNull(schema.invites.usedAt)),
-    with: { guestPlayer: true },
   });
+  const inviteByPlayer = new Map(wholeGuestInvites.map((i) => [i.guestPlayerId!, i]));
+
   let logged = 0;
-  for (const invite of used) {
-    if (!invite.guestPlayer || !invite.guestPlayerId) continue;
+  for (const account of accounts) {
+    if (!account.player) continue;
+    const invite = inviteByPlayer.get(account.player.id);
+    const accountSince = invite?.usedAt ?? account.createdAt;
     const wrote = await recordGuestPromotion(tx, {
-      playerId: invite.guestPlayerId,
-      guestName: invite.guestPlayer.name,
-      mergedByUserId: invite.createdByUserId,
-      upTo: invite.usedAt!,
-      at: invite.usedAt!,
+      playerId: account.player.id,
+      guestName: account.player.name,
+      mergedByUserId: invite?.createdByUserId ?? null,
+      upTo: accountSince,
+      at: accountSince,
     });
     if (wrote) logged++;
   }
