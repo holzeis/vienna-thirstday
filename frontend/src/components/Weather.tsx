@@ -38,7 +38,7 @@ export function WeatherCard({ weather, bare = false }: { weather: GamedayWeather
   if (forecast && weather.precipitationProbability !== null) details.push(`${weather.precipitationProbability}% chance of rain`);
 
   return (
-    <div className={bare ? undefined : "card"} style={{ display: "flex", flexDirection: "row", gap: 14, alignItems: "center", ...(bare ? { margin: "0 0 16px", textAlign: "left" } : {}) }}>
+    <div className={bare ? undefined : "card"} style={{ display: "flex", flexDirection: "row", gap: 14, alignItems: "center", ...(bare ? { textAlign: "left" } : {}) }}>
       <div style={{ fontSize: 36, lineHeight: 1 }} aria-hidden="true">
         {ICON[weather.condition]}
       </div>

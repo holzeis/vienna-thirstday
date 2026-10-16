@@ -250,7 +250,12 @@ export function JoinGameday() {
           {spotsLeft === 0 && gameday.status === "OPEN" ? " (waitlist only)" : ""}
         </p>
 
-        <WeatherCard weather={gameday.weather} bare />
+        {gameday.weather && (
+          <div className="card" style={{ marginTop: 16, marginBottom: 0, textAlign: "left" }}>
+            <div className="card-title">Weather</div>
+            <WeatherCard weather={gameday.weather} bare />
+          </div>
+        )}
 
         {gameday.status !== "OPEN" && <div className="alert alert-error">This matchday isn't open for sign-ups right now.</div>}
 
