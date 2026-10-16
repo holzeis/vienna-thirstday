@@ -44,6 +44,8 @@ export interface Invite {
   note: string | null;
   /** Null for an "open" invite - reusable, no guest, each acceptance creates a brand-new player. */
   guestPlayer: { id: number; name: string } | null;
+  /** Set on a guest-linked invite that attaches only this calendar year of the guest's history (merged on accept, so it shows under "Recent guest merges"); null = the whole guest is promoted. */
+  season: number | null;
   /** Null if the admin who issued this invite was later deleted. */
   createdBy: { id: number; email: string | null } | null;
   expiresAt: string;

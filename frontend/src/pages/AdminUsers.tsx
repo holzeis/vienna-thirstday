@@ -21,6 +21,12 @@ import { useToast } from "../toast/ToastContext";
 import { usePolling } from "../hooks/usePolling";
 
 type UserWithPlayer = User & { player: Player | null };
+/** A season-scoped invite whose guest was fully absorbed has no guestPlayer left, so it can't be told apart from an open invite by that alone. */
+function inviteLabel(inv: Invite): string {
+  const base = inv.guestPlayer ? inv.guestPlayer.name : inv.season !== null ? "Guest" : "Open invite";
+  return inv.season !== null ? `${base} (${inv.season} season only)` : base;
+}
+
 type GuestOption = Player & { gamesPlayed: number; seasons: number[] };
 
 const INVITE_STATUS_LABEL: Record<Invite["status"], string> = {
@@ -50,6 +56,7 @@ export function AdminUsers() {
   const [busyMergeId, setBusyMergeId] = useState<number | null>(null);
 
   const [inviteGuestId, setInviteGuestId] = useState<number | "">("");
+  const [inviteSeason, setInviteSeason] = useState<number | "all">("all");
   const [inviteExpiresInDays, setInviteExpiresInDays] = useState(7);
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [busyInviteId, setBusyInviteId] = useState<number | null>(null);
@@ -108,9 +115,14 @@ export function AdminUsers() {
     try {
       // Leaving the player unselected makes this an open invite: reusable,
       // no guest, each acceptance a brand-new player with no history.
-      const res = await adminCreateInvite({ guestPlayerId: inviteGuestId || undefined, expiresInDays: inviteExpiresInDays });
+      const res = await adminCreateInvite({
+        guestPlayerId: inviteGuestId || undefined,
+        season: inviteGuestId && inviteSeason !== "all" ? inviteSeason : undefined,
+        expiresInDays: inviteExpiresInDays,
+      });
       setJustCreatedLink(inviteLink(res.invite.token));
       setInviteGuestId("");
+      setInviteSeason("all");
       load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create invite");
@@ -258,7 +270,9 @@ export function AdminUsers() {
           Pick an existing guest to onboard them with their history attached (single-use), or leave it unselected
           for an open invite - reusable by multiple people, each onboarding as a brand-new player with no history.
           Attach a guest's history to any resulting account afterward from "Merge guest history into an account"
-          below. There's no self-service sign-up; send the resulting link however you'd reach whoever should use it.
+          below. For a guest whose history includes a season that wasn't theirs, choose a single season: the
+          guest stays as-is and only that year is merged into the new account when they accept (visible and
+          undoable under "Recent guest merges"). There's no self-service sign-up; send the resulting link however you'd reach whoever should use it.
         </p>
         <div className="form-row">
           <div className="field">
@@ -267,7 +281,10 @@ export function AdminUsers() {
               id="invite-guest"
               value={inviteGuestId}
               disabled={creatingInvite}
-              onChange={(e) => setInviteGuestId(e.target.value ? Number(e.target.value) : "")}
+              onChange={(e) => {
+                setInviteGuestId(e.target.value ? Number(e.target.value) : "");
+                setInviteSeason("all");
+              }}
             >
               <option value="">No guest - open invite</option>
               {guests?.map((g) => (
@@ -277,6 +294,26 @@ export function AdminUsers() {
               ))}
             </select>
           </div>
+          {inviteGuestId !== "" && (
+            <div className="field">
+              <label htmlFor="invite-season">Attach history</label>
+              <select
+                id="invite-season"
+                value={inviteSeason}
+                disabled={creatingInvite}
+                onChange={(e) => setInviteSeason(e.target.value === "all" ? "all" : Number(e.target.value))}
+              >
+                <option value="all">All seasons (promote the guest)</option>
+                {guests
+                  ?.find((g) => g.id === inviteGuestId)
+                  ?.seasons.map((s) => (
+                    <option key={s} value={s}>
+                      Only {s}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
           <div className="field">
             <label htmlFor="invite-expires">Expires in (days)</label>
             <input
@@ -321,7 +358,7 @@ export function AdminUsers() {
               {invites.map((inv) => (
                 <tr key={inv.id}>
                   <td>
-                    {inv.guestPlayer ? inv.guestPlayer.name : "Open invite"}
+                    {inviteLabel(inv)}
                     {inv.redemptions.length > 0 && (
                       <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
                         Joined: {inv.redemptions.map((r) => r.playerName).join(", ")}
@@ -366,7 +403,7 @@ export function AdminUsers() {
             <div className="card user-card" key={inv.id}>
               <div className="user-card-row">
                 <div>
-                  <div className="user-card-name">{inv.guestPlayer ? inv.guestPlayer.name : "Open invite"}</div>
+                  <div className="user-card-name">{inviteLabel(inv)}</div>
                   {inv.redemptions.length > 0 && (
                     <div style={{ color: "var(--text-faint)", fontSize: 12 }}>Joined: {inv.redemptions.map((r) => r.playerName).join(", ")}</div>
                   )}

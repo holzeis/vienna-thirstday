@@ -84,7 +84,7 @@ export function adminListInvites() {
 }
 
 /** Omit guestPlayerId for an "open" invite - reusable, no guest, no history. */
-export function adminCreateInvite(data: { guestPlayerId?: number; note?: string; expiresInDays?: number }) {
+export function adminCreateInvite(data: { guestPlayerId?: number; season?: number; note?: string; expiresInDays?: number }) {
   return apiRequest<{ invite: Invite }>("/admin/invites", { method: "POST", body: data });
 }
 
