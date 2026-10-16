@@ -26,6 +26,7 @@ import { Spinner } from "../components/LoadingScreen";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
 import { NewcomerBadge } from "../components/NewcomerBadge";
+import { ElectorBadge } from "../components/ElectorBadge";
 import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
 import { WeatherCard } from "../components/Weather";
 import { WaitlistExplainer } from "../components/WaitlistExplainer";
@@ -354,6 +355,7 @@ function PlayerList({
               </Link>
               {r.player.isGuest && <span className="badge badge-guest">Guest</span>}
               <PreviousSeasonTitleBadge title={r.player.previousSeasonTitle} season={season} />
+              <ElectorBadge rank={r.player.electorRank} />
               <NewcomerBadge isNewcomer={r.player.isNewcomer} />
               <CurrentFormBadges currentForm={r.player.currentForm} />
             </span>

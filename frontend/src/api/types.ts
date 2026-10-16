@@ -99,6 +99,8 @@ export interface RegistrationView {
     currentForm: CurrentForm;
     isNewcomer: boolean;
     previousSeasonTitle: PreviousSeasonTitle;
+    /** 1 or 2 for the matchday's two electors (best-ranked confirmed players, who pick the teams); null for everyone else. */
+    electorRank: 1 | 2 | null;
   };
   /** Null if the user who registered this player was later deleted. email is only present for an admin viewer. */
   registeredBy: { id: number; email?: string } | null;
