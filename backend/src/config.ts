@@ -19,4 +19,10 @@ export const config = {
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
   vapidSubject: process.env.VAPID_SUBJECT || "mailto:admin@vienna-thirstday.local",
+  // Weather (Open-Meteo, no API key). Defaults to central Vienna; set to the
+  // pitch's own coordinates for a more local forecast. WEATHER_ENABLED=false
+  // turns the feature off (tests, or an air-gapped deployment).
+  weatherEnabled: process.env.WEATHER_ENABLED !== "false",
+  weatherLatitude: parseFloat(process.env.WEATHER_LATITUDE || "48.2082"),
+  weatherLongitude: parseFloat(process.env.WEATHER_LONGITUDE || "16.3738"),
 };

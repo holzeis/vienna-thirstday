@@ -49,3 +49,11 @@ function localDateString(date: Date, timeZone: string): string {
 export function isPastLocalDay(date: Date, timeZone: string): boolean {
   return localDateString(new Date(), timeZone) > localDateString(date, timeZone);
 }
+
+/** The local calendar date (`YYYY-MM-DD`) and hour of day (0-23) of `date` in `timeZone` - how weather providers index hourly data. */
+export function localDateAndHour(date: Date, timeZone: string): { date: string; hour: number } {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" })
+    .formatToParts(date)
+    .reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {} as Record<string, string>);
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: +parts.hour };
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isPastLocalDay, zonedTimeToUtc } from "./timezone";
+import { isPastLocalDay, localDateAndHour, zonedTimeToUtc } from "./timezone";
 
 describe("zonedTimeToUtc", () => {
   it("converts 19:00 Vienna time to 17:00 UTC in summer (CEST, UTC+2)", () => {
@@ -60,5 +60,15 @@ describe("isPastLocalDay", () => {
     vi.setSystemTime(new Date("2026-08-20T12:00:00.000Z"));
     const gamedayDate = zonedTimeToUtc("2026-08-13", 19, 0, "Europe/Vienna");
     expect(isPastLocalDay(gamedayDate, "Europe/Vienna")).toBe(true);
+  });
+});
+
+describe("localDateAndHour", () => {
+  it("reads the Vienna wall-clock date and hour, across DST", () => {
+    expect(localDateAndHour(new Date("2026-07-02T17:00:00Z"), "Europe/Vienna")).toEqual({ date: "2026-07-02", hour: 19 });
+    expect(localDateAndHour(new Date("2026-01-08T18:00:00Z"), "Europe/Vienna")).toEqual({ date: "2026-01-08", hour: 19 });
+  });
+  it("rolls the date over at local midnight, not UTC midnight", () => {
+    expect(localDateAndHour(new Date("2026-07-02T22:30:00Z"), "Europe/Vienna")).toEqual({ date: "2026-07-03", hour: 0 });
   });
 });

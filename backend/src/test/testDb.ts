@@ -20,3 +20,6 @@ process.env.VAPID_PUBLIC_KEY =
   process.env.VAPID_PUBLIC_KEY || "BGyEXQRdc05U1juvnZfIS_7kYym8MPOV9WvBavFqQCxjXhLSMM7SdtHmCOOgUQKXWMqt95461ST9cG4VMqHJWc4";
 process.env.VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "0lu2gTG5vVWfq03yZ-HukKajPGzbsDzlHC6ibdDdUfI";
 process.env.VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:test@vienna-thirstday.local";
+
+// Never hit the real weather API from tests; weather tests re-enable it with a stubbed fetch.
+process.env.WEATHER_ENABLED = "false";

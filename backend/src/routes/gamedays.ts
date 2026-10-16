@@ -10,6 +10,7 @@ import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type 
 import { notifyCreatorOfRegistrationChange, notifyGamedayCancelled, notifyGamedayReinstated, notifyNewGameday } from "../services/pushService";
 import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
+import { loadWeather, refreshStaleWeather, toWeatherView } from "../services/weatherService";
 import { computeMatchdayNumbers } from "../utils/matchday";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 import { computeCurrentForm, computeIsNewcomer, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
@@ -47,6 +48,7 @@ router.post(
     // Fire-and-forget: push delivery is a real network round-trip per
     // subscriber and must never add latency to the caller's response.
     notifyNewGameday(db, gameday).catch((err) => console.error("notifyNewGameday failed:", err));
+    refreshStaleWeather([gameday], new Map()).catch((err) => console.error("weather refresh failed:", err));
   })
 );
 
@@ -116,6 +118,12 @@ router.get(
     });
     if (!gameday) throw ApiError.notFound("Gameday not found");
 
+    // Awaited (unlike the list): someone who opened this matchday wants the
+    // current forecast, but with a short timeout so a slow provider can't hang the page.
+    let weather = await loadWeather(id);
+    await refreshStaleWeather([gameday], new Map(weather ? [[id, weather]] : []), { timeoutMs: 3000 });
+    weather = await loadWeather(id);
+
     // Same Locker Room / champion badges shown on the leaderboard, so a
     // registered player is recognizable here too - "previous season"
     // relative to this gameday's own year, same rule as the standings page.
@@ -139,6 +147,7 @@ router.get(
       gameday: {
         ...gameday,
         status: effectiveGamedayStatus(gameday),
+        weather: toWeatherView(weather, gameday),
         registrations: regs
           .filter((r) => r.status !== "CANCELLED")
           .map((r) => ({

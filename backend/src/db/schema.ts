@@ -16,6 +16,7 @@ import {
   varchar,
   boolean,
   integer,
+  real,
   timestamp,
   pgEnum,
   uniqueIndex,
@@ -23,6 +24,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+export const weatherKindEnum = pgEnum("weather_kind", ["FORECAST", "OBSERVED"]);
 export const gamedayStatusEnum = pgEnum("gameday_status", ["OPEN", "CLOSED", "CANCELLED", "COMPLETED"]);
 export const registrationStatusEnum = pgEnum("registration_status", ["CONFIRMED", "WAITLISTED", "CANCELLED", "UNAVAILABLE"]);
 export const teamEnum = pgEnum("team", ["A", "B"]);
@@ -85,6 +87,35 @@ export const gamedays = pgTable(
     dateIdx: index("gamedays_date_idx").on(t.date),
   })
 );
+
+/**
+ * One weather snapshot per gameday (services/weatherService.ts). A FORECAST
+ * row is overwritten as the match approaches and replaced by a final
+ * OBSERVED row once the game has been played; after that it is never
+ * refetched, so history stays stable even if the provider later revises it.
+ * `forDate` records which kickoff the snapshot was fetched for - if an admin
+ * moves the gameday, the mismatch marks the row stale without needing the
+ * PATCH route to remember to clear it. Values are summarized over the
+ * playing window (kickoff + a couple of hours), not a single instant.
+ */
+export const gamedayWeather = pgTable("gameday_weather", {
+  id: serial("id").primaryKey(),
+  gamedayId: integer("gameday_id")
+    .notNull()
+    .unique()
+    .references(() => gamedays.id, { onDelete: "cascade" }),
+  kind: weatherKindEnum("kind").notNull(),
+  forDate: timestamp("for_date", { withTimezone: true }).notNull(),
+  temperatureC: real("temperature_c").notNull(),
+  feelsLikeC: real("feels_like_c"),
+  windSpeedKmh: real("wind_speed_kmh").notNull(),
+  windGustsKmh: real("wind_gusts_kmh"),
+  precipitationMm: real("precipitation_mm").notNull().default(0),
+  // Only forecasts have a probability; null for observed rows.
+  precipitationProbability: integer("precipitation_probability"),
+  condition: varchar("condition", { length: 16 }).notNull(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const registrations = pgTable(
   "registrations",
@@ -393,6 +424,7 @@ export const gamedaysRelations = relations(gamedays, ({ one, many }) => ({
   registrations: many(registrations),
   teamAssignments: many(teamAssignments),
   result: one(results, { fields: [gamedays.id], references: [results.gamedayId] }),
+  weather: one(gamedayWeather, { fields: [gamedays.id], references: [gamedayWeather.gamedayId] }),
 }));
 
 export const registrationsRelations = relations(registrations, ({ one }) => ({
