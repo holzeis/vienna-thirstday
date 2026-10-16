@@ -16,6 +16,7 @@ import { useInstallPrompt } from "../hooks/useInstallPrompt";
 import { usePolling } from "../hooks/usePolling";
 import { Spinner } from "../components/LoadingScreen";
 import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
+import { WeatherCard } from "../components/Weather";
 import { WaitlistExplainer } from "../components/WaitlistExplainer";
 
 function storageKey(token: string) {
@@ -248,6 +249,8 @@ export function JoinGameday() {
           {formatDateTime(gameday.date)} - {gameday.confirmedCount}/{gameday.maxPlayers} confirmed
           {spotsLeft === 0 && gameday.status === "OPEN" ? " (waitlist only)" : ""}
         </p>
+
+        <WeatherCard weather={gameday.weather} bare />
 
         {gameday.status !== "OPEN" && <div className="alert alert-error">This matchday isn't open for sign-ups right now.</div>}
 

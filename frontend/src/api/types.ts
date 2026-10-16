@@ -156,6 +156,7 @@ export interface GamedayPublicSummary {
   waitlisted: { name: string; isGuest: boolean }[];
   /** Status of the player id passed as ?playerId=, if any - lets a returning guest see their own signup. */
   myStatus: "CONFIRMED" | "WAITLISTED" | null;
+  weather: GamedayWeather | null;
 }
 
 export type PreviousSeasonTitle = "champion" | "viceChampion" | null;

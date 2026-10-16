@@ -23,7 +23,8 @@ const LABEL: Record<WeatherCondition, string> = {
 const deg = (n: number) => `${Math.round(n)}°C`;
 
 /** Weather on the matchday page. A forecast is labelled as such - it can still change - an observed one as what it was like. */
-export function WeatherCard({ weather }: { weather: GamedayWeather | null }) {
+/** `bare` drops the card chrome for use inside another card (the public sign-up page). */
+export function WeatherCard({ weather, bare = false }: { weather: GamedayWeather | null; bare?: boolean }) {
   if (!weather) return null;
   const forecast = weather.kind === "FORECAST";
   const details: string[] = [];
@@ -37,7 +38,7 @@ export function WeatherCard({ weather }: { weather: GamedayWeather | null }) {
   if (forecast && weather.precipitationProbability !== null) details.push(`${weather.precipitationProbability}% chance of rain`);
 
   return (
-    <div className="card" style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+    <div className={bare ? undefined : "card"} style={{ display: "flex", flexDirection: "row", gap: 14, alignItems: "center", ...(bare ? { margin: "0 0 16px", textAlign: "left" } : {}) }}>
       <div style={{ fontSize: 36, lineHeight: 1 }} aria-hidden="true">
         {ICON[weather.condition]}
       </div>
