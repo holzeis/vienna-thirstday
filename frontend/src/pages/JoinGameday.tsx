@@ -252,7 +252,6 @@ export function JoinGameday() {
 
         {gameday.weather && (
           <div className="card" style={{ marginTop: 16, marginBottom: 0, textAlign: "left" }}>
-            <div className="card-title">Weather</div>
             <WeatherCard weather={gameday.weather} bare />
           </div>
         )}
