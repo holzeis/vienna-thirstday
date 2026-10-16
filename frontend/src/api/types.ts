@@ -56,6 +56,23 @@ export interface Invite {
   redemptions: InviteRedemption[];
 }
 
+export type WeatherCondition = "sunny" | "cloudy" | "foggy" | "drizzle" | "rainy" | "snowy" | "stormy";
+
+/** A forecast for an upcoming matchday (can still change), or what the conditions actually were once played. */
+export interface GamedayWeather {
+  kind: "FORECAST" | "OBSERVED";
+  condition: WeatherCondition;
+  temperatureC: number;
+  feelsLikeC: number | null;
+  windSpeedKmh: number;
+  windGustsKmh: number | null;
+  isWindy: boolean;
+  precipitationMm: number;
+  /** Forecasts only. */
+  precipitationProbability: number | null;
+  fetchedAt: string;
+}
+
 export interface GamedaySummary {
   id: number;
   date: string;
@@ -120,6 +137,8 @@ export interface GamedayDetail {
   registrations: RegistrationView[];
   teamAssignments: TeamAssignmentView[];
   result: ResultView | null;
+  /** Null when unknown - too far ahead to forecast, or the weather service is unreachable. */
+  weather: GamedayWeather | null;
 }
 
 /** What an anonymous visitor holding a matchday's share link sees - no emails/admin controls, just who's in. */

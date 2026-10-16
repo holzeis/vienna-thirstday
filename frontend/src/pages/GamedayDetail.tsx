@@ -27,6 +27,7 @@ import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
 import { NewcomerBadge } from "../components/NewcomerBadge";
 import { WhatsAppGroupLink } from "../components/WhatsAppGroupLink";
+import { WeatherCard } from "../components/Weather";
 import { WaitlistExplainer } from "../components/WaitlistExplainer";
 
 const ShareIcon = () => (
@@ -261,6 +262,8 @@ export function GamedayDetail() {
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      <WeatherCard weather={gameday.weather} />
 
       {gameday.status === "OPEN" && !myRegistration && signUpCard}
 
