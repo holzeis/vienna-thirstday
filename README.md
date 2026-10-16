@@ -681,7 +681,12 @@ docker-compose.yml    Local multi-container setup
   only attaches that year and leaves the guest around for whatever else they
   have - useful when only part of a duplicate guest's history actually
   belongs to that account. Reversible either way from "Recent guest merges"
-  below it.
+  below it. A guest promoted in place by a (whole-guest) invite is listed
+  there too, as "<guest> promoted to <account>": undo it to move that
+  pre-account history onto a separate guest again, then attach only the
+  right season(s) back with the merge form. (Promotions from before this was
+  logged are added automatically when the backend's migrations run; only
+  games from before the invite was accepted are included.)
 - **No email delivery.** Invite links are generated in the app but not
   emailed - an admin copies the link and sends it however they'd normally
   reach the group (WhatsApp, email, etc.). Worth automating with a
