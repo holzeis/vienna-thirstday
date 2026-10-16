@@ -87,6 +87,11 @@ Jan 1 – Dec 31 season standings table.
   chat - that's where last-minute coordination actually happens (extra
   player requests, weather calls, etc.), not in the app itself. The link
   lives in `frontend/src/components/WhatsAppGroupLink.tsx`.
+- **Electors.** On a matchday, the two best-ranked *confirmed* players (season
+  points, then goal difference, then wins; guests and players without a game
+  yet this season excluded) get a subtle 🗳️ next to their name - they pick the
+  teams. Computed on read from the standings going into that matchday, so it
+  follows cancellations/sign-ups and doesn't change once the matchday is played.
 - **Teams & results.** Admins assign confirmed players to Team A / Team B
   (any time before or after the gameday) - either by hand, or with
   "Auto-assign by rank" (splits the registered roster in alternating order
