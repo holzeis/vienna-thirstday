@@ -25,6 +25,9 @@ beforeEach(() => {
 });
 afterAll(closeDb);
 
+/** Always-upcoming kickoff: a hardcoded date eventually passes and registration then (correctly) rejects it as closed. */
+const futureKickoff = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
 async function loginAs(name: string, password: string) {
   const res = await request(app).post("/api/auth/login").send({ name, password });
   return res.body.token as string;
@@ -175,7 +178,7 @@ describe("registration threshold notifications", () => {
   it("notifies every confirmed player once the count reaches minPlayers, but not before", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 8, maxPlayers: 14 });
+    const gameday = await createOpenGameday(user.id, futureKickoff(), { minPlayers: 8, maxPlayers: 14 });
     const candidates: Awaited<ReturnType<typeof createSubscribedCandidate>>[] = [];
     for (let i = 1; i <= 8; i++) candidates.push(await createSubscribedCandidate(i));
 
@@ -192,7 +195,7 @@ describe("registration threshold notifications", () => {
   it("notifies the remaining confirmed players when a cancellation drops below minPlayers", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 8, maxPlayers: 14 });
+    const gameday = await createOpenGameday(user.id, futureKickoff(), { minPlayers: 8, maxPlayers: 14 });
     const candidates: Awaited<ReturnType<typeof createSubscribedCandidate>>[] = [];
     for (let i = 1; i <= 8; i++) candidates.push(await createSubscribedCandidate(i));
     for (const c of candidates) await registerCandidate(token, gameday.id, c.player.id);
@@ -212,7 +215,7 @@ describe("registration threshold notifications", () => {
   it("notifies only the player promoted off the waitlist, with no false status-change alert", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 8, maxPlayers: 14 });
+    const gameday = await createOpenGameday(user.id, futureKickoff(), { minPlayers: 8, maxPlayers: 14 });
     const candidates: Awaited<ReturnType<typeof createSubscribedCandidate>>[] = [];
     for (let i = 1; i <= 9; i++) candidates.push(await createSubscribedCandidate(i));
     for (const c of candidates) await registerCandidate(token, gameday.id, c.player.id);
@@ -243,7 +246,7 @@ describe("POST /gamedays/:id/cancel", () => {
     // minPlayers/maxPlayers set high enough that none of these 3 registrations
     // cross a confirm/waitlist threshold - keeps this test's notification
     // count isolated to the cancellation itself, not registration side effects.
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 10, maxPlayers: 10 });
+    const gameday = await createOpenGameday(user.id, futureKickoff(), { minPlayers: 10, maxPlayers: 10 });
     const candidates = [await createSubscribedCandidate(1), await createSubscribedCandidate(2), await createSubscribedCandidate(3)];
     for (const c of candidates) await registerCandidate(token, gameday.id, c.player.id);
     expect(webpush.sendNotification).not.toHaveBeenCalled();
@@ -260,7 +263,7 @@ describe("POST /gamedays/:id/cancel", () => {
   it("rejects cancelling an already-cancelled gameday", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    const gameday = await createOpenGameday(user.id, futureKickoff());
     await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
 
     const res = await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
@@ -270,7 +273,7 @@ describe("POST /gamedays/:id/cancel", () => {
   it("rejects cancelling a gameday that's already been played", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    const gameday = await createOpenGameday(user.id, futureKickoff());
     await db.update(gamedays).set({ status: "COMPLETED" }).where(eq(gamedays.id, gameday.id));
 
     const res = await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
@@ -282,7 +285,7 @@ describe("POST /gamedays/:id/uncancel", () => {
   it("reverts a cancelled future gameday to OPEN and notifies everyone still signed up", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"), { minPlayers: 10, maxPlayers: 10 });
+    const gameday = await createOpenGameday(user.id, futureKickoff(), { minPlayers: 10, maxPlayers: 10 });
     const candidates = [await createSubscribedCandidate(1), await createSubscribedCandidate(2)];
     for (const c of candidates) await registerCandidate(token, gameday.id, c.player.id);
     await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${token}`);
@@ -303,7 +306,7 @@ describe("POST /gamedays/:id/uncancel", () => {
   it("rejects a non-admin caller", async () => {
     const { user, password: adminPassword } = await createAdmin();
     const adminToken = await loginAs("Admin", adminPassword);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    const gameday = await createOpenGameday(user.id, futureKickoff());
     await request(app).post(`/api/gamedays/${gameday.id}/cancel`).set("Authorization", `Bearer ${adminToken}`);
 
     const { password } = await createRegularUser();
@@ -315,7 +318,7 @@ describe("POST /gamedays/:id/uncancel", () => {
   it("rejects reverting a gameday that isn't cancelled", async () => {
     const { user, password } = await createAdmin();
     const token = await loginAs("Admin", password);
-    const gameday = await createOpenGameday(user.id, new Date("2026-09-24T19:00:00Z"));
+    const gameday = await createOpenGameday(user.id, futureKickoff());
 
     const res = await request(app).post(`/api/gamedays/${gameday.id}/uncancel`).set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(409);
