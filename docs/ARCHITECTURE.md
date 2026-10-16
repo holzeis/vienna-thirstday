@@ -122,7 +122,11 @@ update this document to reflect a deliberate change.
    is the escape hatch for someone with no prior history - reusable until
    expiry/revocation, each acceptance a brand-new player - and can have a
    guest's history attached afterward through the ordinary merge tool
-   (`playerMergeService.ts`) if one turns up later. Every acceptance of
+   (`playerMergeService.ts`) if one turns up later. A guest-linked invite
+   may also carry a `season`: then the guest is not promoted, and accepting
+   creates a new player and runs the ordinary season-scoped merge for that
+   year, so a guest profile holding someone else's season isn't attached
+   wholesale and the merge stays logged/undoable. Every acceptance of
    either kind is logged to `invite_redemptions` (see `docs/DATA_MODEL.md`),
    which is what lets the admin page show who joined via a given link.
 2. **Guests are first-class players, not a separate table.**

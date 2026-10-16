@@ -1,7 +1,7 @@
 # Data model
 
 Postgres via Drizzle ORM. Source of truth: `backend/src/db/schema.ts`; migrations
-live in `backend/drizzle/` (current head: `0015_previous_dark_phoenix.sql`). This document
+live in `backend/drizzle/` (current head: `0016_lazy_the_order.sql`). This document
 should be updated whenever a table, column, or relationship changes — see
 `docs/ARCHITECTURE.md` and `CLAUDE.md`'s Documentation section.
 
@@ -285,7 +285,8 @@ revoked, each acceptance creating a genuinely new player. See
 | `id` | serial | PK |
 | `token` | varchar(64) | unique — stored in plaintext so an admin can re-copy an unused link |
 | `note` | varchar(255) | |
-| `guest_player_id` | integer | FK → `players.id`, cascade delete, **nullable** |
+| `guest_player_id` | integer | FK → `players.id`, `ON DELETE SET NULL` (a season-scoped merge can delete a drained guest; the invite and its redemptions must survive), **nullable** |
+| `season` | integer | nullable; only with `guest_player_id`. Set → the guest is *not* promoted at creation; on accept a new player is created and only that calendar year is merged in via `mergeGuestIntoPlayer` (logged in `player_merges`). `used_at` is still set, since `guest_player_id` may be nulled by then |
 | `created_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 | `used_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` — only ever set for a guest-linked invite |
 | `expires_at`, `used_at`, `revoked_at` | timestamptz | |

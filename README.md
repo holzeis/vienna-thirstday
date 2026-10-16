@@ -27,7 +27,12 @@ Jan 1 – Dec 31 season standings table.
   kinds:
   - **Guest-linked** (pick a guest in the "Player" field): promotes that
     guest to a real player immediately and single-use - the resulting
-    account keeps that guest's full history with nothing to merge.
+    account keeps that guest's full history with nothing to merge. If the
+    guest's history includes a season that wasn't theirs, pick a single
+    season under "Attach history" instead: the guest is *not* promoted, and
+    when the invite is accepted a new player is created with only that
+    year merged in (the guest keeps the rest). That merge is listed - and
+    can be undone - under "Recent guest merges", like any other.
   - **Open** (leave "Player" unselected): no guest, reusable by as many
     people as accept it before it expires or is revoked. Each acceptance
     onboards as a brand-new player with no history; an admin can attach a
