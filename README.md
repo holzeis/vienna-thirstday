@@ -73,7 +73,7 @@ Jan 1 – Dec 31 season standings table.
   the waitlist, and cancellable the same way as a confirmed/waitlisted
   spot. It never occupies a confirmed/waitlisted slot or affects the
   waitlist for anyone else.
-- **Weather.** Each matchday's detail page shows the temperature, conditions (sunny,
+- **Weather.** Each matchday's detail page - and the public sign-up link - shows the temperature, conditions (sunny,
   cloudy, rainy, ...) and whether it's windy - a *forecast* (labelled as
   such, refreshed every few hours, and available up to ~15 days ahead) for
   upcoming matchdays and the *actual* conditions once played. Figures cover
