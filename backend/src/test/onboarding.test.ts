@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { createApp } from "../app";
 import { db } from "../db/client";
 import { gamedays, invites, playerGamedayStats, playerMerges, players, registrations, results, users } from "../db/schema";
+import { backfillGuestPromotions } from "../services/playerMergeService";
 import { resetDb, closeDb, createAdmin, createGuestPlayer, createOpenGameday, createCompletedGameday } from "./helpers";
 
 const app = createApp();
@@ -394,6 +395,90 @@ describe("onboarding: deleting an invite", () => {
       .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
     expect(await db.query.invites.findFirst({ where: eq(invites.id, createRes.body.invite.id) })).toBeDefined();
+  });
+});
+
+describe("onboarding: guest promotion is logged as a merge", () => {
+  async function setup() {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Robert");
+    await createCompletedGameday(user.id, new Date("2023-05-04T17:00:00Z"), { teamA: 3, teamB: 1 }, [{ playerId: guest.id, team: "A", points: 6, goalDiff: 2 }]);
+    await createCompletedGameday(user.id, new Date("2024-05-02T17:00:00Z"), { teamA: 2, teamB: 2 }, [{ playerId: guest.id, team: "A", points: 2, goalDiff: 0 }]);
+    return { adminUser: user, adminToken, guest };
+  }
+  const mergesFor = async (adminToken: string) =>
+    (await request(app).get("/api/admin/players/merges").set("Authorization", `Bearer ${adminToken}`)).body.merges as any[];
+
+  it("accepting a whole-guest invite logs a promotion under the guest's own (pre-rename) name", async () => {
+    const { adminUser, adminToken, guest } = await setup();
+    const inviteToken = (await createInviteForGuest(adminToken, guest.id)).body.invite.token as string;
+    const res = await request(app).post(`/api/invites/${inviteToken}/accept`).field("name", "Robert Real").field("password", "password123");
+    expect(res.status).toBe(201);
+
+    const merges = await mergesFor(adminToken);
+    expect(merges).toHaveLength(1);
+    expect(merges[0]).toMatchObject({ guestPlayerName: "Robert", isPromotion: true, season: null, targetPlayer: { id: guest.id, name: "Robert Real" } });
+    expect(merges[0].mergedBy.id).toBe(adminUser.id);
+  });
+
+  it("undoing it moves the history to a fresh guest, which can then be merged back one season at a time", async () => {
+    const { adminToken, guest } = await setup();
+    const inviteToken = (await createInviteForGuest(adminToken, guest.id)).body.invite.token as string;
+    await request(app).post(`/api/invites/${inviteToken}/accept`).field("name", "Robert Real").field("password", "password123");
+    const [promotion] = await mergesFor(adminToken);
+
+    const undo = await request(app).post(`/api/admin/players/merges/${promotion.id}/undo`).set("Authorization", `Bearer ${adminToken}`);
+    expect(undo.status).toBe(200);
+    const restored = undo.body.guest;
+    expect(restored).toMatchObject({ name: "Robert", isGuest: true });
+    expect(restored.id).not.toBe(guest.id);
+    let stats = await db.select().from(playerGamedayStats);
+    expect(stats.filter((x) => x.playerId === restored.id)).toHaveLength(2);
+    expect(stats.filter((x) => x.playerId === guest.id)).toHaveLength(0);
+
+    // Re-attach only 2024 to the account.
+    const merge = await request(app)
+      .post(`/api/admin/players/${guest.id}/merge`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ guestPlayerId: restored.id, season: 2024 });
+    expect(merge.status).toBe(200);
+    stats = await db.select().from(playerGamedayStats);
+    expect(stats.filter((x) => x.playerId === guest.id)).toHaveLength(1);
+    expect(stats.filter((x) => x.playerId === restored.id)).toHaveLength(1);
+  });
+
+  it("does not log a promotion for a guest with no history", async () => {
+    const { password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Newbie");
+    const inviteToken = (await createInviteForGuest(adminToken, guest.id)).body.invite.token as string;
+    await request(app).post(`/api/invites/${inviteToken}/accept`).field("name", "Newbie").field("password", "password123");
+    expect(await mergesFor(adminToken)).toHaveLength(0);
+  });
+
+  it("backfill logs past promotions with only their pre-account history, and is idempotent", async () => {
+    const { adminUser, adminToken, guest } = await setup();
+    // Simulate a promotion from before logging existed: promoted in place, invite used, nothing logged.
+    await db.update(players).set({ isGuest: false, name: "Robert Real" }).where(eq(players.id, guest.id));
+    const usedAt = new Date("2024-06-01T00:00:00Z");
+    await db.insert(invites).values({ token: "old-invite", guestPlayerId: guest.id, createdByUserId: adminUser.id, expiresAt: new Date("2030-01-01"), usedAt });
+    // A game played later, as the account - must not be swept into an undo.
+    await createCompletedGameday(adminUser.id, new Date("2025-05-01T17:00:00Z"), { teamA: 1, teamB: 0 }, [{ playerId: guest.id, team: "A", points: 5, goalDiff: 1 }]);
+
+    expect(await db.transaction((tx) => backfillGuestPromotions(tx))).toBe(1);
+    expect(await db.transaction((tx) => backfillGuestPromotions(tx))).toBe(0);
+
+    const merges = await mergesFor(adminToken);
+    expect(merges).toHaveLength(1);
+    expect(merges[0]).toMatchObject({ isPromotion: true, guestPlayerName: "Robert Real", createdAt: usedAt.toISOString() });
+    const [row] = await db.select().from(playerMerges);
+    expect(JSON.parse(row.movedStatIds)).toHaveLength(2); // 2023 + 2024, not 2025
+
+    const undo = await request(app).post(`/api/admin/players/merges/${merges[0].id}/undo`).set("Authorization", `Bearer ${adminToken}`);
+    expect(undo.status).toBe(200);
+    const stats = await db.select().from(playerGamedayStats);
+    expect(stats.filter((x) => x.playerId === guest.id)).toHaveLength(1); // the 2025 game stays on the account
   });
 });
 

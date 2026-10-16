@@ -350,6 +350,12 @@ export const playerMerges = pgTable("player_merges", {
   // Null = the whole guest's history was merged; otherwise the calendar
   // year this merge was scoped to.
   season: integer("season"),
+  // True for a guest promoted *in place* by a guest-linked invite (the guest
+  // row simply became the account's player, so nothing was ever moved):
+  // logged retroactively so the admin can undo it - which moves the guest-era
+  // history onto a fresh guest - and re-attach it season by season with the
+  // ordinary merge tool. At most one per target player.
+  isPromotion: boolean("is_promotion").notNull().default(false),
   targetPlayerId: integer("target_player_id")
     .notNull()
     .references(() => players.id, { onDelete: "cascade" }),

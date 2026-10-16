@@ -9,7 +9,7 @@ import { ApiError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
 import { avatarUpload, resizeAvatar } from "../utils/avatarUpload";
 import { nameTakenByAnotherPlayer, sanitizeUser } from "./auth";
-import { mergeGuestIntoPlayer } from "../services/playerMergeService";
+import { mergeGuestIntoPlayer, recordGuestPromotion } from "../services/playerMergeService";
 import { notifyAdminsInviteAccepted } from "../services/pushService";
 
 const router = Router();
@@ -113,6 +113,14 @@ router.post(
       } else if (invite.guestPlayerId) {
         // The guest player IS the account - no new player, no merge. It was
         // already promoted (isGuest -> false) when the invite was created.
+        // Logged (before the rename, so the entry keeps the guest's own
+        // name) so the promotion shows under "Recent guest merges" and can be
+        // undone to re-attach history season by season.
+        await recordGuestPromotion(tx, {
+          playerId: invite.guestPlayerId,
+          guestName: invite.guestPlayer!.name,
+          mergedByUserId: invite.createdByUserId,
+        });
         await tx.update(players).set({ name, ...avatarFields }).where(eq(players.id, invite.guestPlayerId));
         playerId = invite.guestPlayerId;
       } else {

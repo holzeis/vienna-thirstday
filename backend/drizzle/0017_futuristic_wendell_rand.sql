@@ -1,0 +1,1 @@
+ALTER TABLE "player_merges" ADD COLUMN "is_promotion" boolean DEFAULT false NOT NULL;

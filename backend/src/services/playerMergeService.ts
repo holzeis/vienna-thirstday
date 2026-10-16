@@ -1,5 +1,5 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { ApiError } from "../utils/errors";
 
@@ -139,6 +139,86 @@ export async function mergeGuestIntoPlayer(
   if (remainingRegs.length === 0 && remainingAssignments.length === 0 && remainingStats.length === 0) {
     await tx.delete(schema.players).where(eq(schema.players.id, guestPlayerId));
   }
+}
+
+/**
+ * Logs a guest-linked invite's in-place promotion as a merge, so it appears
+ * under "Recent guest merges" and can be undone: undoing moves the
+ * guest-era history onto a fresh guest named `guestName` (the promoted
+ * player keeps their account but loses that history), from where the
+ * ordinary merge tool can attach just the right season(s) again.
+ *
+ * Nothing is moved here - the rows are already on the player - this only
+ * records which ones were the guest's: all of them, or with `upTo` only
+ * those from gamedays on or before it (for a backfill, so games played
+ * *as the account* afterwards aren't swept into an undo). Idempotent: a
+ * player gets at most one promotion entry, and one with no guest-era rows
+ * isn't logged. Returns whether an entry was written.
+ */
+export async function recordGuestPromotion(
+  tx: DbOrTx,
+  opts: { playerId: number; guestName: string; mergedByUserId: number | null; upTo?: Date; at?: Date }
+): Promise<boolean> {
+  const already = await tx.query.playerMerges.findFirst({
+    where: and(eq(schema.playerMerges.targetPlayerId, opts.playerId), eq(schema.playerMerges.isPromotion, true)),
+  });
+  if (already) return false;
+
+  const keep = (date: Date) => !opts.upTo || date.getTime() <= opts.upTo.getTime();
+  const [regs, assignments, stats] = await Promise.all([
+    tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, opts.playerId), with: { gameday: true } }),
+    tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, opts.playerId), with: { gameday: true } }),
+    tx.query.playerGamedayStats.findMany({
+      where: eq(schema.playerGamedayStats.playerId, opts.playerId),
+      with: { result: { with: { gameday: true } } },
+    }),
+  ]);
+  const regIds = regs.filter((r) => keep(r.gameday.date)).map((r) => r.id);
+  const assignmentIds = assignments.filter((a) => keep(a.gameday.date)).map((a) => a.id);
+  const statIds = stats.filter((s) => keep(s.result.gameday.date)).map((s) => s.id);
+  if (regIds.length + assignmentIds.length + statIds.length === 0) return false;
+
+  await tx.insert(schema.playerMerges).values({
+    guestPlayerName: opts.guestName,
+    guestPlayerId: null,
+    season: null,
+    isPromotion: true,
+    targetPlayerId: opts.playerId,
+    mergedByUserId: opts.mergedByUserId,
+    movedRegistrationIds: JSON.stringify(regIds),
+    movedTeamAssignmentIds: JSON.stringify(assignmentIds),
+    movedStatIds: JSON.stringify(statIds),
+    ...(opts.at ? { createdAt: opts.at } : {}),
+  });
+  return true;
+}
+
+/**
+ * One-off, idempotent catch-up for promotions that happened before they were
+ * logged: every used whole-guest invite (no `season`) whose promoted player
+ * has no promotion entry yet. Runs with the migrations (db/migrate.ts), so
+ * every environment gets it. The invite's acceptance time is the cutoff and
+ * the entry's timestamp; the guest's pre-rename name wasn't kept, so the
+ * player's current name stands in for it.
+ */
+export async function backfillGuestPromotions(tx: DbOrTx): Promise<number> {
+  const used = await tx.query.invites.findMany({
+    where: and(isNotNull(schema.invites.guestPlayerId), isNull(schema.invites.season), isNotNull(schema.invites.usedAt)),
+    with: { guestPlayer: true },
+  });
+  let logged = 0;
+  for (const invite of used) {
+    if (!invite.guestPlayer || !invite.guestPlayerId) continue;
+    const wrote = await recordGuestPromotion(tx, {
+      playerId: invite.guestPlayerId,
+      guestName: invite.guestPlayer.name,
+      mergedByUserId: invite.createdByUserId,
+      upTo: invite.usedAt!,
+      at: invite.usedAt!,
+    });
+    if (wrote) logged++;
+  }
+  return logged;
 }
 
 /**

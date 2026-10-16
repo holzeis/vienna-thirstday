@@ -108,6 +108,8 @@ router.get(
         guestPlayerName: m.guestPlayerName,
         // Null = the guest's whole history was merged.
         season: m.season,
+        // A guest promoted in place by an invite, logged so it can be undone.
+        isPromotion: m.isPromotion,
         targetPlayer: { id: m.targetPlayer.id, name: m.targetPlayer.name },
         // Null once the admin who performed this merge is later deleted -
         // the merge log itself (and its undo capability) is unaffected.
