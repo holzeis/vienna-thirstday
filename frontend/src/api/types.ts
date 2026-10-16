@@ -22,6 +22,8 @@ export interface PlayerMerge {
   guestPlayerName: string;
   /** Null = the guest's whole history was merged; otherwise the single season this merge was scoped to. */
   season: number | null;
+  /** A guest promoted in place by an invite (nothing was moved), logged so it can be undone and re-attached season by season. */
+  isPromotion: boolean;
   targetPlayer: { id: number; name: string };
   /** Null if the admin who performed this merge was later deleted. */
   mergedBy: { id: number; name: string | null } | null;

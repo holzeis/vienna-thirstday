@@ -232,13 +232,20 @@ export function AdminUsers() {
   }
 
   async function undoMerge(m: PlayerMerge) {
-    const seasonNote = m.season !== null ? ` ${m.season} season` : "";
-    if (
-      !window.confirm(
-        `Undo merging "${m.guestPlayerName}"'s${seasonNote} history out of ${m.targetPlayer.name}? This moves it back onto ${m.guestPlayerName} as a separate guest.`
+    if (m.isPromotion) {
+      if (
+        !window.confirm(
+          `Undo ${m.targetPlayer.name}'s promotion from guest "${m.guestPlayerName}"? Their history from before the account moves onto a separate guest "${m.guestPlayerName}" (the account keeps its login and any games played since). Then attach just the right season(s) back with "Merge guest history into an account".`
+        )
       )
-    )
+        return;
+    } else if (
+      !window.confirm(
+        `Undo merging "${m.guestPlayerName}"'s${m.season !== null ? ` ${m.season} season` : ""} history out of ${m.targetPlayer.name}? This moves it back onto ${m.guestPlayerName} as a separate guest.`
+      )
+    ) {
       return;
+    }
     setError(null);
     setBusyMergeId(m.id);
     try {
@@ -613,7 +620,7 @@ export function AdminUsers() {
             {merges.map((m) => (
               <li key={m.id}>
                 <span>
-                  <strong>{m.guestPlayerName}</strong> merged into <strong>{m.targetPlayer.name}</strong>
+                  <strong>{m.guestPlayerName}</strong> {m.isPromotion ? "promoted to" : "merged into"} <strong>{m.targetPlayer.name}</strong>
                   {m.season !== null && <span className="badge" style={{ marginLeft: 6 }}>{m.season} only</span>}
                   <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
                     {formatDateTime(m.createdAt)} by {m.mergedBy?.name || "an admin"}
