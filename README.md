@@ -685,8 +685,10 @@ docker-compose.yml    Local multi-container setup
   there too, as "<guest> promoted to <account>": undo it to move that
   pre-account history onto a separate guest again, then attach only the
   right season(s) back with the merge form. (Promotions from before this was
-  logged are added automatically when the backend's migrations run; only
-  games from before the invite was accepted are included.)
+  logged are added automatically when the backend's migrations run - for
+  every account, including ones that predate invites: whatever history sits
+  on gamedays from before the account existed, minus rows a logged merge
+  already moved in.)
 - **No email delivery.** Invite links are generated in the app but not
   emailed - an admin copies the link and sends it however they'd normally
   reach the group (WhatsApp, email, etc.). Worth automating with a

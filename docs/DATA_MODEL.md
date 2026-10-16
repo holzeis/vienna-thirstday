@@ -329,7 +329,7 @@ row ids are captured here — that's what makes undo possible.
 | `id` | serial | PK |
 | `guest_player_name` | varchar(255) | snapshot — the guest row is gone |
 | `season` | integer | nullable; null = whole history, else the one calendar year merged |
-| `is_promotion` | boolean | default false. True = a guest promoted *in place* by a guest-linked invite: nothing was moved, the entry just records which rows were the guest's (`target_player_id` is the promoted player, `guest_player_id` null, `guest_player_name` the guest's pre-rename name). Undoing it moves those rows onto a fresh guest. At most one per target player; written on invite accept, and by `backfillGuestPromotions` (run with the migrations) for older ones |
+| `is_promotion` | boolean | default false. True = a guest promoted *in place* by a guest-linked invite: nothing was moved, the entry just records which rows were the guest's (`target_player_id` is the promoted player, `guest_player_id` null, `guest_player_name` the guest's pre-rename name). Undoing it moves those rows onto a fresh guest. At most one per target player; written on invite accept, and by `backfillGuestPromotions` (run with the migrations) for older ones - every account, cutoff = invite acceptance or `users.created_at`, excluding rows a live merge moved in |
 | `target_player_id` | integer | FK → `players.id`, cascade delete |
 | `merged_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 | `moved_registration_ids` | text (json) | |
