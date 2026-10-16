@@ -397,6 +397,99 @@ describe("onboarding: deleting an invite", () => {
   });
 });
 
+describe("onboarding: season-scoped guest invite", () => {
+  /** A guest with one completed game in each of 2023 and 2024, and an admin to invite them. */
+  async function setup() {
+    const { user, password } = await createAdmin();
+    const adminToken = await loginAs("Admin", password);
+    const guest = await createGuestPlayer("Benji");
+    await createCompletedGameday(user.id, new Date("2023-05-04T17:00:00Z"), { teamA: 3, teamB: 1 }, [{ playerId: guest.id, team: "A", points: 6, goalDiff: 2 }]);
+    await createCompletedGameday(user.id, new Date("2024-05-02T17:00:00Z"), { teamA: 2, teamB: 2 }, [{ playerId: guest.id, team: "A", points: 2, goalDiff: 0 }]);
+    return { adminUser: user, adminToken, guest };
+  }
+  const createScoped = (adminToken: string, guestPlayerId: number, season: number) =>
+    request(app).post("/api/admin/invites").set("Authorization", `Bearer ${adminToken}`).send({ guestPlayerId, season });
+  const accept = (token: string, name = "Benji Real") =>
+    request(app).post(`/api/invites/${token}/accept`).field("name", name).field("password", "password123");
+
+  it("does not promote the guest on creation, and exposes the season", async () => {
+    const { adminToken, guest } = await setup();
+    const res = await createScoped(adminToken, guest.id, 2024);
+
+    expect(res.status).toBe(201);
+    expect(res.body.invite.season).toBe(2024);
+    expect((await db.query.players.findFirst({ where: eq(players.id, guest.id) }))?.isGuest).toBe(true);
+    const preview = await request(app).get(`/api/invites/${res.body.invite.token}`);
+    expect(preview.body.season).toBe(2024);
+  });
+
+  it("on accept creates a new player and merges only that season in, leaving the guest with the rest", async () => {
+    const { adminUser, adminToken, guest } = await setup();
+    const inviteToken = (await createScoped(adminToken, guest.id, 2024)).body.invite.token as string;
+
+    const res = await accept(inviteToken);
+    expect(res.status).toBe(201);
+    const newPlayerId = res.body.user.playerId as number;
+    expect(newPlayerId).not.toBe(guest.id);
+
+    const stats = await db.select().from(playerGamedayStats);
+    expect(stats.filter((s) => s.playerId === newPlayerId)).toHaveLength(1);
+    expect(stats.filter((s) => s.playerId === guest.id)).toHaveLength(1); // 2023 stays on the guest
+    const remaining = await db.query.players.findFirst({ where: eq(players.id, guest.id) });
+    expect(remaining?.isGuest).toBe(true);
+
+    // Shows up in the admin merge log, attributed to the inviting admin, and is undoable.
+    const merges = await request(app).get("/api/admin/players/merges").set("Authorization", `Bearer ${adminToken}`);
+    expect(merges.body.merges).toHaveLength(1);
+    expect(merges.body.merges[0]).toMatchObject({ guestPlayerName: "Benji", season: 2024, targetPlayer: { id: newPlayerId } });
+    expect(merges.body.merges[0].mergedBy.id).toBe(adminUser.id);
+    const undo = await request(app).post(`/api/admin/players/merges/${merges.body.merges[0].id}/undo`).set("Authorization", `Bearer ${adminToken}`);
+    expect(undo.status).toBe(200);
+    expect((await db.select().from(playerGamedayStats)).filter((s) => s.playerId === guest.id)).toHaveLength(2);
+  });
+
+  it("is single-use even though the guest survived", async () => {
+    const { adminToken, guest } = await setup();
+    const inviteToken = (await createScoped(adminToken, guest.id, 2024)).body.invite.token as string;
+    await accept(inviteToken);
+    expect((await accept(inviteToken, "Someone Else")).status).toBe(410);
+  });
+
+  it("keeps the invite and its redemption when the merge drains and deletes the guest", async () => {
+    const { adminToken, guest } = await setup();
+    await db.delete(playerGamedayStats).where(eq(playerGamedayStats.playerId, guest.id)); // wipe, then give back only 2024
+    const [g2024] = await db.select().from(gamedays).where(eq(gamedays.date, new Date("2024-05-02T17:00:00Z")));
+    const [r2024] = await db.select().from(results).where(eq(results.gamedayId, g2024.id));
+    await db.insert(playerGamedayStats).values({ resultId: r2024.id, playerId: guest.id, team: "A", points: 2, goalDiff: 0 });
+    const created = await createScoped(adminToken, guest.id, 2024);
+
+    const res = await accept(created.body.invite.token);
+    expect(res.status).toBe(201);
+    expect(await db.query.players.findFirst({ where: eq(players.id, guest.id) })).toBeUndefined();
+
+    const list = await request(app).get("/api/admin/invites").set("Authorization", `Bearer ${adminToken}`);
+    expect(list.body.invites).toHaveLength(1);
+    expect(list.body.invites[0].status).toBe("used");
+    expect(list.body.invites[0].redemptions).toHaveLength(1);
+  });
+
+  it("rejects a season the guest has no games in, or a season without a guest", async () => {
+    const { adminToken, guest } = await setup();
+    expect((await createScoped(adminToken, guest.id, 2019)).status).toBe(400);
+    const noGuest = await request(app).post("/api/admin/invites").set("Authorization", `Bearer ${adminToken}`).send({ season: 2024 });
+    expect(noGuest.status).toBe(400);
+  });
+
+  it("revoking leaves the guest untouched and the link dead", async () => {
+    const { adminToken, guest } = await setup();
+    const created = await createScoped(adminToken, guest.id, 2024);
+    const revoke = await request(app).post(`/api/admin/invites/${created.body.invite.id}/revoke`).set("Authorization", `Bearer ${adminToken}`);
+    expect(revoke.status).toBe(200);
+    expect((await db.query.players.findFirst({ where: eq(players.id, guest.id) }))?.isGuest).toBe(true);
+    expect((await accept(created.body.invite.token)).status).toBe(410);
+  });
+});
+
 describe("login by name", () => {
   it("rejects an unknown name", async () => {
     const res = await request(app).post("/api/auth/login").send({ name: "Nobody", password: "whatever" });

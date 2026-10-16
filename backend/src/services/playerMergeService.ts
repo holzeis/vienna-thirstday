@@ -34,7 +34,7 @@ export async function mergeGuestIntoPlayer(
   tx: DbOrTx,
   guestPlayerId: number,
   targetPlayerId: number,
-  mergedByUserId: number,
+  mergedByUserId: number | null,
   season?: number
 ) {
   if (guestPlayerId === targetPlayerId) {

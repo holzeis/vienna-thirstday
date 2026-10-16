@@ -9,6 +9,7 @@ import { ApiError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
 import { avatarUpload, resizeAvatar } from "../utils/avatarUpload";
 import { nameTakenByAnotherPlayer, sanitizeUser } from "./auth";
+import { mergeGuestIntoPlayer } from "../services/playerMergeService";
 import { notifyAdminsInviteAccepted } from "../services/pushService";
 
 const router = Router();
@@ -38,6 +39,7 @@ router.get(
     const invite = await loadValidInvite(req.params.token);
     res.json({
       guest: invite.guestPlayer ? { id: invite.guestPlayer.id, name: invite.guestPlayer.name } : null,
+      season: invite.season,
     });
   })
 );
@@ -98,7 +100,17 @@ router.post(
 
     const user = await db.transaction(async (tx) => {
       let playerId: number;
-      if (invite.guestPlayerId) {
+      if (invite.guestPlayerId && invite.season !== null) {
+        // Season-scoped: a brand-new player, with only that year of the
+        // guest's history merged in via the ordinary merge (so it's logged
+        // under "Recent guest merges" and undoable). The guest keeps every
+        // other season - or is deleted if this drained them, which the
+        // invite's ON DELETE SET NULL survives. Attributed to whoever
+        // issued the invite, since that's the admin who made this call.
+        const [newPlayer] = await tx.insert(players).values({ name, isGuest: false, ...avatarFields }).returning();
+        playerId = newPlayer.id;
+        await mergeGuestIntoPlayer(tx, invite.guestPlayerId, playerId, invite.createdByUserId, invite.season);
+      } else if (invite.guestPlayerId) {
         // The guest player IS the account - no new player, no merge. It was
         // already promoted (isGuest -> false) when the invite was created.
         await tx.update(players).set({ name, ...avatarFields }).where(eq(players.id, invite.guestPlayerId));
@@ -122,8 +134,9 @@ router.post(
         .returning();
 
       // Only guest-linked invites are single-use - an open invite's usedAt
-      // stays null forever so it keeps working for the next person.
-      if (invite.guestPlayerId) {
+      // stays null forever so it keeps working for the next person. (Checked
+      // via season too: the merge above may have deleted the guest.)
+      if (invite.guestPlayerId || invite.season !== null) {
         await tx.update(invites).set({ usedAt: new Date(), usedByUserId: createdUser.id }).where(eq(invites.id, invite.id));
       }
 

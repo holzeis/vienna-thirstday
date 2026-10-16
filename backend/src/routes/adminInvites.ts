@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { db } from "../db/client";
-import { invites, players, users } from "../db/schema";
+import { invites, playerGamedayStats, gamedays, players, results, users } from "../db/schema";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/errors";
@@ -27,6 +27,7 @@ function serializeInvite(invite: {
   token: string;
   note: string | null;
   guestPlayer: { id: number; name: string } | null;
+  season: number | null;
   createdBy: { id: number; email: string | null } | null;
   expiresAt: Date;
   usedAt: Date | null;
@@ -40,6 +41,8 @@ function serializeInvite(invite: {
     token: invite.token,
     note: invite.note,
     guestPlayer: invite.guestPlayer ? { id: invite.guestPlayer.id, name: invite.guestPlayer.name } : null,
+    // Non-null = only that season of the guest's history is attached on accept.
+    season: invite.season,
     // Pick only the safe fields - the `with` relation include below hands us
     // the full raw user row (passwordHash included), so never spread it.
     // Null once the admin who issued this invite is later deleted.
@@ -82,6 +85,10 @@ const createSchema = z.object({
   // attach a guest's history to one of those afterward via the ordinary
   // merge tool (POST /admin/players/:targetPlayerId/merge).
   guestPlayerId: z.number().int().optional(),
+  // Only with a guestPlayerId: attach just this calendar year of the guest's
+  // history to the new account instead of promoting the whole guest (e.g.
+  // the guest profile also holds a season that wasn't this person's).
+  season: z.number().int().min(2000).max(2100).optional(),
   // Optional free-text reminder for the admin's own benefit, never shown to
   // the person accepting the invite.
   note: z.string().max(255).optional(),
@@ -93,7 +100,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = createSchema.safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest("Invalid invite payload", parsed.error.flatten());
-    const { guestPlayerId, note, expiresInDays } = parsed.data;
+    const { guestPlayerId, season, note, expiresInDays } = parsed.data;
+    if (season !== undefined && guestPlayerId === undefined) {
+      throw ApiError.badRequest("A season can only be set on an invite for a specific guest");
+    }
 
     if (guestPlayerId !== undefined) {
       const guest = await db.query.players.findFirst({ where: eq(players.id, guestPlayerId) });
@@ -101,12 +111,31 @@ router.post(
       if (!guest.isGuest) throw ApiError.badRequest("This player has already been onboarded or is otherwise not a guest");
       const alreadyLinked = await db.query.users.findFirst({ where: eq(users.playerId, guestPlayerId) });
       if (alreadyLinked) throw ApiError.badRequest("This player already has an account");
+
+      if (season !== undefined) {
+        const [hasGames] = await db
+          .select({ id: playerGamedayStats.id })
+          .from(playerGamedayStats)
+          .innerJoin(results, eq(playerGamedayStats.resultId, results.id))
+          .innerJoin(gamedays, eq(results.gamedayId, gamedays.id))
+          .where(
+            and(
+              eq(playerGamedayStats.playerId, guestPlayerId),
+              gte(gamedays.date, new Date(Date.UTC(season, 0, 1))),
+              lt(gamedays.date, new Date(Date.UTC(season + 1, 0, 1)))
+            )
+          )
+          .limit(1);
+        if (!hasGames) throw ApiError.badRequest(`${guest.name} has no games in ${season}`);
+      }
     }
 
     const created = await db.transaction(async (tx) => {
-      if (guestPlayerId !== undefined) {
+      if (guestPlayerId !== undefined && season === undefined) {
         // "The admin selects a guest and onboards him as a player" happens
-        // now, at invite creation - not deferred to accept time.
+        // now, at invite creation - not deferred to accept time. A
+        // season-scoped invite deliberately skips this: the guest stays a
+        // guest (with their other seasons) and only that year is merged on accept.
         await tx.update(players).set({ isGuest: false }).where(eq(players.id, guestPlayerId));
       }
 
@@ -116,6 +145,7 @@ router.post(
           token: generateInviteToken(),
           note: note || null,
           guestPlayerId: guestPlayerId ?? null,
+          season: season ?? null,
           createdByUserId: req.user!.userId,
           expiresAt: defaultInviteExpiry(expiresInDays ?? INVITE_DEFAULT_EXPIRY_DAYS),
         })
@@ -150,9 +180,9 @@ router.post(
 
     await db.transaction(async (tx) => {
       await tx.update(invites).set({ revokedAt: new Date() }).where(eq(invites.id, id));
-      // Only a guest-linked invite has a promotion to revert - an open
-      // invite never touched a guest in the first place.
-      if (invite.guestPlayerId) {
+      // Only a whole-guest invite has a promotion to revert - an open or
+      // season-scoped invite never touched the guest in the first place.
+      if (invite.guestPlayerId && invite.season === null) {
         await tx.update(players).set({ isGuest: true }).where(eq(players.id, invite.guestPlayerId));
       }
     });

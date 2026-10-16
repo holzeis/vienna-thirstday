@@ -229,7 +229,15 @@ export const invites = pgTable(
     id: serial("id").primaryKey(),
     token: varchar("token", { length: 64 }).notNull().unique(),
     note: varchar("note", { length: 255 }),
-    guestPlayerId: integer("guest_player_id").references(() => players.id, { onDelete: "cascade" }),
+    // ON DELETE SET NULL (not cascade): a season-scoped invite's merge can
+    // drain and delete its guest, which must not take the invite - and its
+    // redemption/audit trail - down with it.
+    guestPlayerId: integer("guest_player_id").references(() => players.id, { onDelete: "set null" }),
+    // Set only on a guest-linked invite scoped to one calendar year. Instead
+    // of promoting the guest in place (all seasons), accepting it creates a
+    // new player and merges just that season in via the ordinary merge
+    // (logged and undoable on the admin page); the guest keeps the rest.
+    season: integer("season"),
     // Nullable, ON DELETE SET NULL - deleting the admin who issued or
     // accepted an invite must never be blocked by, or destroy, that invite.
     createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
