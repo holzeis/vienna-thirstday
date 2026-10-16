@@ -10,7 +10,7 @@ import { countConfirmed, notifyOnWaitlistChange, recomputeGamedayWaitlist, type 
 import { notifyCreatorOfRegistrationChange, notifyGamedayCancelled, notifyGamedayReinstated, notifyNewGameday } from "../services/pushService";
 import { generateInviteToken } from "../utils/inviteToken";
 import { computeTeamResult } from "../utils/scoring";
-import { loadWeather, refreshStaleWeather, toWeatherView } from "../services/weatherService";
+import { getGamedayWeatherView, refreshStaleWeather } from "../services/weatherService";
 import { computeMatchdayNumbers } from "../utils/matchday";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 import { computeCurrentForm, computeElectors, computeIsNewcomer, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
@@ -120,9 +120,7 @@ router.get(
 
     // Awaited (unlike the list): someone who opened this matchday wants the
     // current forecast, but with a short timeout so a slow provider can't hang the page.
-    let weather = await loadWeather(id);
-    await refreshStaleWeather([gameday], new Map(weather ? [[id, weather]] : []), { timeoutMs: 3000 });
-    weather = await loadWeather(id);
+    const weather = await getGamedayWeatherView(gameday);
 
     // Same Locker Room / champion badges shown on the leaderboard, so a
     // registered player is recognizable here too - "previous season"
@@ -153,7 +151,7 @@ router.get(
       gameday: {
         ...gameday,
         status: effectiveGamedayStatus(gameday),
-        weather: toWeatherView(weather, gameday),
+        weather,
         registrations: regs
           .filter((r) => r.status !== "CANCELLED")
           .map((r) => ({

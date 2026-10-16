@@ -120,6 +120,12 @@ export async function refreshGamedayWeather(
 const inFlight = new Set<number>();
 const lastFailure = new Map<number, number>();
 
+/** Clears the in-process retry/in-flight tracking - tests reuse gameday ids across cases, so a failure in one must not back off the next. */
+export function resetWeatherRefreshState() {
+  inFlight.clear();
+  lastFailure.clear();
+}
+
 /**
  * Refreshes whichever of `gamedays` have stale weather, sequentially (gentle on the
  * provider's free tier) and never throwing: a provider outage just
@@ -153,6 +159,18 @@ export async function refreshStaleWeather(
 export async function loadWeather(gamedayId: number): Promise<WeatherRow | undefined> {
   const [row] = await db.select().from(gamedayWeather).where(eq(gamedayWeather.gamedayId, gamedayId));
   return row;
+}
+
+/**
+ * Weather for one gameday as the API shape, refreshing it first if stale.
+ * Awaited with a short timeout (see the note at the top of this file) so a
+ * slow provider can't hang a page, shared by the authenticated detail route
+ * and the public share-link route.
+ */
+export async function getGamedayWeatherView(gameday: { id: number; date: Date }) {
+  const existing = await loadWeather(gameday.id);
+  await refreshStaleWeather([gameday], new Map(existing ? [[gameday.id, existing]] : []), { timeoutMs: 3000 });
+  return toWeatherView(await loadWeather(gameday.id), gameday);
 }
 
 /** API shape. A row for a since-moved kickoff is hidden rather than shown wrong. */

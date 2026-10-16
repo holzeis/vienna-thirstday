@@ -6,11 +6,14 @@ import { config } from "../config";
 import { db } from "../db/client";
 import { gamedays, gamedayWeather } from "../db/schema";
 import { resetDb, closeDb, createAdmin } from "./helpers";
-import { buildWeatherUrl, parseOpenMeteo, planWeatherRefresh, FORECAST_TTL_MS } from "../services/weatherService";
+import { buildWeatherUrl, parseOpenMeteo, planWeatherRefresh, resetWeatherRefreshState, FORECAST_TTL_MS } from "../services/weatherService";
 
 const app = createApp();
 
-beforeEach(() => resetDb());
+beforeEach(() => {
+  resetWeatherRefreshState();
+  return resetDb();
+});
 afterEach(() => {
   config.weatherEnabled = false;
   vi.unstubAllGlobals();
@@ -176,5 +179,18 @@ describe("weather on the gameday routes", () => {
     const res = await request(app).get(`/api/gamedays/${g.id}`).set("Authorization", `Bearer ${token}`);
     expect(res.body.gameday.weather).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("includes the forecast on the public share-link lookup, without any login", async () => {
+    config.weatherEnabled = true;
+    const date = new Date(Date.now() + 2 * DAY);
+    date.setUTCHours(17, 0, 0, 0);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => openMeteoBody(date.toISOString().slice(0, 10)) }));
+    const [g] = await db.insert(gamedays).values({ date, shareToken: "weather-share-token" }).returning();
+
+    const res = await request(app).get("/api/gameday-share/weather-share-token");
+    expect(res.status).toBe(200);
+    expect(res.body.gameday.id).toBe(g.id);
+    expect(res.body.gameday.weather).toMatchObject({ kind: "FORECAST", condition: "sunny", temperatureC: 18, isWindy: false });
   });
 });

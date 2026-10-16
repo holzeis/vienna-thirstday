@@ -11,6 +11,7 @@ import { effectiveGamedayStatus } from "../utils/gamedayStatus";
 import { recordAccessEvent } from "../services/accessEventService";
 import { nameTakenByAnotherPlayer } from "./auth";
 import { generateInviteToken } from "../utils/inviteToken";
+import { getGamedayWeatherView } from "../services/weatherService";
 import { notifyCreatorOfRegistrationChange } from "../services/pushService";
 
 const router = Router();
@@ -68,6 +69,8 @@ router.get(
         confirmed: confirmed.map((r) => ({ name: r.player.name, isGuest: r.player.isGuest })),
         waitlisted: waitlisted.map((r) => ({ name: r.player.name, isGuest: r.player.isGuest })),
         myStatus: mine?.status ?? null,
+        // Forecast only in practice: the link expires once game day is over.
+        weather: await getGamedayWeatherView(gameday),
       },
     });
   })
