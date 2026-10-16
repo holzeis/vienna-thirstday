@@ -13,7 +13,7 @@ import { computeTeamResult } from "../utils/scoring";
 import { loadWeather, refreshStaleWeather, toWeatherView } from "../services/weatherService";
 import { computeMatchdayNumbers } from "../utils/matchday";
 import { effectiveGamedayStatus } from "../utils/gamedayStatus";
-import { computeCurrentForm, computeIsNewcomer, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
+import { computeCurrentForm, computeElectors, computeIsNewcomer, computeSeasonPodiums, fetchStatRows } from "../services/playerStatsService";
 
 const router = Router();
 
@@ -143,6 +143,12 @@ router.get(
     }
 
     const regs = (gameday as any).registrations as any[];
+    // 1 = first elector, 2 = second - see computeElectors.
+    const electors = computeElectors(
+      await fetchStatRows(db, { year: gamedayYear }),
+      regs.filter((r) => r.status === "CONFIRMED").map((r) => r.player.id),
+      gameday.date
+    );
     res.json({
       gameday: {
         ...gameday,
@@ -154,7 +160,7 @@ router.get(
             id: r.id,
             status: r.status,
             signupAt: r.signupAt,
-            player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest, ...playerBadges(r.player.id) },
+            player: { id: r.player.id, name: r.player.name, isGuest: r.player.isGuest, electorRank: electors.indexOf(r.player.id) + 1 || null, ...playerBadges(r.player.id) },
             // Null once the registering user's own account is later deleted
             // - the registration itself (and who it's for) is unaffected.
             // email is admin-only: the privacy policy promises it's "never

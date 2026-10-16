@@ -27,6 +27,33 @@ async function loginAs(name: string, password: string) {
   return res.body.token as string;
 }
 
+describe("GET /gamedays/:id electors", () => {
+  it("marks only the two best-ranked confirmed players, ranked among the confirmed", async () => {
+    const { user, password } = await createAdmin();
+    const token = await loginAs("Admin", password);
+    const year = new Date().getUTCFullYear();
+    const mk = async (name: string) => (await createRegularUser(name)).player;
+    const [low, mid, high, absent] = [await mk("Low"), await mk("Mid"), await mk("High"), await mk("Absent")];
+    // Absent leads the league but isn't confirmed for the upcoming matchday.
+    await createCompletedGameday(user.id, new Date(Date.UTC(year, 0, 8, 18)), { teamA: 5, teamB: 1 }, [
+      { playerId: absent.id, team: "A", points: 40, goalDiff: 4 },
+      { playerId: high.id, team: "A", points: 30, goalDiff: 4 },
+      { playerId: mid.id, team: "B", points: 20, goalDiff: -4 },
+      { playerId: low.id, team: "B", points: 10, goalDiff: -4 },
+    ]);
+    const upcoming = await createOpenGameday(user.id, new Date(Date.now() + 7 * 24 * 3600 * 1000));
+    await db.insert(registrations).values(
+      [low, mid, high].map((p) => ({ gamedayId: upcoming.id, playerId: p.id, status: "CONFIRMED" as const, registeredByUserId: user.id }))
+    );
+
+    const res = await request(app).get(`/api/gamedays/${upcoming.id}`).set("Authorization", `Bearer ${token}`);
+    const rank = new Map(res.body.gameday.registrations.map((r: any) => [r.player.name, r.player.electorRank]));
+    expect(rank.get("High")).toBe(1);
+    expect(rank.get("Mid")).toBe(2);
+    expect(rank.get("Low")).toBeNull();
+  });
+});
+
 describe("GET /gamedays", () => {
   it("numbers matchdays chronologically within each year and restarts per year", async () => {
     const { user, password } = await createAdmin();

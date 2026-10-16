@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeCareerStats,
   computeCurrentForm,
+  computeElectors,
   computeDreamTeamMate,
   computeFavoriteVictim,
   computeIsNewcomer,
@@ -555,5 +556,44 @@ describe("computePlayerSeasonAwards", () => {
     const seasons = computePlayerSeasonAwards(allRows, 1).map((a) => a.season);
     expect(seasons[0]).toBe(lastYear);
     expect(seasons[seasons.length - 1]).toBe(twoYearsAgo);
+  });
+});
+
+describe("computeElectors", () => {
+  const before = new Date("2024-06-01T00:00:00Z");
+  const early = (o: Partial<StatRow> & { playerId: number }) => row({ date: new Date("2024-03-01T18:00:00Z"), ...o });
+
+  it("picks the two best-ranked of the confirmed players, first elector first", () => {
+    const rows = [
+      early({ playerId: 1, points: 10 }),
+      early({ playerId: 2, points: 30 }),
+      early({ playerId: 3, points: 20 }),
+      early({ playerId: 4, points: 99 }), // top of the league, but not confirmed
+    ];
+    expect(computeElectors(rows, [1, 2, 3], before)).toEqual([2, 3]);
+  });
+
+  it("breaks a points tie by goal difference, then wins, then name", () => {
+    const rows = [
+      early({ playerId: 1, points: 10, goalDiff: 1 }),
+      early({ playerId: 2, points: 10, goalDiff: 5 }),
+      early({ playerId: 3, points: 10, goalDiff: 1, playerName: "Aaron" }),
+    ];
+    expect(computeElectors(rows, [1, 2, 3], before)).toEqual([2, 3]); // 3 beats 1 on name
+  });
+
+  it("never picks guests or players with no games yet, so there can be fewer than two", () => {
+    const rows = [early({ playerId: 1, points: 5 }), early({ playerId: 2, points: 50, isGuest: true })];
+    expect(computeElectors(rows, [1, 2, 3], before)).toEqual([1]);
+    expect(computeElectors([], [1, 2], before)).toEqual([]);
+  });
+
+  it("ignores results on or after the matchday itself, so a played matchday keeps its electors", () => {
+    const rows = [
+      early({ playerId: 1, points: 10 }),
+      early({ playerId: 2, points: 5 }),
+      row({ playerId: 2, points: 100, date: before }), // this matchday's own result
+    ];
+    expect(computeElectors(rows, [1, 2], before)).toEqual([1, 2]);
   });
 });

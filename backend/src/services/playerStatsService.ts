@@ -515,6 +515,40 @@ export function computeSeasonPodiums(rows: StatRow[]): Record<SeasonAwardCategor
   };
 }
 
+/**
+ * The two "electors" of a matchday: the best- and second-best-ranked of its
+ * confirmed players, who pick the teams. Ranked by season points, then
+ * goal-difference (the leaderboard's own rule), then wins, then name - but
+ * only among the confirmed players, so it's "who is top of *this* roster",
+ * not of the league. A played matchday is judged on the standings going into
+ * it (`before`), so the electors don't change retroactively once its own
+ * result is entered. Guests and players with no games yet this season have
+ * no standing and are never electors, so there can be fewer than two.
+ * `seasonRows` should already be restricted to the matchday's calendar year.
+ * Returns player ids, first elector first.
+ */
+export function computeElectors(seasonRows: StatRow[], confirmedPlayerIds: number[], before: Date): number[] {
+  const confirmed = new Set(confirmedPlayerIds);
+  const byPlayer = new Map<number, StatRow[]>();
+  for (const r of seasonRows) {
+    if (!confirmed.has(r.playerId) || r.isGuest || r.date.getTime() >= before.getTime()) continue;
+    const list = byPlayer.get(r.playerId);
+    if (list) list.push(r);
+    else byPlayer.set(r.playerId, [r]);
+  }
+  return Array.from(byPlayer.entries())
+    .map(([playerId, rows]) => ({ playerId, name: rows[0].playerName, career: computeCareerStats(rows) }))
+    .sort(
+      (a, b) =>
+        b.career.points - a.career.points ||
+        b.career.goalDiff - a.career.goalDiff ||
+        b.career.wins - a.career.wins ||
+        a.name.localeCompare(b.name)
+    )
+    .slice(0, 2)
+    .map((p) => p.playerId);
+}
+
 /** Groups already-fetched rows by the calendar year of their gameday date. */
 export function groupRowsByYear(rows: StatRow[]): Map<number, StatRow[]> {
   const byYear = new Map<number, StatRow[]>();
