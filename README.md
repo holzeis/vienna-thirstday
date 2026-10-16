@@ -73,6 +73,15 @@ Jan 1 – Dec 31 season standings table.
   the waitlist, and cancellable the same way as a confirmed/waitlisted
   spot. It never occupies a confirmed/waitlisted slot or affects the
   waitlist for anyone else.
+- **Weather.** Each matchday's detail page shows the temperature, conditions (sunny,
+  cloudy, rainy, ...) and whether it's windy - a *forecast* (labelled as
+  such, refreshed every few hours, and available up to ~15 days ahead) for
+  upcoming matchdays and the *actual* conditions once played. Figures cover
+  kickoff plus three hours. Data comes from [Open-Meteo](https://open-meteo.com)
+  (free, no API key); if it's unreachable the weather is just omitted. The
+  location defaults to central Vienna - set `WEATHER_LATITUDE` /
+  `WEATHER_LONGITUDE` to the pitch. Windy = mean wind >= 20 km/h or gusts
+  >= 35 km/h.
 - **WhatsApp group link.** Every matchday page (for logged-in players) and
   the public sign-up link (for guests) links out to the group's WhatsApp
   chat - that's where last-minute coordination actually happens (extra
@@ -586,6 +595,8 @@ automatically - no separate deploy step. Live at
 | `ADMIN_EMAIL`     | Used only by `npm run seed`                          | `admin@vienna-thirstday.local`                                    |
 | `ADMIN_PASSWORD`  | Used only by `npm run seed`                          | `changeme123`                                                    |
 | `ADMIN_NAME`      | Used only by `npm run seed`                          | `Admin`                                                          |
+| `WEATHER_LATITUDE` / `WEATHER_LONGITUDE` | Coordinates weather is fetched for (the pitch) | `48.2082` / `16.3738` (central Vienna)           |
+| `WEATHER_ENABLED` | Set `false` to disable weather lookups entirely       | `true`                                                           |
 
 ### Frontend (build-time)
 

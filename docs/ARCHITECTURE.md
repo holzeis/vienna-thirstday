@@ -31,8 +31,8 @@ working conventions, see `CLAUDE.md`.
 | --- | --- |
 | `backend/src/app.ts` | Express app assembly — mounts every router |
 | `backend/src/routes/*` | One file per resource area: `auth`, `gamedays`, `gamedayShare` (public, token-based, no login), `players`, `standings`, `hallOfFame`, `push`, `invites`/`adminInvites`, `adminUsers`, `adminPlayers`, `guests`, `passwordReset` (public, token-based, no login) |
-| `backend/src/services/*` | Business logic factored out of route handlers so it's unit-testable: `playerStatsService`, `registrationService`, `pushService`, `playerMergeService`, `accessEventService` |
-| `backend/src/utils/*` | Pure/computational logic, one test file per module: `scoring`, `waitlist`, `matchday`, `timezone`, `gamedayStatus`, `achievementThresholds`, `userAgent` |
+| `backend/src/services/*` | Business logic factored out of route handlers so it's unit-testable: `playerStatsService`, `registrationService`, `pushService`, `playerMergeService`, `accessEventService`, `weatherService` (Open-Meteo forecast/observed weather per gameday) |
+| `backend/src/utils/*` | Pure/computational logic, one test file per module: `scoring`, `waitlist`, `matchday`, `timezone`, `gamedayStatus`, `weather`, `achievementThresholds`, `userAgent` |
 | `backend/src/db/` | Drizzle schema, migrations, seed scripts |
 | `frontend/src/api/` | Typed HTTP client — `client.ts` wraps `fetch` (auth header, `X-Standalone` header, offline detection), `endpoints.ts` is the typed call surface |
 | `frontend/src/auth/AuthContext.tsx` | Holds the JWT, calls `GET /auth/me` once on app load to hydrate the session |
@@ -215,3 +215,17 @@ update this document to reflect a deliberate change.
     `NODE_ENV=test`, since the same in-memory limiter store persists for a
     whole test file's app instance and plenty of files log in as "Admin"
     dozens of times.
+12. **Third-party data is refreshed lazily on read, never blocking the list.**
+    Weather (`services/weatherService.ts`) follows the same
+    compute-on-read idea as #3: `planWeatherRefresh()` decides from the
+    stored snapshot whether it is stale (forecast older than 3h, kickoff
+    moved, match finished but no observed data yet), and a read triggers the
+    refresh - no cron. `GET /gamedays/:id` **awaits** it with a 3s
+    timeout so an opened matchday is current, and creating a gameday kicks
+    off a **fire-and-forget** fetch. Weather is deliberately not part of the
+    list endpoint, so a provider outage can never slow or fail it. Failures
+    are swallowed, back off for 5 minutes per gameday, and leave the old
+    snapshot in place. An `OBSERVED` row is final. Forecast beyond Open-Meteo's
+    16-day horizon is simply absent rather than guessed. Why: no new
+    background-job infrastructure, and the app stays fully usable offline from
+    the weather API.

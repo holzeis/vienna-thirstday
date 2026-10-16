@@ -1,7 +1,7 @@
 # Data model
 
 Postgres via Drizzle ORM. Source of truth: `backend/src/db/schema.ts`; migrations
-live in `backend/drizzle/` (current head: `0012_fancy_jazinda.sql`). This document
+live in `backend/drizzle/` (current head: `0015_previous_dark_phoenix.sql`). This document
 should be updated whenever a table, column, or relationship changes — see
 `docs/ARCHITECTURE.md` and `CLAUDE.md`'s Documentation section.
 
@@ -27,6 +27,13 @@ erDiagram
     gameday_status status
     varchar share_token UK
     integer created_by_user_id FK
+  }
+  gameday_weather {
+    serial id PK
+    integer gameday_id FK "unique"
+    weather_kind kind
+    timestamptz for_date
+    real temperature_c
   }
   registrations {
     serial id PK
@@ -104,6 +111,7 @@ erDiagram
   gamedays ||--o{ team_assignments : "has"
   players ||--o{ team_assignments : "assigned to"
   gamedays ||--o| results : "has"
+  gamedays ||--o| gameday_weather : "has"
   users ||--o{ results : "enters"
   results ||--o{ player_gameday_stats : "breaks into"
   players ||--o{ player_gameday_stats : "stat line for"
@@ -129,6 +137,7 @@ erDiagram
 | `gameday_status` | `OPEN`, `CLOSED`, `CANCELLED`, `COMPLETED` |
 | `registration_status` | `CONFIRMED`, `WAITLISTED`, `CANCELLED`, `UNAVAILABLE` |
 | `team` | `A`, `B` |
+| `weather_kind` | `FORECAST`, `OBSERVED` |
 | `access_event_type` | `LOGIN`, `GUEST_REGISTER`, `APP_OPEN` |
 
 Note: `gameday_status.OPEN` past kickoff with no result reads as `CLOSED`
@@ -190,6 +199,24 @@ never creates a second player.
 | `share_token` | varchar(64) | unique, nullable — generated lazily on first share |
 | `created_by_user_id` | integer | FK → `users.id`, nullable, `ON DELETE SET NULL` |
 | `created_at`, `updated_at` | timestamptz | |
+
+**`gameday_weather`** — at most one weather snapshot per gameday
+(`services/weatherService.ts`, data from Open-Meteo). Holds a `FORECAST`
+while the match is ahead; replaced by a final `OBSERVED` row once it has
+been played, which is never refetched.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | serial | PK |
+| `gameday_id` | integer | FK → `gamedays.id`, unique, cascade delete |
+| `kind` | `weather_kind` | |
+| `for_date` | timestamptz | the kickoff this was fetched for; if it no longer equals `gamedays.date` (gameday moved) the row is stale and ignored |
+| `temperature_c`, `feels_like_c` | real | mean over the playing window (kickoff + 3h) |
+| `wind_speed_kmh`, `wind_gusts_kmh` | real | mean wind / peak gust; "windy" is derived on read (`utils/weather.ts`), not stored |
+| `precipitation_mm` | real | total over the window |
+| `precipitation_probability` | integer | forecasts only, peak over the window; null when observed |
+| `condition` | varchar(16) | `sunny`/`cloudy`/`foggy`/`drizzle`/`rainy`/`snowy`/`stormy`, worst in the window |
+| `fetched_at` | timestamptz | drives forecast refresh (3h TTL) |
 
 **`registrations`** — a player's signup for a gameday.
 
