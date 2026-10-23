@@ -4,7 +4,10 @@ name: Build and publish images
 # pushes them to GHCR. On pull requests it only builds (catches a broken
 # Dockerfile before merge) - nothing is pushed until the change lands on
 # main. Pushing to main publishes `latest`; pushing a `vX.Y.Z` tag also
-# publishes that version.
+# publishes that version. Every pushed image is also tagged with the git
+# commit count of the commit it was built from (`git rev-list --count HEAD`,
+# e.g. `:482`) - a monotonically increasing version number, also baked into
+# the frontend as VITE_APP_VERSION and set as the OCI version label.
 #
 # Images land at ghcr.io/<owner>/<repo>-<component>, using the built-in
 # GITHUB_TOKEN - no extra secrets to set up. GHCR packages are private by
@@ -67,7 +70,10 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
+            type=raw,value=${{ steps.build_number.outputs.value }},enable=${{ github.event_name != 'pull_request' }}
             type=sha,prefix=,format=short
+          labels: |
+            org.opencontainers.image.version=${{ steps.build_number.outputs.value }}
 
       - name: Build and push
         uses: docker/build-push-action@v6

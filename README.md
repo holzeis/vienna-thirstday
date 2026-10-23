@@ -317,7 +317,10 @@ here.
 `.github/workflows/docker-publish.yml` builds `backend` and `frontend` on
 every push to `main` (and on `vX.Y.Z` tags), publishing to GitHub Container
 Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
-repo's built-in `GITHUB_TOKEN` - no secrets to configure. Pull requests only
+repo's built-in `GITHUB_TOKEN` - no secrets to configure. Each pushed image is tagged `latest`, the short commit SHA,
+and a version number - the git commit count (`git rev-list --count HEAD`, e.g.
+`:482`), which is also shown in the app footer and set as the OCI
+`org.opencontainers.image.version` label. Pull requests only
 build. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
 both if the cluster mixes node architectures, or a node of the missing arch
 will hit `ImagePullBackOff` with "no match for platform in manifest". GHCR
