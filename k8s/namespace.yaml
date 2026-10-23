@@ -3,7 +3,7 @@
 # namespace that doesn't run as non-root, drop all capabilities, disable
 # privilege escalation, and use a seccomp profile, regardless of what any
 # individual manifest says. Every workload here (backend, frontend,
-# postgres, cloudflared, image-watcher, and the migration/seed Jobs) is
+# postgres, cloudflared, and the migration/seed Jobs) is
 # already configured to satisfy this - it's a backstop against a future
 # manifest change accidentally reintroducing a root/privileged container,
 # not something that should ever actually block a normal deploy.

@@ -60,19 +60,13 @@ local-only — see README's "Usage metrics" section.
   `letsencrypt-dns01` `ClusterIssuer` (DNS-01, so no inbound port needs to be
   open for issuance either); a `.local` hostname stays plain HTTP for LAN
   access.
-- **image-watcher** — `CronJob`, every 5 minutes: polls GHCR for the
-  `backend`/`frontend` image digests and `kubectl rollout restart`s the
-  matching `Deployment` when one changes. This is what actually deploys a
-  merge to `main` — there's no push-based deploy step from CI itself. RBAC
-  is scoped to `get`/`patch` on exactly those two Deployments by name, plus
-  one ConfigMap it uses to remember the last digest seen.
 - **backend-migration-job**, **backend-seed-job** — one-off `Job`s for
   manual migration runs / seeding outside the normal rollout path.
 
 ### CI/CD
 
-`.github/workflows/docker-publish.yml` builds `backend`, `frontend`, and
-`image-watcher` (multi-arch: `linux/amd64` + `linux/arm64`) and pushes to
+`.github/workflows/docker-publish.yml` builds `backend` and
+`frontend` (multi-arch: `linux/amd64` + `linux/arm64`) and pushes to
 GHCR on a merge to `main` (and on `vX.Y.Z` tags). Pull requests only build —
 nothing is pushed until the change lands on `main`.
 
@@ -90,7 +84,7 @@ nothing is pushed until the change lands on `main`.
     fighting it.
   - `frontend` uses `nginxinc/nginx-unprivileged` (uid `101`, port `8080`)
     instead of stock `nginx`, which needs root to bind port 80.
-  - `backend`, `image-watcher`, and the one-off Jobs run as a plain numeric
+  - `backend` and the one-off Jobs run as a plain numeric
     non-root `USER` with capabilities dropped and (where the entrypoint
     allows it) a read-only root filesystem plus an `emptyDir` for `/tmp`.
   - Local docker-compose deliberately leaves `postgres` **unhardened**
@@ -157,12 +151,11 @@ update this document to reflect a deliberate change.
    (Metabase) via a dedicated read-only role — see `docs/DATA_MODEL.md`.
    Why: keeps analytics concerns completely out of the product's own API
    surface.
-7. **Deploys are fully automated from a `main` push — no manual `kubectl
-   apply` for an app code change.** CI publishes images to GHCR;
-   `image-watcher` notices the new digest and rolls out the Deployment; the
+7. **Deploys are manual.** CI publishes images to GHCR; a
+   `kubectl rollout restart` of the Deployments picks them up, and the
    backend's `migrate` initContainer applies any pending schema migration
-   first. Manual `kubectl apply` is only needed for the k8s manifests
-   themselves (a new/changed resource, not an app code change).
+   first. (An in-cluster `image-watcher` CronJob used to automate this and
+   was removed.)
 8. **Deleting a user's login never deletes, or is blocked by, anything that
    references them.** If they have a linked player, it reverts to a guest
    (`is_guest → true`, same as revoking an unused invite) rather than being

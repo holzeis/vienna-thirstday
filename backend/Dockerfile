@@ -25,8 +25,7 @@ COPY --from=build /app/drizzle ./drizzle
 # USER must be the numeric uid, not the name ("node") - k8s's
 # securityContext.runAsNonRoot can only verify a numeric uid baked into the
 # image; a named user fails with "cannot verify user is non-root"
-# (CreateContainerConfigError) before the container ever starts (see
-# image-watcher/Dockerfile for the same fix, hit there first).
+# (CreateContainerConfigError) before the container ever starts.
 RUN chown -R 1000:1000 /app
 USER 1000
 

@@ -1,6 +1,6 @@
 name: Build and publish images
 
-# Builds backend/, frontend/, and image-watcher/ into Docker images and
+# Builds backend/ and frontend/ into Docker images and
 # pushes them to GHCR. On pull requests it only builds (catches a broken
 # Dockerfile before merge) - nothing is pushed until the change lands on
 # main. Pushing to main publishes `latest`; pushing a `vX.Y.Z` tag also
@@ -34,7 +34,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        component: [backend, frontend, image-watcher]
+        component: [backend, frontend]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

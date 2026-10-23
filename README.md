@@ -402,32 +402,18 @@ cluster doesn't have Longhorn installed) - fine to get started, but for
 anything you care about long-term, point `DATABASE_URL` at a managed
 Postgres instance instead and skip applying `postgres.yaml`.
 
-### Deploying automatically after a push to main
+### Deploying after a push to main
 
-By default a new image published by CI just sits on GHCR until you manually
-`kubectl rollout restart`. `k8s/image-watcher.yaml` closes that loop without
-needing a self-hosted GitHub Actions runner or exposing the cluster's API
-server to the internet - a `CronJob` running inside the cluster itself,
-polling GHCR every 5 minutes for `backend`/`frontend`'s current `:latest`
-digest and rolling out the matching Deployment when it changes. Combined
-with `backend-deployment.yaml`'s `migrate` initContainer (applies any
-pending schema change before the app starts, a safe no-op otherwise), the
-two together are the whole deploy procedure end to end: push to main ->
-image published -> noticed within 5 minutes -> rolled out -> migration (if
-any) runs -> app starts on the new code. No action needed day to day.
+CI publishes new `backend`/`frontend` images to GHCR on a merge to `main`,
+but nothing in the cluster picks them up automatically. Roll them out
+yourself:
 
 ```bash
-kubectl apply -f k8s/image-watcher.yaml
+kubectl -n vienna-thirstday rollout restart deployment/backend deployment/frontend
 ```
 
-It runs as its own non-root user (`image-watcher/Dockerfile`, built and
-published by the same CI workflow) with RBAC scoped to exactly two things:
-restarting the `backend`/`frontend` Deployments by name, and reading/writing
-one `ConfigMap` (`image-watch-state`) it uses to remember the last digest it
-saw - nothing cluster-wide, no access to Secrets or other namespaces. Like
-the other GHCR packages, `ghcr.io/holzeis/vienna-thirstday-image-watcher`
-needs to be made public in its GitHub package settings (or given an
-`imagePullSecret`) the first time it's published.
+`backend-deployment.yaml`'s `migrate` initContainer applies any pending
+schema change before the app starts (a safe no-op otherwise).
 
 ### Exposing it publicly without forwarding a router port
 
@@ -647,8 +633,6 @@ frontend/
     pages/            One file per route
     components/       Shared layout/nav
     styles/           App-wide CSS
-image-watcher/
-  Dockerfile, check.sh   Tiny non-root image for the image-watcher CronJob
 scripts/
   export_xlsx_to_json.py   Re-run this if the legacy spreadsheet changes
 k8s/                  Kubernetes manifests (applied individually with kubectl apply -f)
