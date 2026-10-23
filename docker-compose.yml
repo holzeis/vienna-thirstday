@@ -5,10 +5,7 @@ services:
     # image's entrypoint needs to chown/chmod the data dir on first start
     # (confirmed - dropping all capabilities breaks that with "Operation not
     # permitted"), which it does as root before dropping to the postgres
-    # user itself. This is local-only dev/test infra, not internet-facing -
-    # see k8s/postgres.yaml for how the real cluster deployment avoids
-    # running this image as root at all (runAsUser/fsGroup) instead of
-    # fighting its entrypoint's own privilege-drop dance.
+    # user itself. This is local-only dev/test infra, not internet-facing.
     environment:
       POSTGRES_USER: vienna
       POSTGRES_PASSWORD: vienna
@@ -40,7 +37,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
       # Dev-only default keypair - generate your own with `npx web-push generate-vapid-keys`
-      # for a real deployment (see README's Kubernetes section).
+      # for a real deployment (see README's Deploying section).
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BP-fntKYVjb37_d9gS7J0Ge5LY-d9o1ESL8sP31YKCbJXMycI2iac8QicUoVx4x8QBsqVJeQzdF94wbDNmTKzYM}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-OqWihO3pMNLWoQ4VfUcCJonvsGz4YManL_1m_FiLS0w}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@vienna-thirstday.local}

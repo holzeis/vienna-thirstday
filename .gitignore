@@ -11,9 +11,6 @@ backend/dist/
 .env.local
 *.env
 
-# k8s secrets (never commit real secrets)
-k8s/secret.yaml
-
 # editor/OS
 .DS_Store
 *.log

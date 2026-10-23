@@ -13,7 +13,7 @@ Jan 1 – Dec 31 season standings table.
 - [Local development (no Docker)](#local-development-no-docker)
 - [Local development with Docker Compose](#local-development-with-docker-compose)
 - [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet)
-- [Deploying to Kubernetes](#deploying-to-kubernetes)
+- [Deploying](#deploying)
 - [Usage metrics](#usage-metrics)
 - [Privacy policy](#privacy-policy)
 - [Environment variables](#environment-variables)
@@ -307,161 +307,36 @@ person joins:
 > retroactively marks every player with no linked account as a guest, without
 > touching anyone who's already signed up.
 
-## Deploying to Kubernetes
+## Deploying
 
-Manifests live under `k8s/` as plain files, applied individually with
-`kubectl apply -f` (no `kustomize` step) - `backend-deployment.yaml` and
-`frontend-deployment.yaml` reference `ghcr.io/holzeis/vienna-thirstday-backend`/
-`-frontend:latest` directly.
+This repo only builds and publishes the images; the cluster deployment
+(manifests for postgres, backend, frontend, ingress, Cloudflare Tunnel, ...)
+is managed separately with [Flux](https://fluxcd.io/) and no longer lives
+here.
 
-1. **Build and push images** to a registry your cluster can pull from.
-   `.github/workflows/docker-publish.yml` does this automatically on every
-   push to `main` (and on `vX.Y.Z` tags), publishing to GitHub Container
-   Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
-   repo's built-in `GITHUB_TOKEN` - no secrets to configure. GHCR packages
-   are private by default; either make the package public in its GitHub
-   settings, or create an `imagePullSecret` in the `vienna-thirstday`
-   namespace from a PAT with `read:packages` and reference it in
-   `backend-deployment.yaml`/`frontend-deployment.yaml`'s `imagePullSecrets`.
-   The workflow builds both `linux/amd64` and `linux/arm64` (via QEMU) -
-   keep both platforms if your cluster mixes node architectures, or a node
-   of the missing arch will hit `ImagePullBackOff` with "no match for
-   platform in manifest".
+`.github/workflows/docker-publish.yml` builds `backend` and `frontend` on
+every push to `main` (and on `vX.Y.Z` tags), publishing to GitHub Container
+Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
+repo's built-in `GITHUB_TOKEN` - no secrets to configure. Pull requests only
+build. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
+both if the cluster mixes node architectures, or a node of the missing arch
+will hit `ImagePullBackOff` with "no match for platform in manifest". GHCR
+packages are private by default: make them public in their GitHub settings,
+or give the cluster an `imagePullSecret` from a PAT with `read:packages`.
 
-   To build and push by hand instead (e.g. a different registry), match
-   whatever architectures your nodes actually run - `docker buildx build
-   --platform linux/amd64,linux/arm64 --push` - and point
-   `backend-deployment.yaml`/`frontend-deployment.yaml`'s `image:` at the
-   result.
+What the images expect from whatever deploys them:
 
-2. **Create the secret** (never commit real secrets - `k8s/secret.yaml` is
-   gitignored):
-
-   ```bash
-   kubectl create namespace vienna-thirstday
-   kubectl create secret generic vienna-thirstday-secrets \
-     --namespace vienna-thirstday \
-     --from-literal=POSTGRES_PASSWORD='use-a-strong-password' \
-     --from-literal=DATABASE_URL='postgresql://vienna:use-a-strong-password@postgres:5432/vienna_thirstday' \
-     --from-literal=JWT_SECRET="$(openssl rand -base64 48)" \
-     --from-literal=ADMIN_PASSWORD='choose-a-first-admin-password' \
-     --from-literal=ADMIN_NAME='Admin'
-   ```
-
-   (`k8s/secret.example.yaml` shows the same thing as a manifest, if you'd
-   rather template it with your own secrets tooling.) `ADMIN_EMAIL` is
-   optional - login is by name, not email - so it's left out here; add
-   `--from-literal=ADMIN_EMAIL=...` too if you want the seeded admin to have
-   one from the start. Add `CLOUDFLARE_TUNNEL_TOKEN` as well if you're doing
-   the Cloudflare Tunnel setup below.
-
-   For push notifications (players get a browser/device notification when a
-   new matchday is posted), also generate and add a VAPID key pair:
-
-   ```bash
-   npx web-push generate-vapid-keys
-   # then add to the secret:
-   #   --from-literal=VAPID_PUBLIC_KEY='...' \
-   #   --from-literal=VAPID_PRIVATE_KEY='...' \
-   #   --from-literal=VAPID_SUBJECT='mailto:you@example.com'
-   ```
-
-   Leave these three unset and push notifications are simply disabled - no
-   other config needed either way.
-
-3. **Deploy:**
-
-   ```bash
-   kubectl apply -f k8s/namespace.yaml
-   kubectl apply -f k8s/postgres.yaml
-   kubectl apply -f k8s/backend-configmap.yaml
-   kubectl apply -f k8s/backend-deployment.yaml
-   kubectl apply -f k8s/frontend-deployment.yaml
-   kubectl apply -f k8s/ingress.yaml
-   # kubectl apply -f k8s/cloudflared.yaml   # only if exposing via a Cloudflare Tunnel
-
-   # backend-deployment.yaml's initContainer applies any pending migration
-   # before the app starts - wait for it before seeding.
-   kubectl rollout status deployment/backend -n vienna-thirstday --timeout=120s
-   kubectl apply -f k8s/backend-seed-job.yaml   # bootstraps the first admin; safe to re-run
-   ```
-
-   Migrations no longer need a separate manual step day-to-day - every
-   backend pod start (a fresh deploy, `kubectl rollout restart`, a node
-   reschedule, ...) applies whatever's pending via that initContainer, and
-   is a fast no-op when nothing is. `k8s/backend-migration-job.yaml` still
-   exists as a standalone way to run one without touching the running pods
-   (e.g. to check it succeeds before rolling out a schema change).
-
-4. Edit `k8s/ingress.yaml`'s `host` (and `CORS_ORIGIN` in
-   `k8s/backend-configmap.yaml`) to match your real domain, then re-apply.
-
-`k8s/postgres.yaml` runs Postgres as a single-replica `StatefulSet` with a
-5Gi PVC on the `longhorn` storage class (swap `storageClassName` if your
-cluster doesn't have Longhorn installed) - fine to get started, but for
-anything you care about long-term, point `DATABASE_URL` at a managed
-Postgres instance instead and skip applying `postgres.yaml`.
-
-### Deploying after a push to main
-
-CI publishes new `backend`/`frontend` images to GHCR on a merge to `main`,
-but nothing in the cluster picks them up automatically. Roll them out
-yourself:
-
-```bash
-kubectl -n vienna-thirstday rollout restart deployment/backend deployment/frontend
-```
-
-`backend-deployment.yaml`'s `migrate` initContainer applies any pending
-schema change before the app starts (a safe no-op otherwise).
-
-### Exposing it publicly without forwarding a router port
-
-`k8s/cloudflared.yaml` runs [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
-as a Deployment in-cluster. `cloudflared` only makes an *outbound* connection
-to Cloudflare's edge, so nothing needs to be opened inbound on your router -
-Cloudflare proxies traffic for a hostname you choose through that tunnel to
-the ingress-nginx controller already fronting this app, which then routes by
-Host header exactly like it does for the local hostname.
-
-1. In the Cloudflare Zero Trust dashboard (dash.cloudflare.com → Zero Trust →
-   Networks → Tunnels), create a tunnel with connector type "Cloudflared" and
-   copy the token it gives you (a single string - this is the simpler
-   token-based setup, no `config.yml`/`cert.pem` file needed).
-2. On that tunnel, add a **Public Hostname**: the hostname you want (on a
-   domain already in your Cloudflare account), type `HTTPS`, URL
-   `nginx-ingress-nginx-controller.<namespace>.svc.cluster.local:443` (swap
-   in whatever namespace your ingress-nginx controller actually runs in),
-   then in that hostname's additional TLS settings set **Origin Server
-   Name** to the same public hostname (not the internal service address) -
-   that's what's sent as the TLS SNI and checked against the origin's
-   certificate, so leave **No TLS Verify off**. Cloudflare creates the DNS
-   record for you.
-3. Add that hostname to `k8s/ingress.yaml`'s `rules` *and* `tls.hosts`
-   (already templated there - swap in your real domain) so cert-manager
-   issues it a real Let's Encrypt certificate via the `letsencrypt-dns01`
-   `ClusterIssuer` (DNS-01, so - like the tunnel itself - no inbound port
-   needs to be open for issuance or renewal). Also update `CORS_ORIGIN` in
-   `backend-configmap.yaml` if anything will ever call the API cross-origin
-   from it (normally not needed - the frontend's own nginx proxies `/api`
-   same-origin).
-4. Put the token from step 1 into your secret as `CLOUDFLARE_TUNNEL_TOKEN`,
-   then `kubectl apply -f k8s/cloudflared.yaml`.
-
-This keeps the whole path genuinely encrypted end to end: Cloudflare
-terminates TLS for visitors at their edge, and the hop from `cloudflared` to
-ingress-nginx inside your cluster is its own separately verified HTTPS
-connection using the cert-manager-issued certificate - not just "trust
-Cloudflare's edge and leave the last hop in plaintext."
-
-> **Note:** these manifests (including `cloudflared.yaml` and the Longhorn
-> storage class) were validated with `kubectl apply --dry-run=client` against
-> a real cluster and `kubectl get storageclass`/`get ns` to confirm `longhorn`
-> and the expected namespaces exist, but were not actually applied end-to-end
-> from this environment (no image registry or Cloudflare tunnel token were
-> available to complete a real deploy). Review resource requests/limits and
-> the ingress class/annotations against your actual cluster before relying on
-> this in production.
+- **Config/secrets:** the variables in [Environment variables](#environment-variables).
+  Push notifications need a VAPID key pair (`npx web-push generate-vapid-keys`
+  -> `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`); leave them
+  unset and push is simply disabled.
+- **Migrations:** the backend deployment should run `npm run db:migrate` in
+  an initContainer before the app starts. It's a fast no-op when nothing is
+  pending, so every pod start is safe.
+- **First admin:** run the seed script once (`ADMIN_PASSWORD` / `ADMIN_NAME`,
+  optional `ADMIN_EMAIL`); it's safe to re-run.
+- **Frontend:** `nginxinc/nginx-unprivileged` on port `8080`, proxying `/api`
+  to the backend Service.
 
 ## Usage metrics
 
@@ -552,11 +427,12 @@ using the `metabase` role above. To point that connection at the **local
 dev** database, use host `postgres`, port `5432`, database
 `vienna_thirstday` (Metabase resolves `postgres` via the compose network).
 
-To visualize the **live cluster's** data instead, port-forward it first,
+To visualize the **live cluster's** data instead, port-forward its Postgres
+Service first (namespace and Service name are defined in the Flux repo),
 since Postgres isn't exposed outside the cluster:
 
 ```sh
-kubectl port-forward -n vienna-thirstday svc/postgres 5433:5432
+kubectl port-forward -n <namespace> svc/<postgres-service> 5433:5432
 ```
 
 Then add a second connection in Metabase using host `host.docker.internal`,
@@ -635,7 +511,6 @@ frontend/
     styles/           App-wide CSS
 scripts/
   export_xlsx_to_json.py   Re-run this if the legacy spreadsheet changes
-k8s/                  Kubernetes manifests (applied individually with kubectl apply -f)
 docker-compose.yml    Local multi-container setup
 ```
 

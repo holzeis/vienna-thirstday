@@ -18,7 +18,7 @@ export function loginRateLimitKey(req: Pick<Request, "body" | "ip">): string {
 /**
  * Throttles POST /auth/login. Keyed by the submitted name/email rather than
  * source IP: the app sits behind two proxy hops in production (ingress-nginx,
- * then the frontend nginx container - see k8s/ingress.yaml and
+ * then the frontend nginx container - see the Flux-managed ingress and
  * frontend/nginx/default.conf.template) but only one locally in
  * docker-compose, so there's no single `trust proxy` hop count that's
  * correct in both places, and getting it wrong either lets an attacker spoof

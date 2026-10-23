@@ -48,6 +48,9 @@ local-only — see README's "Usage metrics" section.
 
 ### Cluster (k3s homelab, namespace `vienna-thirstday`)
 
+The cluster manifests are **not in this repo** — they're managed separately
+with Flux. What runs there, for context:
+
 - **postgres** — `StatefulSet` + Longhorn-backed PVC.
 - **backend** — `Deployment`; a `migrate` initContainer applies any pending
   schema migration before the app container starts (safe no-op otherwise).
@@ -60,15 +63,15 @@ local-only — see README's "Usage metrics" section.
   `letsencrypt-dns01` `ClusterIssuer` (DNS-01, so no inbound port needs to be
   open for issuance either); a `.local` hostname stays plain HTTP for LAN
   access.
-- **backend-migration-job**, **backend-seed-job** — one-off `Job`s for
-  manual migration runs / seeding outside the normal rollout path.
+- One-off migration / seed `Job`s for runs outside the normal rollout path.
 
 ### CI/CD
 
 `.github/workflows/docker-publish.yml` builds `backend` and
 `frontend` (multi-arch: `linux/amd64` + `linux/arm64`) and pushes to
 GHCR on a merge to `main` (and on `vX.Y.Z` tags). Pull requests only build —
-nothing is pushed until the change lands on `main`.
+nothing is pushed until the change lands on `main`. Rolling the new images
+out is Flux's job (see the Flux repo), not this repo's.
 
 ## Security model
 
@@ -76,7 +79,7 @@ nothing is pushed until the change lands on `main`.
   overview` above.
 - **Non-root everywhere**: every container in the cluster runs under
   Kubernetes' `restricted` Pod Security Standard (enforced at the namespace
-  level, `k8s/namespace.yaml`). Each workload was adjusted individually
+  level, in the Flux-managed manifests). Each workload was adjusted individually
   rather than carving out an exception:
   - `postgres` runs as uid/gid `70` directly (`runAsUser`/`fsGroup`),
     matching the alpine image's real `postgres` user — this skips the
@@ -93,8 +96,8 @@ nothing is pushed until the change lands on `main`.
     internet-facing there; see the comment in `docker-compose.yml`. The
     same tradeoff applies to the local-only `metabase` service.
 - **Secrets**: DB password, JWT secret, VAPID push keys, and the Cloudflare
-  tunnel token live in a Kubernetes `Secret` (`k8s/secret.example.yaml` is
-  the template — never commit real values). See `CLAUDE.md`'s Security
+  tunnel token live in a Kubernetes `Secret` managed outside this repo (never commit real
+  values). See `CLAUDE.md`'s Security
   section for the rule this repo is worked on under: never read or print a
   secret's actual value into the conversation, logs, or a file.
 - **Metabase** (or any external BI tool) connects with a dedicated
@@ -151,11 +154,11 @@ update this document to reflect a deliberate change.
    (Metabase) via a dedicated read-only role — see `docs/DATA_MODEL.md`.
    Why: keeps analytics concerns completely out of the product's own API
    surface.
-7. **Deploys are manual.** CI publishes images to GHCR; a
-   `kubectl rollout restart` of the Deployments picks them up, and the
-   backend's `migrate` initContainer applies any pending schema migration
-   first. (An in-cluster `image-watcher` CronJob used to automate this and
-   was removed.)
+7. **Deploys are owned by Flux, outside this repo.** CI publishes images
+   to GHCR; the Flux-managed manifests (not kept here) decide how and when
+   they roll out. The backend's `migrate` initContainer applies any pending
+   schema migration first. This repo contains no cluster manifests, so an
+   app change never needs a manifest change here.
 8. **Deleting a user's login never deletes, or is blocked by, anything that
    references them.** If they have a linked player, it reverts to a guest
    (`is_guest → true`, same as revoking an unused invite) rather than being
@@ -202,7 +205,7 @@ update this document to reflect a deliberate change.
     submitted name/email (case-insensitive), not `req.ip`. Why: the app
     sits behind a different number of reverse-proxy hops in each
     environment (one nginx container in docker-compose, ingress-nginx *and*
-    the frontend nginx container in Kubernetes — see `k8s/ingress.yaml`),
+    the frontend nginx container in Kubernetes — see the Flux-managed ingress),
     so there's no single `trust proxy` hop count that's correct everywhere;
     getting it wrong either lets an attacker spoof `X-Forwarded-For` past
     the limit, or collapses every real user behind the same proxy onto one
