@@ -321,7 +321,7 @@ repo's built-in `GITHUB_TOKEN` - no secrets to configure. Each pushed image is t
 and a version number - the git commit count (`git rev-list --count HEAD`, e.g.
 `:482`), which is also shown in the app footer and set as the OCI
 `org.opencontainers.image.version` label. Pull requests only
-build. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
+build. A component is only built when its own directory (or the workflow) changed; `vX.Y.Z` tags always build both. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
 both if the cluster mixes node architectures, or a node of the missing arch
 will hit `ImagePullBackOff` with "no match for platform in manifest". GHCR
 packages are private by default: make them public in their GitHub settings,

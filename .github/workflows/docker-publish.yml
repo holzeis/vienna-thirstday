@@ -9,6 +9,12 @@ name: Build and publish images
 # e.g. `:482`) - a monotonically increasing version number, also baked into
 # the frontend as VITE_APP_VERSION and set as the OCI version label.
 #
+# Each component is only built when its own directory (or this workflow)
+# changed - the `changes` job diffs the push/PR and feeds the build matrix.
+# A `vX.Y.Z` tag always builds both so a release has a matching image for
+# each component. A skipped component keeps its previous `latest`, and
+# simply has no commit-count tag for commits that didn't touch it.
+#
 # Images land at ghcr.io/<owner>/<repo>-<component>, using the built-in
 # GITHUB_TOKEN - no extra secrets to set up. GHCR packages are private by
 # default: if you keep them private, the cluster pulling these images needs
@@ -30,14 +36,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists PR files through the API
+    outputs:
+      components: ${{ steps.components.outputs.value }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed components
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/docker-publish.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/docker-publish.yml'
+
+      - name: Build component list
+        id: components
+        env:
+          BACKEND: ${{ steps.filter.outputs.backend }}
+          FRONTEND: ${{ steps.filter.outputs.frontend }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          list=()
+          if [ "$IS_TAG" = "true" ] || [ "$BACKEND" = "true" ]; then list+=('"backend"'); fi
+          if [ "$IS_TAG" = "true" ] || [ "$FRONTEND" = "true" ]; then list+=('"frontend"'); fi
+          echo "value=[$(IFS=,; echo "${list[*]}")]" >> "$GITHUB_OUTPUT"
+
   build-and-push:
+    needs: changes
+    if: needs.changes.outputs.components != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
       matrix:
-        component: [backend, frontend]
+        component: ${{ fromJSON(needs.changes.outputs.components) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
