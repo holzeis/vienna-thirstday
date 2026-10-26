@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    {
+      "description": "Group all patch updates (npm, Docker, GitHub Actions) into one weekly PR",
+      "matchUpdateTypes": ["patch"],
+      "groupName": "patch updates"
+    },
+    {
+      "description": "Keep minor/major bumps separate and ungrouped so they get individual review",
+      "matchUpdateTypes": ["minor", "major"],
+      "groupName": null
+    }
+  ]
+}
