@@ -2,6 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "schedule": ["before 6am on monday"],
+  "vulnerabilityAlerts": {
+    "description": "Security fixes skip the weekly schedule and grouping so they arrive immediately, one PR each",
+    "enabled": true,
+    "schedule": ["at any time"],
+    "groupName": null,
+    "labels": ["security"]
+  },
   "packageRules": [
     {
       "description": "Group all patch updates (npm, Docker, GitHub Actions) into one weekly PR",
