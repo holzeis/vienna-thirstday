@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createGameday, listGamedays } from "../api/endpoints";
 import type { GamedaySummary } from "../api/types";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { ApiClientError } from "../api/client";
 import { formatMatchdayDate, toDatetimeLocalValue } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
@@ -25,7 +25,7 @@ export function GamedaysList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [gamedays, setGamedays] = useState<GamedaySummary[] | null>(null);
-  const [year, setYear] = useState<number | null>(null);
+  const [pickedYear, setYear] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(searchParams.get("new") === "1");
   const [error, setError] = useState<string | null>(null);
 
@@ -46,11 +46,9 @@ export function GamedaysList() {
     return Array.from(new Set(gamedays.map((g) => new Date(g.date).getUTCFullYear()))).sort((a, b) => b - a);
   }, [gamedays]);
 
-  useEffect(() => {
-    if (year !== null || years.length === 0) return;
-    const currentYear = new Date().getUTCFullYear();
-    setYear(years.includes(currentYear) ? currentYear : years[0]);
-  }, [years, year]);
+  // Until the user picks a tab, default to the current year (or the newest one that has matchdays).
+  const currentYear = new Date().getUTCFullYear();
+  const year = pickedYear ?? (years.length === 0 ? null : years.includes(currentYear) ? currentYear : years[0]);
 
   const visible = gamedays?.filter((g) => new Date(g.date).getUTCFullYear() === year) ?? [];
 

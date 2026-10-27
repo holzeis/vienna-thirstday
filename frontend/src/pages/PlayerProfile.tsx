@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPlayerProfile, updateMe, uploadAvatar } from "../api/endpoints";
 import type { AwardCategory, AwardTier, PlayerProfile as PlayerProfileType } from "../api/types";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { ApiClientError } from "../api/client";
 import { formatMonthYear } from "../utils/format";
 import { disablePushNotifications, enablePushNotifications, getExistingPushSubscription, isPushSupported } from "../push";
@@ -263,17 +263,16 @@ export function PlayerProfile() {
 }
 
 function PushNotificationsCard() {
-  const [checked, setChecked] = useState(false);
+  const [subscriptionChecked, setChecked] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supported = isPushSupported();
+  // Nothing to look up when unsupported, so that case is "checked" from the start.
+  const checked = subscriptionChecked || !supported;
 
   useEffect(() => {
-    if (!supported) {
-      setChecked(true);
-      return;
-    }
+    if (!supported) return;
     getExistingPushSubscription()
       .then((sub) => setEnabled(!!sub))
       .finally(() => setChecked(true));

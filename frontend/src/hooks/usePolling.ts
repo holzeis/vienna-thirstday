@@ -10,7 +10,10 @@ import { useEffect, useRef } from "react";
  */
 export function usePolling(callback: () => void, intervalMs: number) {
   const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+  // Updated in an effect, not during render, so a discarded render can't leak its callback in.
+  useEffect(() => {
+    callbackRef.current = callback;
+  });
 
   useEffect(() => {
     function tick() {

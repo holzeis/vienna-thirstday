@@ -5,7 +5,7 @@ import type { User } from "../api/types";
 import { RequireAdmin, RequireAuth } from "./RequireAuth";
 
 let authState: { user: User | null; loading: boolean };
-vi.mock("./AuthContext", () => ({ useAuth: () => authState }));
+vi.mock("./useAuth", () => ({ useAuth: () => authState }));
 
 const user = (isAdmin: boolean) => ({ id: 1, isAdmin }) as User;
 

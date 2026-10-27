@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getStandings, listGamedays, listSeasons } from "../api/endpoints";
 import type { GamedaySummary, StandingRow } from "../api/types";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { formatDate } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getStandings, listSeasons } from "../api/endpoints";
 import type { StandingRow } from "../api/types";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { usePolling } from "../hooks/usePolling";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
 import { PreviousSeasonTitleBadge } from "../components/PreviousSeasonTitleBadge";
@@ -13,7 +13,10 @@ export function Standings() {
   const { player } = useAuth();
   const [seasons, setSeasons] = useState<number[] | null>(null);
   const [year, setYear] = useState<number | null>(null);
-  const [rows, setRows] = useState<StandingRow[] | null>(null);
+  // Tagged with the year it belongs to, so switching year shows the spinner again
+  // (rows below is null until that year's data arrives) without resetting state in an effect.
+  const [loaded, setLoaded] = useState<{ year: number; rows: StandingRow[] } | null>(null);
+  const rows = loaded && loaded.year === year ? loaded.rows : null;
 
   useEffect(() => {
     listSeasons().then((res) => {
@@ -25,14 +28,13 @@ export function Standings() {
 
   useEffect(() => {
     if (year === null) return;
-    setRows(null);
-    getStandings(year).then((res) => setRows(res.standings));
+    getStandings(year).then((res) => setLoaded({ year, rows: res.standings }));
   }, [year]);
 
-  // Refreshes the same year's rows in place (no setRows(null) - avoids
-  // flashing back to the loading state on every poll tick).
+  // Refreshes the same year's rows in place (keeps the old rows until the new ones
+  // arrive - avoids flashing back to the loading state on every poll tick).
   usePolling(() => {
-    if (year !== null) getStandings(year).then((res) => setRows(res.standings));
+    if (year !== null) getStandings(year).then((res) => setLoaded({ year, rows: res.standings }));
   }, 30000);
 
   return (

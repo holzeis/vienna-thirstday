@@ -16,11 +16,12 @@ import {
   uncancelGameday,
 } from "../api/endpoints";
 import type { GamedayDetail as GamedayDetailType, Player, RegistrationView, StandingRow, Team } from "../api/types";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
-import { useToast } from "../toast/ToastContext";
+import { useNow } from "../hooks/useNow";
+import { useToast } from "../toast/useToast";
 import { statusClass, statusLabel } from "../utils/gamedayStatus";
 import { Spinner } from "../components/LoadingScreen";
 import { CurrentFormBadges } from "../components/CurrentFormBadges";
@@ -96,6 +97,7 @@ export function GamedayDetail() {
 
   useEffect(load, [gamedayId]);
   usePolling(load, 15000);
+  const now = useNow(30_000);
 
   // Fetched ahead of time (idempotent - always the same token) so the actual
   // "Share" click can copy synchronously: Safari/iOS only allows
@@ -118,7 +120,7 @@ export function GamedayDetail() {
   const registeredPlayerIds = activeRegs.map((r) => r.player.id);
   // The result form only makes sense once the game has actually kicked off -
   // entering it earlier would also flip the gameday to COMPLETED early.
-  const gameHasHappened = new Date(gameday.date).getTime() <= Date.now();
+  const gameHasHappened = new Date(gameday.date).getTime() <= now;
 
   async function doAction(fn: () => Promise<unknown>) {
     setError(null);

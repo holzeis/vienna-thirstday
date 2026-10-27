@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getPasswordResetStatus, resetPassword } from "../api/endpoints";
 import { setAuthToken } from "../api/client";
 import { ApiClientError } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { BrandMark } from "../components/Layout";
 import { Spinner } from "../components/LoadingScreen";
 
@@ -20,17 +20,15 @@ export function ResetPassword() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
 
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [fetchedState, setState] = useState<LoadState>({ status: "loading" });
+  const state: LoadState = token ? fetchedState : { status: "invalid", message: "This reset link is missing its token." };
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setState({ status: "invalid", message: "This reset link is missing its token." });
-      return;
-    }
+    if (!token) return;
     getPasswordResetStatus(token)
       .then(() => setState({ status: "ready" }))
       .catch((err) => {

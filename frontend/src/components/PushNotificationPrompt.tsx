@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { enablePushNotifications, getExistingPushSubscription, isPushSupported } from "../push";
 import { isStandalonePwa } from "../platform";
-import { useToast } from "../toast/ToastContext";
-import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../toast/useToast";
+import { useAuth } from "../auth/useAuth";
 
 const DISMISS_KEY = "vt-push-prompt-dismissed";
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./useAuth";
 import { LoadingScreen } from "../components/LoadingScreen";
 
 export function RequireAuth({ children }: { children: ReactNode }) {

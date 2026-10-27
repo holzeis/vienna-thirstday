@@ -1,16 +1,6 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
-
-interface ToastMessage {
-  id: number;
-  text: string;
-}
-
-interface ToastContextValue {
-  showToast: (text: string, durationMs?: number) => void;
-  toasts: ToastMessage[];
-}
-
-const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+import { useCallback, useState, type ReactNode } from "react";
+import { ToastContext, type ToastMessage } from "./context";
+import { useToast } from "./useToast";
 
 let nextId = 1;
 const DEFAULT_DURATION_MS = 2500;
@@ -33,12 +23,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return <ToastContext.Provider value={{ showToast, toasts }}>{children}</ToastContext.Provider>;
-}
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used within ToastProvider");
-  return ctx;
 }
 
 /** Renders the active toasts - drop this inside the shared .pwa-toast-stack container. */

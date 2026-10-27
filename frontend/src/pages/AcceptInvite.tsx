@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { acceptInvite, getInvite } from "../api/endpoints";
 import { setAuthToken } from "../api/client";
 import { ApiClientError } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { BrandMark } from "../components/Layout";
 import { Spinner } from "../components/LoadingScreen";
 
@@ -23,7 +23,8 @@ export function AcceptInvite() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
 
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [fetchedState, setState] = useState<LoadState>({ status: "loading" });
+  const state: LoadState = token ? fetchedState : { status: "invalid", message: "This invite link is missing its token." };
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,10 +35,7 @@ export function AcceptInvite() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setState({ status: "invalid", message: "This invite link is missing its token." });
-      return;
-    }
+    if (!token) return;
     getInvite(token)
       .then((res) => {
         setState({ status: "ready", guest: res.guest });

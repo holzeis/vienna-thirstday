@@ -17,7 +17,7 @@ import type { Invite, Player, PlayerMerge, User } from "../api/types";
 import { ApiClientError } from "../api/client";
 import { formatDateTime } from "../utils/format";
 import { Spinner } from "../components/LoadingScreen";
-import { useToast } from "../toast/ToastContext";
+import { useToast } from "../toast/useToast";
 import { usePolling } from "../hooks/usePolling";
 
 type UserWithPlayer = User & { player: Player | null };

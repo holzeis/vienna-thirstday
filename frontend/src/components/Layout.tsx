@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { APP_VERSION } from "../appVersion";
 
 type ThemeName = "dark" | "light";

@@ -42,7 +42,10 @@ function MedalChip({ tier, entry }: { tier: PodiumTier; entry: PodiumEntry | nul
 export function HallOfFame() {
   const [completedSeasons, setCompletedSeasons] = useState<number[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  const [data, setData] = useState<HallOfFameResponse | null>(null);
+  // Tagged with the season it belongs to, so switching season shows the spinner again
+  // (data below is null until that season arrives) without resetting state in an effect.
+  const [loaded, setLoaded] = useState<{ season: number; data: HallOfFameResponse } | null>(null);
+  const data = loaded && loaded.season === selected ? loaded.data : null;
 
   useEffect(() => {
     const currentYear = new Date().getUTCFullYear();
@@ -55,8 +58,7 @@ export function HallOfFame() {
 
   useEffect(() => {
     if (selected === null) return;
-    setData(null);
-    getHallOfFame(selected).then((res) => setData(res));
+    getHallOfFame(selected).then((res) => setLoaded({ season: selected, data: res }));
   }, [selected]);
 
   return (

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { BrandMark } from "../components/Layout";
 import { ApiClientError } from "../api/client";
 import { APP_VERSION } from "../appVersion";
