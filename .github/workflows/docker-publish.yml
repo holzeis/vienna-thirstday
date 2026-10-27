@@ -2,18 +2,16 @@ name: Build and publish images
 
 # Builds backend/ and frontend/ into Docker images and
 # pushes them to GHCR. On pull requests it only builds (catches a broken
-# Dockerfile before merge) - nothing is pushed until the change lands on
-# main. Pushing to main publishes `latest`; pushing a `vX.Y.Z` tag also
-# publishes that version. Every pushed image is also tagged with the git
+# Dockerfile before merge) - images are pushed only from main (never from
+# PRs, other branches or tags). Pushing to main publishes `latest`. Every pushed image is also tagged with the git
 # commit count of the commit it was built from (`git rev-list --count HEAD`,
 # e.g. `:482`) - a monotonically increasing version number, also baked into
 # the frontend as VITE_APP_VERSION and set as the OCI version label.
 #
 # Each component is only built when its own directory (or this workflow)
 # changed - the `changes` job diffs the push/PR and feeds the build matrix.
-# A `vX.Y.Z` tag always builds both so a release has a matching image for
-# each component. A skipped component keeps its previous `latest`, and
-# simply has no commit-count tag for commits that didn't touch it.
+# A skipped component keeps its previous `latest`, and simply has no
+# commit-count tag for commits that didn't touch it.
 #
 # Images land at ghcr.io/<owner>/<repo>-<component>, using the built-in
 # GITHUB_TOKEN - no extra secrets to set up. GHCR packages are private by
@@ -24,7 +22,6 @@ name: Build and publish images
 on:
   push:
     branches: [main]
-    tags: ["v*.*.*"]
   pull_request:
     branches: [main]
 
@@ -64,11 +61,10 @@ jobs:
         env:
           BACKEND: ${{ steps.filter.outputs.backend }}
           FRONTEND: ${{ steps.filter.outputs.frontend }}
-          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           list=()
-          if [ "$IS_TAG" = "true" ] || [ "$BACKEND" = "true" ]; then list+=('"backend"'); fi
-          if [ "$IS_TAG" = "true" ] || [ "$FRONTEND" = "true" ]; then list+=('"frontend"'); fi
+          if [ "$BACKEND" = "true" ]; then list+=('"backend"'); fi
+          if [ "$FRONTEND" = "true" ]; then list+=('"frontend"'); fi
           echo "value=[$(IFS=,; echo "${list[*]}")]" >> "$GITHUB_OUTPUT"
 
   build-and-push:
@@ -98,7 +94,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -112,8 +108,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.component }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=raw,value=${{ steps.build_number.outputs.value }},enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=${{ steps.build_number.outputs.value }},enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=,format=short
           labels: |
             org.opencontainers.image.version=${{ steps.build_number.outputs.value }}
@@ -124,7 +119,7 @@ jobs:
           context: ./${{ matrix.component }}
           platforms: linux/amd64,linux/arm64
           build-args: ${{ matrix.component == 'frontend' && format('VITE_APP_VERSION={0}', steps.build_number.outputs.value) || '' }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.component }}
