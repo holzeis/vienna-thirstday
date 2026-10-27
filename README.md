@@ -23,8 +23,8 @@ weather forecasts and push notifications.
   images on every PR, and publishes them to GHCR from `main` only. Deployment
   to the cluster is managed separately with Flux and doesn't live in this repo.
 
-More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (structure and
-design decisions) and [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) (schema).
+More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (technical decision
+log) and [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) (schema).
 
 ## Running locally
 
