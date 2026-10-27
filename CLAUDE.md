@@ -8,8 +8,8 @@ conventions for this repo — follow them without being asked each time.
 
 1. Make the change (backend and/or frontend).
 2. `cd backend && npm run build && npm test` — both must pass.
-3. `cd frontend && npm run build` — must pass (`tsc` catches type errors; there's
-   no frontend test suite).
+3. `cd frontend && npm run build && npm test` — both must pass (`tsc` catches
+   type errors; `npm test` runs the Vitest suite, see Testing below).
 4. Add or update backend unit tests for any new/changed logic (see Testing below)
    — do this as part of the change, not as a follow-up.
 5. If the schema changed: edit `backend/src/db/schema.ts`, run
@@ -74,8 +74,15 @@ protecting from regressions — the split below is which kind fits which code.
 - Manual curl against the Docker deployment is still useful as a *final
   sanity check* that the built/deployed artifact actually works end-to-end
   (see step 7 above), but never in place of the test file.
-- No frontend test setup exists yet. Frontend changes are verified via
-  `npm run build` plus manual/API-level checks, unless asked to add one.
+- Frontend uses Vitest + Testing Library on jsdom: `cd frontend && npm test`.
+  Config in `frontend/vitest.config.ts` (deliberately separate from
+  `vite.config.ts` so the PWA plugin doesn't run), shared setup in
+  `frontend/src/test/setup.ts`. Tests sit next to their source file
+  (`*.test.ts(x)`; see `api/client.test.ts`, `auth/RequireAuth.test.tsx`).
+  Add or update tests for new/changed frontend logic and components, same
+  standing rule as the backend. Mock `fetch`/`useAuth` rather than hitting a
+  server; there are no E2E tests. Format helpers use the viewer's timezone, so
+  build test dates from local components instead of hardcoded UTC.
 
 ## Documentation
 

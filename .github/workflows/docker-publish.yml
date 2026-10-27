@@ -1,6 +1,6 @@
 name: Build and publish images
 
-# Runs the backend tests and builds both apps, then builds backend/ and
+# Runs the backend and frontend tests and builds both apps, then builds backend/ and
 # frontend/ into Docker images and pushes them to GHCR. The image build waits
 # for the `test` job, so a red test run never publishes. On every pull request
 # both images are built (catches a broken Dockerfile before merge) - images are pushed only from main (never from
@@ -77,11 +77,12 @@ jobs:
           npm run build
           npm test
 
-      - name: Frontend - install, build (tsc is the only frontend check)
+      - name: Frontend - install, build, test
         working-directory: frontend
         run: |
           npm ci --legacy-peer-deps
           npm run build
+          npm test
 
   changes:
     runs-on: ubuntu-latest

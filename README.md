@@ -210,6 +210,12 @@ Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
 | `npm run seed:import-xlsx`    | One-time import of the legacy spreadsheet (see below)   |
 | `npm run fixup:mark-unclaimed-guests` | Retroactively marks unclaimed imported players as guests (only needed if you ran the importer before the merge feature existed) |
 
+### Frontend tests
+
+`cd frontend && npm test` runs the Vitest + Testing Library suite (jsdom, no
+backend or database needed). It covers the API client, hooks, route guards
+and presentational components; CI runs it on every pull request.
+
 ## Local development with Docker Compose
 
 This brings up Postgres, the backend, and the frontend (served by nginx on

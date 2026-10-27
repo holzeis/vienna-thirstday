@@ -69,7 +69,7 @@ with Flux. What runs there, for context:
 
 `.github/workflows/docker-publish.yml` first runs a `test` job (backend
 build + Vitest against a Postgres service container, then the frontend
-build) on every PR and push to `main`; the image build `needs` it, so a
+build + Vitest) on every PR and push to `main`; the image build `needs` it, so a
 red run never publishes. It then builds `backend` and
 `frontend` (multi-arch: `linux/amd64` + `linux/arm64`) and pushes to
 GHCR only on a push to `main`. Pull requests always build both images but
