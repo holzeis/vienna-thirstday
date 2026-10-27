@@ -43,7 +43,7 @@ jobs:
     # migrations against it, so the database only has to exist.
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: vienna
           POSTGRES_PASSWORD: vienna
