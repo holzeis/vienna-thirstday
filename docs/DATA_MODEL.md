@@ -306,8 +306,7 @@ A guest-linked invite has at most one; an open invite can have many.
 
 **`password_reset_tokens`** — an admin-generated, single-use password-reset
 link for a user who forgot theirs. At most one row per user: generating a
-new link deletes any previous one for that user first (see
-`docs/ARCHITECTURE.md` #10), so an old link stops working the moment a new
+new link deletes any previous one for that user first, so an old link stops working the moment a new
 one is issued, not just on use or expiry.
 
 | Column | Type | Notes |
