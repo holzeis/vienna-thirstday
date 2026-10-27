@@ -315,13 +315,16 @@ is managed separately with [Flux](https://fluxcd.io/) and no longer lives
 here.
 
 `.github/workflows/docker-publish.yml` builds `backend` and `frontend` on
-every push to `main` (and on `vX.Y.Z` tags), publishing to GitHub Container
+every push to `main`, publishing to GitHub Container
 Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
 repo's built-in `GITHUB_TOKEN` - no secrets to configure. Each pushed image is tagged `latest`, the short commit SHA,
 and a version number - the git commit count (`git rev-list --count HEAD`, e.g.
 `:482`), which is also shown in the app footer and set as the OCI
-`org.opencontainers.image.version` label. Pull requests only
-build. A component is only built when its own directory (or the workflow) changed; `vX.Y.Z` tags always build both. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
+`org.opencontainers.image.version` label. Every pull request and push first runs the
+backend tests (against a Postgres service container) and the frontend build; the
+images are built only if those pass. Pull requests always build both images but
+never push - only `main` publishes. On `main`, a component is only built when its
+own directory (or the workflow) changed. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
 both if the cluster mixes node architectures, or a node of the missing arch
 will hit `ImagePullBackOff` with "no match for platform in manifest". GHCR
 packages are private by default: make them public in their GitHub settings,

@@ -67,10 +67,13 @@ with Flux. What runs there, for context:
 
 ### CI/CD
 
-`.github/workflows/docker-publish.yml` builds `backend` and
+`.github/workflows/docker-publish.yml` first runs a `test` job (backend
+build + Vitest against a Postgres service container, then the frontend
+build) on every PR and push to `main`; the image build `needs` it, so a
+red run never publishes. It then builds `backend` and
 `frontend` (multi-arch: `linux/amd64` + `linux/arm64`) and pushes to
-GHCR on a merge to `main` (and on `vX.Y.Z` tags). Pull requests only build —
-nothing is pushed until the change lands on `main`. A component is only built when its own directory (or the workflow) changed; `vX.Y.Z` tags always build both. Each image is tagged `latest`, the short SHA, and the git commit count
+GHCR only on a push to `main`. Pull requests always build both images but
+never push. On `main`, a component is only built when its own directory (or the workflow) changed. Each image is tagged `latest`, the short SHA, and the git commit count
 (`git rev-list --count HEAD`) as its version number — monotonic, so Flux
 can pin or order releases by it. Rolling the new images
 out is Flux's job (see the Flux repo), not this repo's.

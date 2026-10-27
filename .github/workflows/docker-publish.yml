@@ -1,15 +1,17 @@
 name: Build and publish images
 
-# Builds backend/ and frontend/ into Docker images and
-# pushes them to GHCR. On pull requests it only builds (catches a broken
-# Dockerfile before merge) - images are pushed only from main (never from
+# Runs the backend tests and builds both apps, then builds backend/ and
+# frontend/ into Docker images and pushes them to GHCR. The image build waits
+# for the `test` job, so a red test run never publishes. On every pull request
+# both images are built (catches a broken Dockerfile before merge) - images are pushed only from main (never from
 # PRs, other branches or tags). Pushing to main publishes `latest`. Every pushed image is also tagged with the git
 # commit count of the commit it was built from (`git rev-list --count HEAD`,
 # e.g. `:482`) - a monotonically increasing version number, also baked into
 # the frontend as VITE_APP_VERSION and set as the OCI version label.
 #
-# Each component is only built when its own directory (or this workflow)
-# changed - the `changes` job diffs the push/PR and feeds the build matrix.
+# On pushes to main, each component is only built when its own directory (or
+# this workflow) changed - the `changes` job diffs the push and feeds the
+# build matrix. Pull requests always build both.
 # A skipped component keeps its previous `latest`, and simply has no
 # commit-count tag for commits that didn't touch it.
 #
@@ -33,6 +35,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # The integration tests need a real Postgres; globalSetup.ts runs the
+    # migrations against it, so the database only has to exist.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vienna
+          POSTGRES_PASSWORD: vienna
+          POSTGRES_DB: vienna_thirstday_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vienna"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://vienna:vienna@localhost:5432/vienna_thirstday_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Backend - install, build, test
+        working-directory: backend
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build
+          npm test
+
+      - name: Frontend - install, build (tsc is the only frontend check)
+        working-directory: frontend
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build
+
   changes:
     runs-on: ubuntu-latest
     permissions:
@@ -61,14 +111,15 @@ jobs:
         env:
           BACKEND: ${{ steps.filter.outputs.backend }}
           FRONTEND: ${{ steps.filter.outputs.frontend }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
         run: |
           list=()
-          if [ "$BACKEND" = "true" ]; then list+=('"backend"'); fi
-          if [ "$FRONTEND" = "true" ]; then list+=('"frontend"'); fi
+          if [ "$IS_PR" = "true" ] || [ "$BACKEND" = "true" ]; then list+=('"backend"'); fi
+          if [ "$IS_PR" = "true" ] || [ "$FRONTEND" = "true" ]; then list+=('"frontend"'); fi
           echo "value=[$(IFS=,; echo "${list[*]}")]" >> "$GITHUB_OUTPUT"
 
   build-and-push:
-    needs: changes
+    needs: [test, changes]
     if: needs.changes.outputs.components != '[]'
     runs-on: ubuntu-latest
     permissions:
