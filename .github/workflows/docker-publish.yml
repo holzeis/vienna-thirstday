@@ -165,7 +165,7 @@ jobs:
             org.opencontainers.image.version=${{ steps.build_number.outputs.value }}
 
       - name: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && 'Build and push' || 'Build (not pushed)' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./${{ matrix.component }}
           platforms: linux/amd64,linux/arm64
