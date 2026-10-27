@@ -1,157 +1,11 @@
 # Vienna Thirstday Kicken
 
-A web app for running the weekly Thursday pickup football group: admin-issued
-invite links for onboarding (no self-service registration), guest players,
-gameday sign-up with an auto-managed waitlist, admin-entered results, and a
-Jan 1 – Dec 31 season standings table.
-
-## Contents
-
-- [Features](#features)
-- [How the rules work](#how-the-rules-work)
-- [Architecture](#architecture)
-- [Local development (no Docker)](#local-development-no-docker)
-- [Local development with Docker Compose](#local-development-with-docker-compose)
-- [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet)
-- [Deploying](#deploying)
-- [Usage metrics](#usage-metrics)
-- [Privacy policy](#privacy-policy)
-- [Environment variables](#environment-variables)
-- [Project layout](#project-layout)
-- [Known limitations](#known-limitations)
-
-## Features
-
-- **Accounts & roles.** No self-service registration - accounts only come
-  from an admin-issued invite link (Admin → Users → "Invite a player"), two
-  kinds:
-  - **Guest-linked** (pick a guest in the "Player" field): promotes that
-    guest to a real player immediately and single-use - the resulting
-    account keeps that guest's full history with nothing to merge. If the
-    guest's history includes a season that wasn't theirs, pick a single
-    season under "Attach history" instead: the guest is *not* promoted, and
-    when the invite is accepted a new player is created with only that
-    year merged in (the guest keeps the rest). That merge is listed - and
-    can be undone - under "Recent guest merges", like any other.
-  - **Open** (leave "Player" unselected): no guest, reusable by as many
-    people as accept it before it expires or is revoked. Each acceptance
-    onboards as a brand-new player with no history; an admin can attach a
-    guest's history to any of those accounts afterward from "Merge guest
-    history into an account". The admin page lists everyone who's joined
-    via a given link.
-
-  Either way, opening the link lets that person set their name (this is
-  also their login - no email required), a password, and optionally a
-  photo and an email address. The account is active immediately, no
-  separate approval step. Links expire on a configurable timer (default 7
-  days, up to 90); revoking a guest-linked invite reverts the guest
-  promotion (an open invite has none to revert). Any account can also be
-  granted the `Admin` role. Deleting an account (Admin → Users) only ever
-  removes the login - email, password, push subscriptions - never that
-  person's history: their player reverts to a guest (same as an unused
-  invite being revoked), so every registration, team assignment, and
-  gameday stat stays exactly as it was, unaffected, and can later be
-  re-invited or merged into another account like any other guest. An admin
-  can also send someone a **password-reset link** (Admin → Users → "Reset
-  password") for when they forget theirs: the link is generated and copied
-  to the clipboard immediately (a toast confirms it), expires after an
-  hour, and lets that person set a new password without knowing their old
-  one. Clicking the button again invalidates whatever link was generated
-  before and copies a fresh one.
-- **Guests.** Any logged-in user can create reusable guest profiles and bring
-  them to gamedays. Guests count toward a gameday's capacity/waitlist but are
-  excluded from the season standings table.
-- **Gamedays & waitlist.** Admins create gamedays (date, location, min/max
-  players - default 8/14). Anyone can sign up; once at least `minPlayers` are
-  confirmed, further sign-ups are only confirmed in pairs (so two even teams
-  can always be formed), and the rest wait. Cancelling a confirmed spot
-  automatically re-evaluates the list and can promote someone off the
-  waitlist. See [How the rules work](#how-the-rules-work) for the exact logic.
-  Each gameday also has a public share link (Admin → gameday → "Share link")
-  that lets someone with no account sign up as a guest by name - and, from
-  the same link, cancel that same sign-up later if their plans change.
-  Self-cancel is authorized by a one-time random token handed back at
-  sign-up (never the guest's player id, which isn't secret), so it only ever
-  lets someone cancel their own spot, not anyone else's. A player (not a
-  guest they've brought) can also declare themselves unavailable ("I'm
-  out") instead of signing up - shown on its own "Unavailable" card below
-  the waitlist, and cancellable the same way as a confirmed/waitlisted
-  spot. It never occupies a confirmed/waitlisted slot or affects the
-  waitlist for anyone else.
-- **Weather.** Each matchday's detail page - and the public sign-up link - shows the temperature, conditions (sunny,
-  cloudy, rainy, ...) and whether it's windy - a *forecast* (labelled as
-  such, refreshed every few hours, and available up to ~15 days ahead) for
-  upcoming matchdays and the *actual* conditions once played. Figures cover
-  kickoff plus three hours. Data comes from [Open-Meteo](https://open-meteo.com)
-  (free, no API key); if it's unreachable the weather is just omitted. The
-  location defaults to central Vienna - set `WEATHER_LATITUDE` /
-  `WEATHER_LONGITUDE` to the pitch. Windy = mean wind >= 20 km/h or gusts
-  >= 35 km/h.
-- **WhatsApp group link.** Every matchday page (for logged-in players) and
-  the public sign-up link (for guests) links out to the group's WhatsApp
-  chat - that's where last-minute coordination actually happens (extra
-  player requests, weather calls, etc.), not in the app itself. The link
-  lives in `frontend/src/components/WhatsAppGroupLink.tsx`.
-- **Electors.** On a matchday, the two best-ranked *confirmed* players (season
-  points, then goal difference, then wins; guests and players without a game
-  yet this season excluded) get a subtle 🗳️ next to their name - they pick the
-  teams. Computed on read from the standings going into that matchday, so it
-  follows cancellations/sign-ups and doesn't change once the matchday is played.
-- **Teams & results.** Admins assign confirmed players to Team A / Team B
-  (any time before or after the gameday) - either by hand, or with
-  "Auto-assign by rank" (splits the registered roster in alternating order
-  by current season rank, unranked players last; still just fills in the
-  form, so the admin can tweak any pick before saving) - and enter the final
-  score. Points and goal difference per player are computed automatically:
-  win = 4 pts, draw = 2 pts, loss = 1 pt, plus/minus the goal difference.
-- **Season standings.** A season runs Jan 1 – Dec 31. Players are ranked by
-  total points, then goal difference. Multiple seasons are kept and browsable.
-- **Onboarding imported/guest players into real accounts.** Historical players
-  (from the spreadsheet import) and ad-hoc guests are both stored as "guest"
-  players, so they're excluded from standings until claimed. An admin invites
-  one directly (Admin → Users → "Invite a player") - the guest is promoted in
-  place, so the resulting account keeps that player's full history (every
-  past registration, team assignment, and gameday stat) with nothing to
-  merge. See [Importing the legacy spreadsheet](#importing-the-legacy-spreadsheet).
-- **Light & dark themes.** A toggle in the top bar (next to "Log out") switches
-  between a dark, pitch-inspired theme and a light theme. The choice is
-  remembered per browser (defaulting to the device's system preference on
-  first visit) and applies instantly with no page reload.
-
-## How the rules work
-
-**Waitlist / capacity** (`backend/src/utils/waitlist.ts`): below `minPlayers`,
-everyone who signs up is confirmed immediately - there's no reason to
-waitlist anyone while it's not yet clear the gameday will run. From
-`minPlayers` upward, confirmed spots fill in pairs so two full teams can
-always be formed: the 9th sign-up (with the default min of 8) waits until a
-10th arrives, then both are confirmed together; the 11th waits for a 12th;
-and so on, with a hard cap at `maxPlayers`. Cancelling a confirmed
-registration re-runs this calculation immediately, which can bump someone off
-the waitlist into a confirmed spot (or drop the group back down to the next
-even number, per the same pairing rule). A player marked `UNAVAILABLE` is
-never part of this calculation at all - excluded from both the count and
-the recompute, so it can't consume a confirmed/waitlisted slot or shift
-anyone else's position.
-
-**Scoring** (`backend/src/utils/scoring.ts`): a gameday is one match between
-Team A and Team B. Whichever team's score is higher gets 4 points per player
-plus that team's goal difference; the other team gets 1 point plus a negative
-goal difference; a tie gives everyone 2 points and 0 goal difference.
-
-Both of these were reverse-engineered from, and verified against, the
-group's original spreadsheet - see [Known limitations](#known-limitations).
+A web app (installable as a PWA) for running a weekly Thursday pickup football
+group: invite-only accounts, guest players, matchday sign-up with an
+auto-managed waitlist, teams and results, season standings, a hall of fame,
+weather forecasts and push notifications.
 
 ## Architecture
-
-- **Backend**: Node.js + TypeScript + Express, JWT auth (bcrypt password
-  hashing), PostgreSQL via [Drizzle ORM](https://orm.drizzle.team/) (plain SQL
-  migrations, no native binaries required).
-- **Frontend**: React + TypeScript + Vite, React Router, plain CSS (no UI
-  framework). Talks to the backend exclusively through `/api/...`, proxied by
-  Vite in dev and by nginx in the production image - so the frontend never
-  needs to know the backend's real hostname.
-- **Database**: PostgreSQL.
 
 ```
 ┌──────────┐      /api/*      ┌──────────┐        SQL        ┌────────────┐
@@ -160,410 +14,138 @@ group's original spreadsheet - see [Known limitations](#known-limitations).
 └──────────┘                  └──────────┘                    └────────────┘
 ```
 
-## Local development (no Docker)
+- **Backend**: Node.js + TypeScript + Express, JWT auth, PostgreSQL via
+  [Drizzle ORM](https://orm.drizzle.team/) (plain SQL migrations in `backend/drizzle`).
+- **Frontend**: React + TypeScript + Vite, React Router, plain CSS. It only
+  talks to `/api/...`, proxied by Vite in dev and by nginx in the production
+  image, so it never needs to know the backend's hostname.
+- **CI/CD**: GitHub Actions runs the backend and frontend tests, builds both
+  images on every PR, and publishes them to GHCR from `main` only. Deployment
+  to the cluster is managed separately with Flux and doesn't live in this repo.
 
-Prerequisites: Node.js 20+, a running PostgreSQL 16 instance, `npm`.
+More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (structure and
+design decisions) and [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) (schema).
 
-1. **Database.** Create a database and user (adjust to taste):
+## Running locally
 
-   ```bash
-   sudo -u postgres psql -c "CREATE USER vienna WITH PASSWORD 'vienna';"
-   sudo -u postgres psql -c "CREATE DATABASE vienna_thirstday OWNER vienna;"
-   ```
+### With Docker Compose
 
-2. **Backend.**
-
-   ```bash
-   cd backend
-   npm install
-   cp .env.example .env   # points at port 5433 (the docker-compose Postgres) - change
-                           # DATABASE_URL's port to 5432 for the native install above
-   npm run db:migrate     # applies drizzle/*.sql
-   npm run seed           # creates the first admin (see console output for credentials)
-   npm run dev            # http://localhost:4000
-   ```
-
-   To change the bootstrapped admin's email/password/name, set
-   `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` before running `npm run seed`.
-
-3. **Frontend.**
-
-   ```bash
-   cd frontend
-   npm install
-   npm run dev            # http://localhost:5173, proxies /api to :4000
-   ```
-
-4. Open http://localhost:5173, log in with the seeded admin, and start
-   inviting players / creating gamedays.
-
-### Useful backend scripts
-
-| Script                      | What it does                                          |
-| ---------------------------- | ------------------------------------------------------ |
-| `npm run dev`                | Run the API with hot reload                            |
-| `npm run build`               | Compile TypeScript to `dist/`                          |
-| `npm start`                   | Run the compiled build (`dist/index.js`)                |
-| `npm run db:generate`         | Generate a new SQL migration from `src/db/schema.ts`    |
-| `npm run db:migrate`          | Apply pending migrations                                |
-| `npm run seed`                | Bootstrap the first admin account (idempotent)          |
-| `npm run seed:import-xlsx`    | One-time import of the legacy spreadsheet (see below)   |
-| `npm run fixup:mark-unclaimed-guests` | Retroactively marks unclaimed imported players as guests (only needed if you ran the importer before the merge feature existed) |
-
-### Frontend tests
-
-`cd frontend && npm test` runs the Vitest + Testing Library suite (jsdom, no
-backend or database needed). It covers the API client, hooks, route guards
-and presentational components; CI runs it on every pull request.
-
-## Local development with Docker Compose
-
-This brings up Postgres, the backend, and the frontend (served by nginx on
-port 8081) together:
+Starts Postgres, the backend and the frontend (nginx, port 8081):
 
 ```bash
 docker compose up --build
-```
-
-Then, in another terminal, bootstrap the first admin (migrations already run
-automatically on backend startup):
-
-```bash
+# in another terminal, once: create the first admin (migrations run on backend startup)
 docker compose run --rm backend node dist/db/seed.js
 ```
 
-Open http://localhost:8081.
+Open http://localhost:8081. Postgres is exposed on `localhost:5433`.
 
-Environment overrides (put them in a `.env` file next to `docker-compose.yml`,
-or export them before running `docker compose up`): `JWT_SECRET`,
-`CORS_ORIGIN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`.
+### Without Docker
 
-> **Note:** the Compose file and both Dockerfiles were written and
-> structurally validated (`docker compose config`), and the equivalent build
-> and startup commands were verified to work outside of Docker in this
-> environment. The environment this app was built in could not reach Docker
-> Hub to actually pull base images and run `docker compose up`, so please do
-> a first build/run on your own machine before relying on it - if anything
-> doesn't come up cleanly, the Dockerfiles are short and easy to adjust.
-
-## Importing the legacy spreadsheet
-
-The original `Kicken_2026.xlsx` tracker is imported as historical data so the
-season continues seamlessly inside the app.
+Prerequisites: Node.js 24, `npm`, a running PostgreSQL 16.
 
 ```bash
-# 1. Export the spreadsheet to JSON (requires Python + openpyxl)
-pip install openpyxl --break-system-packages
-python3 scripts/export_xlsx_to_json.py /path/to/Kicken_2026.xlsx \
-  backend/src/db/seed-data/kicken-2026-import.json
+# Backend (http://localhost:4000)
+cd backend
+npm install
+cp .env.example .env     # DATABASE_URL points at port 5433 (the compose Postgres); adjust if needed
+npm run db:migrate       # apply drizzle/*.sql
+npm run seed             # create the first admin
+npm run dev
 
-# 2. Bootstrap an admin if you haven't already (the importer needs one to
-#    attribute the imported gamedays/results to)
-cd backend && npm run seed
-
-# 3. Import
-npm run seed:import-xlsx
+# Frontend (http://localhost:5173, proxies /api to :4000)
+cd frontend
+npm install
+npm run dev
 ```
 
-`backend/src/db/seed-data/kicken-*-import.json` is gitignored - the exported
-JSON is effectively the group's full historical player-name data, so none of
-it is published to GitHub, past seasons included. Run step 1 yourself
-against your own copy of each year's workbook to (re)generate the files
-locally before step 3. Note that some older spreadsheets keep their results
-table on a sheet not named `Ergebnisse <year>` (e.g. 2018/2019's is called
-`Ergebnisüberblick`), in which case pass that sheet name as the 3rd
-argument. `npm run seed:import-xlsx` with no argument imports every
-`*-import.json` file found in `seed-data/`; pass a filename to import just
-one. The import is idempotent and safe to re-run after a spreadsheet
-correction, not just a brand-new season: an already-imported gameday's
-date/score/registrations/team-assignments/stats are reconciled to match -
-a player dropped from the corrected roster is removed, a renamed or
-newly-added one gets a stats row backfilled, and a changed points/goal-diff
-value is corrected in place. A player appearing in multiple
-seasons' files is matched by exact name and shares one player record across
-years - and if that name was since merged into a differently-named real
-account (e.g. an older spreadsheet's "Richi" merged into the real "Richie"
-account via Admin → Users → "Merge guest history into an account"), a later
-import of another season attaches that season's history to the merged
-account too, instead of creating a duplicate guest under the old name.
+Log in with the seeded admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD`, see below) and
+invite players from **Admin → Users**.
 
-### Onboarding an imported player
+### Tests
 
-The importer creates every historical player as a **guest** - nobody has an
-account yet, and guests are excluded from the standings table, so right
-after importing, `/standings` will look empty. That's expected. As each real
-person joins:
+```bash
+cd backend && npm test    # Vitest + supertest against a real Postgres
+cd frontend && npm test   # Vitest + Testing Library (jsdom)
+```
 
-1. On the **Admin → Users** page, under "Invite a player", type or pick their
-   name (the field suggests every unclaimed guest with a games-played count,
-   e.g. "Benji (15 games)"; typing a name with no match creates a fresh
-   guest), set how many days the link should stay valid, and click
-   **Create invite link**. This immediately promotes that guest to a real
-   player.
-2. Send them the generated link however you'd normally reach them.
-3. When they open it, confirm or change their name, set a password, and
-   optionally add a photo and an email - their account immediately inherits
-   that player's entire history (since it's the same player record, not a
-   merge) and they'll show up in the standings table with their real season
-   total.
+The backend integration tests use a separate `vienna_thirstday_test` database
+on the same Postgres server (override with `TEST_DATABASE_URL`) and run the
+real migrations against it. Both suites run in CI on every pull request.
 
-> If you already ran the importer before this merge feature existed (so your
-> historical players were created as regular, non-guest players instead of
-> guests), run `cd backend && npm run fixup:mark-unclaimed-guests` once - it
-> retroactively marks every player with no linked account as a guest, without
-> touching anyone who's already signed up.
+## Configuration
+
+### Backend (`backend/.env`, see `.env.example`)
+
+| Variable          | Purpose                                             | Default                        |
+| ----------------- | ---------------------------------------------------- | ------------------------------- |
+| `DATABASE_URL`    | Postgres connection string                           | -                               |
+| `JWT_SECRET`      | Signing secret for auth tokens - **change in prod**  | -                               |
+| `JWT_EXPIRES_IN`  | Token lifetime                                       | `7d`                            |
+| `PORT`            | API port                                             | `4000`                          |
+| `CORS_ORIGIN`     | Allowed origin for browser requests                  | `http://localhost:5173`         |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Used only by `npm run seed` | `admin@vienna-thirstday.local` / `changeme123` / `Admin` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web push key pair (`npx web-push generate-vapid-keys`); unset disables push | -  |
+| `WEATHER_LATITUDE` / `WEATHER_LONGITUDE` | Coordinates weather is fetched for (the pitch) | central Vienna |
+| `WEATHER_ENABLED` | Set `false` to disable weather lookups               | `true`                          |
+
+### Frontend
+
+| Variable       | When       | Purpose                                                    | Default        |
+| -------------- | ---------- | ------------------------------------------------------------ | -------------- |
+| `VITE_API_URL` | build time | Base URL the frontend calls; leave as is when using the bundled nginx proxy | `/api` |
+| `BACKEND_HOST` | runtime (container) | `host:port` nginx forwards `/api/` to                | `backend:4000` |
+
+With Docker Compose, put overrides (`JWT_SECRET`, `CORS_ORIGIN`, `ADMIN_*`, ...)
+in a `.env` file next to `docker-compose.yml`.
 
 ## Deploying
 
-This repo only builds and publishes the images; the cluster deployment
-(manifests for postgres, backend, frontend, ingress, Cloudflare Tunnel, ...)
-is managed separately with [Flux](https://fluxcd.io/) and no longer lives
-here.
+`.github/workflows/docker-publish.yml` publishes
+`ghcr.io/<owner>/<repo>-backend` and `-frontend` (`linux/amd64` + `linux/arm64`),
+tagged `latest`, the short SHA and the git commit count. What the images expect
+from whatever deploys them:
 
-`.github/workflows/docker-publish.yml` builds `backend` and `frontend` on
-every push to `main`, publishing to GitHub Container
-Registry at `ghcr.io/<owner>/<repo>-backend` and `-frontend` using the
-repo's built-in `GITHUB_TOKEN` - no secrets to configure. Each pushed image is tagged `latest`, the short commit SHA,
-and a version number - the git commit count (`git rev-list --count HEAD`, e.g.
-`:482`), which is also shown in the app footer and set as the OCI
-`org.opencontainers.image.version` label. Every pull request and push first runs the
-backend tests (against a Postgres service container) and the frontend build; the
-images are built only if those pass. Pull requests always build both images but
-never push - only `main` publishes. On `main`, a component is only built when its
-own directory (or the workflow) changed. Both `linux/amd64` and `linux/arm64` are published (via QEMU); keep
-both if the cluster mixes node architectures, or a node of the missing arch
-will hit `ImagePullBackOff` with "no match for platform in manifest". GHCR
-packages are private by default: make them public in their GitHub settings,
-or give the cluster an `imagePullSecret` from a PAT with `read:packages`.
+- **Config/secrets:** the backend variables above.
+- **Migrations:** run `npm run db:migrate` (e.g. in an initContainer) before the
+  backend starts; it's a no-op when nothing is pending.
+- **First admin:** run the seed script once; it's safe to re-run.
+- **Frontend:** `nginxinc/nginx-unprivileged` on port `8080`, proxying `/api` to
+  the backend Service.
 
-What the images expect from whatever deploys them:
+## Usage metrics and Metabase
 
-- **Config/secrets:** the variables in [Environment variables](#environment-variables).
-  Push notifications need a VAPID key pair (`npx web-push generate-vapid-keys`
-  -> `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`); leave them
-  unset and push is simply disabled.
-- **Migrations:** the backend deployment should run `npm run db:migrate` in
-  an initContainer before the app starts. It's a fast no-op when nothing is
-  pending, so every pod start is safe.
-- **First admin:** run the seed script once (`ADMIN_PASSWORD` / `ADMIN_NAME`,
-  optional `ADMIN_EMAIL`); it's safe to re-run.
-- **Frontend:** `nginxinc/nginx-unprivileged` on port `8080`, proxying `/api`
-  to the backend Service.
+Logins, app opens and guest sign-ups are recorded in the `access_events` table
+(who, when, OS/browser/device, PWA vs. browser tab, app version). It's meant to
+be queried with SQL from a BI tool such as [Metabase](https://www.metabase.com/)
+rather than shown in the app. Columns are documented in
+[`docs/DATA_MODEL.md`](docs/DATA_MODEL.md).
 
-## Usage metrics
+Connect external tools with a **read-only** Postgres role, not the app's own
+credentials: run `backend/scripts/setup-metabase-role.sql` (usage is in the
+comment at the top) against the database you're connecting to.
 
-Every login (`POST /auth/login`), authenticated app load
-(`GET /auth/me`), and guest sign-up via a share link
-(`POST /gameday-share/:token/register-guest`) writes one row to the
-`access_events` table: who (player id/name, or a guest with no linked
-account), when, and their OS/browser/device type (parsed server-side from
-the `User-Agent` header - see `backend/src/utils/userAgent.ts`), whether
-they're using the installed PWA or a regular browser tab (`X-Standalone`
-header, sent by the frontend on every request since only the client can
-know its own display mode - see `frontend/src/api/client.ts`), and which
-build of the frontend they're running (`X-App-Version` header, same
-convention - see `frontend/src/appVersion.ts`). This is a plain table meant
-to be queried directly with SQL, not surfaced anywhere in the app itself -
-point a BI tool like [Metabase](https://www.metabase.com/) at the same
-Postgres database and build dashboards from it.
+`docker compose up -d metabase` starts Metabase on <http://localhost:3000>, with
+its own settings kept in the `metabase-data` volume. It's local-only by design
+and nothing is exposed to the internet. After Metabase's first-run setup, add a
+database connection using that read-only role:
 
-`LOGIN` only fires on an actual credentials submit, so it undercounts real
-usage once someone's JWT is cached (it lasts 7 days by default -
-`JWT_EXPIRES_IN`). `APP_OPEN` fires on every `GET /auth/me` instead - called
-once per app load/PWA launch regardless of token age (see
-`frontend/src/auth/AuthContext.tsx`) - so it's the metric to use for "how
-often is the app actually used", not `LOGIN`.
+- **Local dev database:** host `postgres`, port `5432`, database `vienna_thirstday`.
+- **Live cluster:** Postgres isn't exposed outside the cluster, so port-forward
+  it first, then connect to host `host.docker.internal`, port `5434`:
 
-Columns: `occurred_at`, `event_type` (`LOGIN` | `GUEST_REGISTER` |
-`APP_OPEN`), `is_guest`, `player_id` (nullable - stays if the player is later deleted),
-`player_name` (a snapshot, so a later rename doesn't rewrite history),
-`user_id` (null for guests), `os`, `browser`, `device_type`
-(`mobile`/`tablet`/`desktop`), `is_pwa` (null if the client didn't send the
-header at all, distinct from a real "opened in a browser" `false`), the raw
-`user_agent` string in case anything needs re-classifying later, and
-`app_version` (the client's build id, null under the same "header wasn't
-sent" convention as `is_pwa`).
+  ```sh
+  kubectl port-forward -n <namespace> svc/<postgres-service> 5434:5432
+  ```
 
-For Metabase (or any external tool), connect it with a **read-only**
-Postgres role rather than the app's own credentials - run
-`backend/scripts/setup-metabase-role.sql` (see the usage comment at the top
-of that file) against whichever database you're connecting to.
+  (Namespace and Service name are defined in the Flux repo.)
 
-Example queries once connected:
+Example query, app opens per week:
 
 ```sql
--- App opens per player, per day - actual usage, not just re-logins
-SELECT player_name, date_trunc('day', occurred_at) AS day, count(*)
-FROM access_events
-WHERE event_type = 'APP_OPEN'
-GROUP BY player_name, day
-ORDER BY day DESC;
-
--- App opens per week, across everyone
 SELECT date_trunc('week', occurred_at) AS week, count(*)
 FROM access_events
 WHERE event_type = 'APP_OPEN'
 GROUP BY week
 ORDER BY week DESC;
-
--- Guest sign-ups by OS
-SELECT os, count(*)
-FROM access_events
-WHERE is_guest
-GROUP BY os
-ORDER BY count(*) DESC;
-
--- PWA vs. browser split
-SELECT
-  CASE is_pwa WHEN true THEN 'PWA' WHEN false THEN 'Browser' ELSE 'Unknown' END AS access_mode,
-  count(*)
-FROM access_events
-GROUP BY access_mode;
-
--- Currently-installed app version per player/guest (latest event wins)
-SELECT DISTINCT ON (player_id) player_name, is_guest, app_version, occurred_at
-FROM access_events
-WHERE player_id IS NOT NULL
-ORDER BY player_id, occurred_at DESC;
 ```
-
-### Running Metabase
-
-`docker compose up -d metabase` starts it on <http://localhost:3000>, with
-its own dashboards/settings persisted in the `metabase-data` volume
-(separate from the app's data). It's local-only by design - not deployed to
-the cluster - so nothing new is exposed to the internet; run it on demand.
-
-On first run, walk through Metabase's setup, then add a database connection
-using the `metabase` role above. To point that connection at the **local
-dev** database, use host `postgres`, port `5432`, database
-`vienna_thirstday` (Metabase resolves `postgres` via the compose network).
-
-To visualize the **live cluster's** data instead, port-forward its Postgres
-Service first (namespace and Service name are defined in the Flux repo),
-since Postgres isn't exposed outside the cluster:
-
-```sh
-kubectl port-forward -n <namespace> svc/<postgres-service> 5433:5432
-```
-
-Then add a second connection in Metabase using host `host.docker.internal`,
-port `5433` - that connection only has data while the port-forward is
-running.
-
-## Privacy policy
-
-Hosted separately from the app itself, via GitHub Pages, in English and
-German: `docs/privacy/en.html` / `docs/privacy/de.html` (a shared
-`docs/privacy/style.css`, and `docs/privacy/index.html` as a
-language-detecting entry point). Linked from the app under Account Settings
-on the player profile page (`frontend/src/pages/PlayerProfile.tsx`).
-
-To publish it, GitHub Pages needs to be enabled once, on this repo's
-**Settings → Pages**: source "Deploy from a branch", branch `main`, folder
-`/docs`. After that, editing and pushing either HTML file republishes it
-automatically - no separate deploy step. Live at
-<https://holzeis.github.io/vienna-thirstday/privacy/>.
-
-## Environment variables
-
-### Backend (`backend/.env`, see `.env.example`)
-
-| Variable          | Purpose                                            | Default                                                        |
-| ----------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| `DATABASE_URL`    | Postgres connection string                          | -                                                                |
-| `JWT_SECRET`      | Signing secret for auth tokens - **change in prod**  | -                                                                |
-| `JWT_EXPIRES_IN`  | Token lifetime                                       | `7d`                                                             |
-| `PORT`            | API port                                             | `4000`                                                           |
-| `CORS_ORIGIN`     | Allowed origin for browser requests                  | `http://localhost:5173`                                          |
-| `ADMIN_EMAIL`     | Used only by `npm run seed`                          | `admin@vienna-thirstday.local`                                    |
-| `ADMIN_PASSWORD`  | Used only by `npm run seed`                          | `changeme123`                                                    |
-| `ADMIN_NAME`      | Used only by `npm run seed`                          | `Admin`                                                          |
-| `WEATHER_LATITUDE` / `WEATHER_LONGITUDE` | Coordinates weather is fetched for (the pitch) | `48.2082` / `16.3738` (central Vienna)           |
-| `WEATHER_ENABLED` | Set `false` to disable weather lookups entirely       | `true`                                                           |
-
-### Frontend (build-time)
-
-| Variable       | Purpose                                                        | Default |
-| -------------- | ----------------------------------------------------------------- | ------- |
-| `VITE_API_URL` | Base URL the frontend calls. Leave as `/api` unless you're not using the bundled nginx reverse proxy. | `/api`  |
-
-### Frontend container (runtime)
-
-| Variable       | Purpose                                             | Default        |
-| -------------- | ------------------------------------------------------ | -------------- |
-| `BACKEND_HOST` | `host:port` the nginx reverse proxy forwards `/api/` to | `backend:4000` |
-
-## Project layout
-
-See `docs/ARCHITECTURE.md` for system structure, deployment topology, and
-key architectural decisions, and `docs/DATA_MODEL.md` for the full schema
-reference.
-
-```
-backend/
-  src/
-    routes/         Express route handlers (auth, gamedays, guests, ...)
-    services/        Waitlist recompute logic
-    utils/           Scoring, waitlist math, JWT, error types
-    db/
-      schema.ts       Drizzle table definitions
-      client.ts        DB connection
-      migrate.ts        Runs drizzle/*.sql against DATABASE_URL
-      seed.ts            Bootstraps the first admin
-      import-xlsx-seed.ts  One-time historical data import
-      seed-data/        Pre-exported legacy spreadsheet JSON
-  drizzle/            Generated SQL migrations (checked in)
-frontend/
-  src/
-    api/              Typed fetch client
-    auth/             Auth context + route guards
-    pages/            One file per route
-    components/       Shared layout/nav
-    styles/           App-wide CSS
-scripts/
-  export_xlsx_to_json.py   Re-run this if the legacy spreadsheet changes
-docker-compose.yml    Local multi-container setup
-```
-
-## Known limitations
-
-- **Historical score reconstruction.** The legacy spreadsheet recorded each
-  player's exact points and goal difference per matchday - and those are
-  imported verbatim, so once a player is merged into a real account (see
-  [Claiming imported players](#claiming-imported-players)), their contribution
-  to the season table matches the original spreadsheet's table exactly. What
-  it never recorded was the two teams' rosters as a distinct concept, or the
-  literal final score (e.g. "5:3"). The importer reconstructs a team split
-  (who shared a win/loss) and a placeholder score with the correct goal
-  difference purely for display on those historical gamedays; treat the
-  reconstructed score and team roster for pre-launch gamedays as
-  illustrative, not exact.
-- **Every invite starts from a guest, matched by hand.** There's no "brand
-  new player" option and no automatic name-matching when an admin creates an
-  invite - they always pick (or first create) the specific guest to onboard,
-  deliberately, since auto-matching on a name string risks silently pairing
-  the wrong person (e.g. two different people who both go by "Max"). Attaching
-  a second, later-discovered guest identity onto an already-onboarded account
-  (e.g. a re-import under a name they've since changed) is a separate step:
-  Admin → Users → "Merge guest history into an account" moves that guest's
-  registrations/team assignments/stats onto the real account. By default it
-  moves everything and removes the guest; picking a specific season instead
-  only attaches that year and leaves the guest around for whatever else they
-  have - useful when only part of a duplicate guest's history actually
-  belongs to that account. Reversible either way from "Recent guest merges"
-  below it. A guest promoted in place by a (whole-guest) invite is listed
-  there too, as "<guest> promoted to <account>": undo it to move that
-  pre-account history onto a separate guest again, then attach only the
-  right season(s) back with the merge form. (Promotions from before this was
-  logged are added automatically when the backend's migrations run - for
-  every account, including ones that predate invites: whatever history sits
-  on gamedays from before the account existed, minus rows a logged merge
-  already moved in.)
-- **No email delivery.** Invite links are generated in the app but not
-  emailed - an admin copies the link and sends it however they'd normally
-  reach the group (WhatsApp, email, etc.). Worth automating with a
-  transactional email provider if the group grows past the point where
-  that's convenient.
-- **Single default season length.** Seasons are always calendar years
-  (Jan 1 – Dec 31); there's no support for a different season boundary.
