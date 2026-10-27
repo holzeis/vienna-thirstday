@@ -5,6 +5,7 @@ import { createApp } from "../app";
 import { config } from "../config";
 import { db } from "../db/client";
 import { gamedays, gamedayWeather } from "../db/schema";
+import { localDateAndHour } from "../utils/timezone";
 import { resetDb, closeDb, createAdmin } from "./helpers";
 import { buildWeatherUrl, parseOpenMeteo, planWeatherRefresh, resetWeatherRefreshState, FORECAST_TTL_MS } from "../services/weatherService";
 
@@ -184,7 +185,10 @@ describe("weather on the gameday routes", () => {
   it("includes the forecast on the public share-link lookup, without any login", async () => {
     config.weatherEnabled = true;
     const date = new Date(Date.now() + 2 * DAY);
+    // Kick off at 19:00 Vienna time (the start of the filled-in hours in openMeteoBody) whichever side of
+    // the DST change "now + 2 days" falls on: that is 17:00 UTC in summer time, 18:00 UTC in winter time.
     date.setUTCHours(17, 0, 0, 0);
+    if (localDateAndHour(date, "Europe/Vienna").hour !== 19) date.setUTCHours(18);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => openMeteoBody(date.toISOString().slice(0, 10)) }));
     const [g] = await db.insert(gamedays).values({ date, shareToken: "weather-share-token" }).returning();
 
