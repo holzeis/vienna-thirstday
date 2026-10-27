@@ -7,7 +7,15 @@ import webpush from "web-push";
 import { createApp } from "../app";
 import { db } from "../db/client";
 import { gamedays, players, pushSubscriptions, users } from "../db/schema";
+import { notifyAdminsInviteAccepted } from "../services/pushService";
 import { resetDb, closeDb, createAdmin, createRegularUser, createGuestPlayer, createOpenGameday } from "./helpers";
+
+// Passthrough spy so a test can await the fire-and-forget admin notification
+// (see the last test) instead of letting it outlive the test and hit a closed pool.
+vi.mock("../services/pushService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/pushService")>();
+  return { ...actual, notifyAdminsInviteAccepted: vi.fn(actual.notifyAdminsInviteAccepted) };
+});
 
 vi.mock("web-push", () => ({
   default: {
@@ -19,6 +27,7 @@ vi.mock("web-push", () => ({
 const app = createApp();
 
 beforeEach(() => {
+  vi.mocked(notifyAdminsInviteAccepted).mockClear();
   vi.mocked(webpush.sendNotification).mockClear();
   vi.mocked(webpush.sendNotification).mockResolvedValue(undefined as never);
   return resetDb();
@@ -394,6 +403,11 @@ describe("POST /invites/:token/accept notifies admins", () => {
       .field("name", "Robert Real")
       .field("password", "password123");
     expect(res.status).toBe(201);
+    // Nothing observable happens in this case, so wait for the background
+    // notification to finish before asserting - otherwise it's still querying
+    // when the file ends and afterAll closes the pool under it.
+    await vi.waitFor(() => expect(notifyAdminsInviteAccepted).toHaveBeenCalledTimes(1));
+    await vi.mocked(notifyAdminsInviteAccepted).mock.results[0].value;
     expect(webpush.sendNotification).not.toHaveBeenCalled();
   });
 });

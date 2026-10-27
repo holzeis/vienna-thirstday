@@ -40,43 +40,6 @@ working conventions, see `CLAUDE.md`.
 
 ## Deployment topology
 
-### Local (docker-compose)
-
-`postgres` → `backend` (runs pending migrations on start, then serves the
-API) → `frontend` (nginx, proxies `/api`). `metabase` is optional and
-local-only — see README's "Usage metrics" section.
-
-### Cluster (k3s homelab, namespace `vienna-thirstday`)
-
-The cluster manifests are **not in this repo** — they're managed separately
-with Flux. What runs there, for context:
-
-- **postgres** — `StatefulSet` + Longhorn-backed PVC.
-- **backend** — `Deployment`; a `migrate` initContainer applies any pending
-  schema migration before the app container starts (safe no-op otherwise).
-- **frontend** — `Deployment` on `nginxinc/nginx-unprivileged`.
-- **cloudflared** — `Deployment` holding an outbound-only connection to
-  Cloudflare's edge, so nothing needs an open inbound port; Cloudflare
-  proxies the public hostname through the tunnel to ingress-nginx.
-- **ingress** (ingress-nginx) — routes by Host header; the public hostname
-  (`vienna-thirstday.holzeis.me`) gets a real Let's Encrypt cert via the
-  `letsencrypt-dns01` `ClusterIssuer` (DNS-01, so no inbound port needs to be
-  open for issuance either); a `.local` hostname stays plain HTTP for LAN
-  access.
-- One-off migration / seed `Job`s for runs outside the normal rollout path.
-
-### CI/CD
-
-`.github/workflows/docker-publish.yml` first runs a `test` job (backend
-build + Vitest against a Postgres service container, then the frontend
-build + Vitest) on every PR and push to `main`; the image build `needs` it, so a
-red run never publishes. It then builds `backend` and
-`frontend` (multi-arch: `linux/amd64` + `linux/arm64`) and pushes to
-GHCR only on a push to `main`. Pull requests always build both images but
-never push. On `main`, a component is only built when its own directory (or the workflow) changed. Each image is tagged `latest`, the short SHA, and the git commit count
-(`git rev-list --count HEAD`) as its version number — monotonic, so Flux
-can pin or order releases by it. Rolling the new images
-out is Flux's job (see the Flux repo), not this repo's.
 
 ## Security model
 

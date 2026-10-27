@@ -57,10 +57,11 @@ export async function mergeGuestIntoPlayer(
   }
 
   // --- registrations (unique on gamedayId + playerId) ---
-  const [guestRegsAll, targetRegs] = await Promise.all([
-    tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, guestPlayerId), with: { gameday: true } }),
-    tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, targetPlayerId) }),
-  ]);
+  // The queries below run one after another on purpose: `tx` is a single
+  // connection, and pg deprecates issuing a second query on a client that's
+  // still busy (it will throw in pg@9), so no Promise.all over a transaction.
+  const guestRegsAll = await tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, guestPlayerId), with: { gameday: true } });
+  const targetRegs = await tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, targetPlayerId) });
   const guestRegs = guestRegsAll.filter((r) => inSeason(r.gameday.date));
   const targetRegGamedays = new Set(targetRegs.map((r) => r.gamedayId));
   const regsToMove = guestRegs.filter((r) => !targetRegGamedays.has(r.gamedayId));
@@ -76,10 +77,8 @@ export async function mergeGuestIntoPlayer(
   }
 
   // --- team assignments (unique on gamedayId + playerId) ---
-  const [guestAssignmentsAll, targetAssignments] = await Promise.all([
-    tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, guestPlayerId), with: { gameday: true } }),
-    tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, targetPlayerId) }),
-  ]);
+  const guestAssignmentsAll = await tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, guestPlayerId), with: { gameday: true } });
+  const targetAssignments = await tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, targetPlayerId) });
   const guestAssignments = guestAssignmentsAll.filter((a) => inSeason(a.gameday.date));
   const targetAssignmentGamedays = new Set(targetAssignments.map((a) => a.gamedayId));
   const assignmentsToMove = guestAssignments.filter((a) => !targetAssignmentGamedays.has(a.gamedayId));
@@ -95,13 +94,11 @@ export async function mergeGuestIntoPlayer(
   }
 
   // --- gameday stats (unique on resultId + playerId) ---
-  const [guestStatsAll, targetStats] = await Promise.all([
-    tx.query.playerGamedayStats.findMany({
-      where: eq(schema.playerGamedayStats.playerId, guestPlayerId),
-      with: { result: { with: { gameday: true } } },
-    }),
-    tx.query.playerGamedayStats.findMany({ where: eq(schema.playerGamedayStats.playerId, targetPlayerId) }),
-  ]);
+  const guestStatsAll = await tx.query.playerGamedayStats.findMany({
+    where: eq(schema.playerGamedayStats.playerId, guestPlayerId),
+    with: { result: { with: { gameday: true } } },
+  });
+  const targetStats = await tx.query.playerGamedayStats.findMany({ where: eq(schema.playerGamedayStats.playerId, targetPlayerId) });
   const guestStats = guestStatsAll.filter((s) => inSeason(s.result.gameday.date));
   const targetStatResults = new Set(targetStats.map((s) => s.resultId));
   const statsToMove = guestStats.filter((s) => !targetStatResults.has(s.resultId));
@@ -131,11 +128,9 @@ export async function mergeGuestIntoPlayer(
   // season-scoped merge that leaves other years behind keeps the guest
   // around for those. ON DELETE SET NULL then clears guestPlayerId on this
   // (and any earlier) merge log row that pointed at them.
-  const [remainingRegs, remainingAssignments, remainingStats] = await Promise.all([
-    tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, guestPlayerId) }),
-    tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, guestPlayerId) }),
-    tx.query.playerGamedayStats.findMany({ where: eq(schema.playerGamedayStats.playerId, guestPlayerId) }),
-  ]);
+  const remainingRegs = await tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, guestPlayerId) });
+  const remainingAssignments = await tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, guestPlayerId) });
+  const remainingStats = await tx.query.playerGamedayStats.findMany({ where: eq(schema.playerGamedayStats.playerId, guestPlayerId) });
   if (remainingRegs.length === 0 && remainingAssignments.length === 0 && remainingStats.length === 0) {
     await tx.delete(schema.players).where(eq(schema.players.id, guestPlayerId));
   }
@@ -172,14 +167,12 @@ export async function recordGuestPromotion(
   const mergedStats = mergedIds("movedStatIds");
 
   const keep = (date: Date) => !opts.upTo || date.getTime() <= opts.upTo.getTime();
-  const [regs, assignments, stats] = await Promise.all([
-    tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, opts.playerId), with: { gameday: true } }),
-    tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, opts.playerId), with: { gameday: true } }),
-    tx.query.playerGamedayStats.findMany({
-      where: eq(schema.playerGamedayStats.playerId, opts.playerId),
-      with: { result: { with: { gameday: true } } },
-    }),
-  ]);
+  const regs = await tx.query.registrations.findMany({ where: eq(schema.registrations.playerId, opts.playerId), with: { gameday: true } });
+  const assignments = await tx.query.teamAssignments.findMany({ where: eq(schema.teamAssignments.playerId, opts.playerId), with: { gameday: true } });
+  const stats = await tx.query.playerGamedayStats.findMany({
+    where: eq(schema.playerGamedayStats.playerId, opts.playerId),
+    with: { result: { with: { gameday: true } } },
+  });
   const regIds = regs.filter((r) => keep(r.gameday.date) && !mergedRegs.has(r.id)).map((r) => r.id);
   const assignmentIds = assignments.filter((a) => keep(a.gameday.date) && !mergedAssignments.has(a.id)).map((a) => a.id);
   const statIds = stats.filter((s) => keep(s.result.gameday.date) && !mergedStats.has(s.id)).map((s) => s.id);
