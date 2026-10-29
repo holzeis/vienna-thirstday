@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     # Not hardened with cap_drop/no-new-privileges here: the official
     # image's entrypoint needs to chown/chmod the data dir on first start
     # (confirmed - dropping all capabilities breaks that with "Operation not
