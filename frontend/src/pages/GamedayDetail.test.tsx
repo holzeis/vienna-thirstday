@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiClientError } from "../api/client";
@@ -42,6 +42,10 @@ beforeEach(() => {
   serve();
 });
 afterEach(() => {
+  // Unmount first: afterEach hooks run in reverse order, so setup.ts's cleanup would otherwise
+  // run after the reset below, and a still-pending effect (the share-link fetch) would hit a
+  // wiped mock and throw.
+  cleanup();
   vi.useRealTimers();
   vi.resetAllMocks();
   vi.unstubAllGlobals();
