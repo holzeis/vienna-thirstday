@@ -47,7 +47,9 @@ describe("AuthProvider", () => {
     renderProvider();
     expect(screen.getByText("loading")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("user 1")).toBeInTheDocument());
-    expect(auth.player).toEqual(player);
+    // `auth` is handed out by a passive effect, which can lag the DOM update under load,
+    // so wait for it instead of asserting right after the DOM check.
+    await waitFor(() => expect(auth.player).toEqual(player));
   });
 
   it("drops a token the server rejects", async () => {
