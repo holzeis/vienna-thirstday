@@ -69,7 +69,7 @@ services:
       - "8081:8080"
 
   metabase:
-    image: metabase/metabase:v0.64.3.5
+    image: metabase/metabase:v0.65.2.5
     # Not hardened with cap_drop/no-new-privileges: same story as postgres
     # above - the official image's entrypoint creates its own "metabase" user
     # and drops to it via adduser/su on every start (confirmed - cap_drop:ALL
