@@ -1,20 +1,20 @@
 # syntax=docker/dockerfile:1
 
 # ---- deps: all dependencies, reused by the build stage ----
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps --no-audit --no-fund
 
 # ---- build: compile TypeScript to dist/ ----
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
 # ---- prod-deps: production dependencies only, installed here so the runtime stage needs no package manager ----
-FROM node:24-alpine AS prod-deps
+FROM node:26-alpine AS prod-deps
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
@@ -25,7 +25,7 @@ ARG NPM_AUDIT=enforce
 RUN npm audit --omit=dev --audit-level=critical || [ "$NPM_AUDIT" != "enforce" ]
 
 # ---- runtime ----
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production
 # Alpine security fixes published since the base image was built, a minimal init, and NO package managers:
 # npm, yarn and corepack bring their own bundled dependencies (a common source of scanner findings) and nothing in this image runs them.
